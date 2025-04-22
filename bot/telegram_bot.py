@@ -48,23 +48,28 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 def create_spinner():
-    spinner_frames = [
-        "░░░░░░", "▒░░░░░", "▒▒░░░░", "▒▒▒░░░", "▒▒▒▒░░", "▒▒▒▒▒░",
-        "▒▒▒▒▒▒", "▓▒▒▒▒▒", "▓▓▒▒▒▒", "▓▓▓▒▒▒", "▓▓▓▓▒▒", "▓▓▓▓▓▒",
-        "▓▓▓▓▓▓", "█▓▓▓▓▓", "██▓▓▓▓", "███▓▓▓", "████▓▓", "█████▓",
-        "██████",
-    ]
+    spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-    current_steps = []
-    current_progress = spinner_frames[0]
+    current_steps = []  # List to store completed steps
+    current_step = None  # Current step being processed
     update_event = asyncio.Event()
 
     async def task_loop(msg, stop_event):
         i = 0
         while not stop_event.is_set():
-            current_progress = spinner_frames[i % len(spinner_frames)]
-            full_text = "```\n" + "\n".join(current_steps + [f"> This may take a moment... {current_progress}"]) + "\n```"
+            spinner_char = spinner_frames[i % len(spinner_frames)]
+
+            # Build the display text with completed and current steps
+            lines = []
+            for step in current_steps:
+                lines.append(f"[ * ] {step}")
+
+            if current_step:
+                lines.append(f"[ {spinner_char} ] {current_step}")
+
+            full_text = "```\n" + "\n".join(lines) + "\n```"
             await msg.edit_text(full_text, parse_mode=ParseMode.MARKDOWN_V2)
+
             i += 1
             try:
                 await asyncio.wait_for(update_event.wait(), timeout=0.25)
@@ -72,41 +77,57 @@ def create_spinner():
             except asyncio.TimeoutError:
                 pass
 
-        # Финальный чек
-        full_text = "```\n" + "\n".join(current_steps + [f"> Done! ✅"]) + "\n```"
+        # Final display with all steps completed
+        lines = []
+        for step in current_steps:
+            lines.append(f"[ * ] {step}")
+
+        full_text = "```\n" + "\n".join(lines) + "\n```"
         await msg.edit_text(full_text, parse_mode=ParseMode.MARKDOWN_V2)
 
-    def step_done(text: str):
-        current_steps.append(f"> {text}")
+    def start_step(text: str):
+        nonlocal current_step
+        current_step = text
         update_event.set()
 
-    return task_loop, step_done
+    def complete_step():
+        nonlocal current_step
+        if current_step:
+            current_steps.append(current_step)
+            current_step = None
+            update_event.set()
+
+    return task_loop, start_step, complete_step
 
 
 async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_01 (Icelandic language test)")
 
-    msg = await update.message.reply_text("```\n> Starting...\n```", parse_mode=ParseMode.MARKDOWN_V2)
+    msg = await update.message.reply_text("```\nStarting...\n```", parse_mode=ParseMode.MARKDOWN_V2)
 
     stop_event = asyncio.Event()
-    spinner_task_func, step_done = create_spinner()
+    spinner_task_func, start_step, complete_step = create_spinner()
     spinner = asyncio.create_task(spinner_task_func(msg, stop_event))
 
     try:
         openai_service = OpenAIService()
 
-        step_done("Generating content...")
+        start_step("Generating content...")
         test_content = await asyncio.to_thread(openai_service.generate_icelandic_test)
+        complete_step()
 
-        step_done("Extracting dialogue from content...")
+        start_step("Extracting dialogue from content...")
         dialogue_lines = await asyncio.to_thread(openai_service.extract_dialogue, test_content)
+        complete_step()
 
-        step_done("Starting audio generation...")
+        start_step("Starting audio generation...")
         audio_path = await asyncio.to_thread(openai_service.generate_audio_for_dialogue, dialogue_lines)
+        complete_step()
 
-        step_done("Merging individual audio files...")
-        await asyncio.sleep(0.2)  # визуально задержать
+        start_step("Merging individual audio files...")
+        await asyncio.sleep(0.2)  # visual delay
+        complete_step()
 
         stop_event.set()
         await spinner
