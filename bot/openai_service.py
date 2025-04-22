@@ -49,13 +49,15 @@ class OpenAIService:
         Your output MUST strictly follow this exact template format:
         
         
-        Saga: [title of the dialogue]
+        **Saga:** [title of the dialogue]
 
-        Hlustaðu á þetta samtal.
+        **Hlustaðu á þetta samtal.**
 
+        ```
         [dialogue with speakers clearly identified as "Kona:" and "Maður:"]
-
-        Spurningar um samtal
+        ```
+        
+        **Spurningar um samtal**
 
         [3 multiple-choice questions about the dialogue in Icelandic]
         

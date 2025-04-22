@@ -3,6 +3,7 @@ Telegram bot implementation module.
 """
 import logging
 import os
+import asyncio
 from pathlib import Path
 from telegram import Update
 from telegram.constants import ParseMode
@@ -46,12 +47,36 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         parse_mode=ParseMode.MARKDOWN
     )
 
+async def spinner_task(msg, stop_event):
+    """
+    Display a spinning animation while waiting for a task to complete.
+    
+    Args:
+        msg: The telegram message to update with the spinner
+        stop_event: Event to signal when to stop the spinner
+    """
+
+    spinner = ["🟥⬜⬜", "⬜🟥⬜", "⬜⬜🟥", "⬜🟥⬜"]
+    i = 0
+    while not stop_event.is_set():
+        dots = spinner[i % len(spinner)]
+        await msg.edit_text(f"Generating content. This may take a moment {dots}")
+        i += 1
+        await asyncio.sleep(0.2)
+    # Final status with checkmark when completed
+    await msg.edit_text("Generating content. This may take a moment ✅")
+
 async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate and send Icelandic language test content with audio."""
     user = update.effective_user
     logger.info(f"User {user.id} requested section_01 (Icelandic language test)")
-    await update.message.reply_text("Generating Icelandic language test content. This may take a moment...", 
-                                   parse_mode=ParseMode.MARKDOWN)
+    
+    # Create initial message with loading indicator
+    msg = await update.message.reply_text("Generating content. This may take a moment ...")
+    
+    # Set up spinner animation
+    stop_event = asyncio.Event()
+    spinner = asyncio.create_task(spinner_task(msg, stop_event))
     
     try:
         # Initialize OpenAI service
@@ -60,18 +85,22 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         # Generate test content
         logger.info("Generating Icelandic test content")
-        test_content = openai_service.generate_icelandic_test()
+        test_content = await asyncio.to_thread(openai_service.generate_icelandic_test)
         logger.debug(f"Test content generated ({len(test_content)} characters)")
         
         # Extract dialogue from the content
         logger.info("Extracting dialogue from test content")
-        dialogue_lines = openai_service.extract_dialogue(test_content)
+        dialogue_lines = await asyncio.to_thread(openai_service.extract_dialogue, test_content)
         logger.info(f"Extracted {len(dialogue_lines)} dialogue lines")
         
         # Generate audio for the dialogue
         logger.info("Starting audio generation")
-        audio_path = openai_service.generate_audio_for_dialogue(dialogue_lines)
+        audio_path = await asyncio.to_thread(openai_service.generate_audio_for_dialogue, dialogue_lines)
         logger.info(f"Audio generated and saved to {audio_path}")
+        
+        # Stop the spinner animation and wait for it to update with checkmark
+        stop_event.set()
+        await spinner
         
         # Send the test content
         logger.debug("Sending test content to user")
@@ -94,6 +123,10 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         logger.info(f"Successfully sent test and audio to user {user.id}")
         
     except Exception as e:
+        # Make sure we stop the spinner in case of an error
+        stop_event.set()
+        await spinner
+        
         logger.error(f"Error in section_01 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
