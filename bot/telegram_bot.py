@@ -48,23 +48,48 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 async def spinner_task(msg, stop_event):
-    """
-    Display a spinning animation while waiting for a task to complete.
-    
-    Args:
-        msg: The telegram message to update with the spinner
-        stop_event: Event to signal when to stop the spinner
-    """
+    spinner_frames = [
+        "░░░░░░",
+        "▒░░░░░",
+        "▒▒░░░░",
+        "▒▒▒░░░",
+        "▒▒▒▒░░",
+        "▒▒▒▒▒░",
+        "▒▒▒▒▒▒",
+        "▓▒▒▒▒▒",
+        "▓▓▒▒▒▒",
+        "▓▓▓▒▒▒",
+        "▓▓▓▓▒▒",
+        "▓▓▓▓▓▒",
+        "▓▓▓▓▓▓",
+        "█▓▓▓▓▓",
+        "██▓▓▓▓",
+        "███▓▓▓",
+        "████▓▓",
+        "█████▓",
+        "██████",
+    ]
 
-    spinner = ["🟥⬜⬜", "⬜🟥⬜", "⬜⬜🟥", "⬜🟥⬜"]
     i = 0
     while not stop_event.is_set():
-        dots = spinner[i % len(spinner)]
-        await msg.edit_text(f"Generating content. This may take a moment {dots}")
+        progress = spinner_frames[i % len(spinner_frames)]
+        full_text = (
+            "```\n"
+            "> Generating content.\n"
+            f"> This may take a moment... {progress}\n"
+            "```"
+        )
+        await msg.edit_text(full_text, parse_mode=ParseMode.MARKDOWN_V2)
         i += 1
-        await asyncio.sleep(0.2)
-    # Final status with checkmark when completed
-    await msg.edit_text("Generating content. This may take a moment ✅")
+        await asyncio.sleep(0.25)
+
+    final_text = (
+        "```\n"
+        "> Generating content.\n"
+        "> This may take a moment... ✅\n"
+        "```"
+    )
+    await msg.edit_text(final_text, parse_mode=ParseMode.MARKDOWN_V2)
 
 async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate and send Icelandic language test content with audio."""

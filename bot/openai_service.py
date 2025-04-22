@@ -61,6 +61,12 @@ class OpenAIService:
 
         [3 multiple-choice questions about the dialogue in Icelandic]
         
+        **Orðabók**
+        
+        ```
+        Here is the top-20 hardest word or phrases from the text with translation to Russia
+        * [word] - [translation]
+        ```
         """
 
         logger.info("Sending request to OpenAI to generate Icelandic test content")
