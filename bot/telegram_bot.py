@@ -47,111 +47,84 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         parse_mode=ParseMode.MARKDOWN
     )
 
-async def spinner_task(msg, stop_event):
+def create_spinner():
     spinner_frames = [
-        "░░░░░░",
-        "▒░░░░░",
-        "▒▒░░░░",
-        "▒▒▒░░░",
-        "▒▒▒▒░░",
-        "▒▒▒▒▒░",
-        "▒▒▒▒▒▒",
-        "▓▒▒▒▒▒",
-        "▓▓▒▒▒▒",
-        "▓▓▓▒▒▒",
-        "▓▓▓▓▒▒",
-        "▓▓▓▓▓▒",
-        "▓▓▓▓▓▓",
-        "█▓▓▓▓▓",
-        "██▓▓▓▓",
-        "███▓▓▓",
-        "████▓▓",
-        "█████▓",
+        "░░░░░░", "▒░░░░░", "▒▒░░░░", "▒▒▒░░░", "▒▒▒▒░░", "▒▒▒▒▒░",
+        "▒▒▒▒▒▒", "▓▒▒▒▒▒", "▓▓▒▒▒▒", "▓▓▓▒▒▒", "▓▓▓▓▒▒", "▓▓▓▓▓▒",
+        "▓▓▓▓▓▓", "█▓▓▓▓▓", "██▓▓▓▓", "███▓▓▓", "████▓▓", "█████▓",
         "██████",
     ]
 
-    i = 0
-    while not stop_event.is_set():
-        progress = spinner_frames[i % len(spinner_frames)]
-        full_text = (
-            "```\n"
-            "> Generating content.\n"
-            f"> This may take a moment... {progress}\n"
-            "```"
-        )
-        await msg.edit_text(full_text, parse_mode=ParseMode.MARKDOWN_V2)
-        i += 1
-        await asyncio.sleep(0.25)
+    current_steps = []
+    current_progress = spinner_frames[0]
+    update_event = asyncio.Event()
 
-    final_text = (
-        "```\n"
-        "> Generating content.\n"
-        "> This may take a moment... ✅\n"
-        "```"
-    )
-    await msg.edit_text(final_text, parse_mode=ParseMode.MARKDOWN_V2)
+    async def task_loop(msg, stop_event):
+        i = 0
+        while not stop_event.is_set():
+            current_progress = spinner_frames[i % len(spinner_frames)]
+            full_text = "```\n" + "\n".join(current_steps + [f"> This may take a moment... {current_progress}"]) + "\n```"
+            await msg.edit_text(full_text, parse_mode=ParseMode.MARKDOWN_V2)
+            i += 1
+            try:
+                await asyncio.wait_for(update_event.wait(), timeout=0.25)
+                update_event.clear()
+            except asyncio.TimeoutError:
+                pass
+
+        # Финальный чек
+        full_text = "```\n" + "\n".join(current_steps + [f"> Done! ✅"]) + "\n```"
+        await msg.edit_text(full_text, parse_mode=ParseMode.MARKDOWN_V2)
+
+    def step_done(text: str):
+        current_steps.append(f"> {text}")
+        update_event.set()
+
+    return task_loop, step_done
+
 
 async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Generate and send Icelandic language test content with audio."""
     user = update.effective_user
     logger.info(f"User {user.id} requested section_01 (Icelandic language test)")
-    
-    # Create initial message with loading indicator
-    msg = await update.message.reply_text("Generating content. This may take a moment ...")
-    
-    # Set up spinner animation
+
+    msg = await update.message.reply_text("```\n> Starting...\n```", parse_mode=ParseMode.MARKDOWN_V2)
+
     stop_event = asyncio.Event()
-    spinner = asyncio.create_task(spinner_task(msg, stop_event))
-    
+    spinner_task_func, step_done = create_spinner()
+    spinner = asyncio.create_task(spinner_task_func(msg, stop_event))
+
     try:
-        # Initialize OpenAI service
-        logger.debug("Initializing OpenAI service")
         openai_service = OpenAIService()
-        
-        # Generate test content
-        logger.info("Generating Icelandic test content")
+
+        step_done("Generating content...")
         test_content = await asyncio.to_thread(openai_service.generate_icelandic_test)
-        logger.debug(f"Test content generated ({len(test_content)} characters)")
-        
-        # Extract dialogue from the content
-        logger.info("Extracting dialogue from test content")
+
+        step_done("Extracting dialogue from content...")
         dialogue_lines = await asyncio.to_thread(openai_service.extract_dialogue, test_content)
-        logger.info(f"Extracted {len(dialogue_lines)} dialogue lines")
-        
-        # Generate audio for the dialogue
-        logger.info("Starting audio generation")
+
+        step_done("Starting audio generation...")
         audio_path = await asyncio.to_thread(openai_service.generate_audio_for_dialogue, dialogue_lines)
-        logger.info(f"Audio generated and saved to {audio_path}")
-        
-        # Stop the spinner animation and wait for it to update with checkmark
+
+        step_done("Merging individual audio files...")
+        await asyncio.sleep(0.2)  # визуально задержать
+
         stop_event.set()
         await spinner
-        
-        # Send the test content
-        logger.debug("Sending test content to user")
+
         await update.message.reply_text(test_content, parse_mode=ParseMode.MARKDOWN)
-        
-        # Send the audio file
-        audio_path_obj = Path(audio_path)
-        logger.debug(f"Sending audio file to user: {audio_path}")
+
         with open(audio_path, "rb") as audio_file:
             await update.message.reply_audio(audio_file, title="Icelandic Dialogue")
-            
-        # Delete the audio file after sending
-        try:
-            if audio_path_obj.exists():
-                os.remove(audio_path)
-                logger.info(f"Successfully deleted audio file: {audio_path}")
-        except Exception as e:
-            logger.error(f"Error deleting audio file {audio_path}: {e}")
-            
+
+        audio_path_obj = Path(audio_path)
+        if audio_path_obj.exists():
+            os.remove(audio_path)
+
         logger.info(f"Successfully sent test and audio to user {user.id}")
-        
+
     except Exception as e:
-        # Make sure we stop the spinner in case of an error
         stop_event.set()
         await spinner
-        
         logger.error(f"Error in section_01 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
