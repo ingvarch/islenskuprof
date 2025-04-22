@@ -45,6 +45,20 @@ class OpenAIService:
         * After the dialogue, add 3 multiple-choice questions about details in the conversation.
         * Make sure all sections reflect common vocabulary and sentence structures suitable for A2 level in the CEFR framework.
         Format the dialogue clearly so I can easily extract it for audio processing.
+        
+        Your output MUST strictly follow this exact template format:
+        
+        
+        Saga: [title of the dialogue]
+
+        Hlustaðu á þetta samtal.
+
+        [dialogue with speakers clearly identified as "Kona:" and "Maður:"]
+
+        Spurningar um samtal
+
+        [3 multiple-choice questions about the dialogue in Icelandic]
+        
         """
 
         logger.info("Sending request to OpenAI to generate Icelandic test content")
