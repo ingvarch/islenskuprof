@@ -10,6 +10,34 @@ from bot.db.database import Base
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
+
+class Language(Base):
+    """
+    Language model for storing supported languages.
+    """
+    __tablename__ = "languages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String, nullable=False, unique=True, index=True)
+    language = Column(String, nullable=False)
+
+    def __init__(self, code, language):
+        """
+        Initialize a new language.
+
+        Args:
+            code: Language code (e.g., 'en', 'ru')
+            language: Language name (e.g., 'English', 'Russian')
+        """
+        self.code = code
+        self.language = language
+
+    def __repr__(self):
+        """
+        String representation of the language.
+        """
+        return f"<Language(id={self.id}, code={self.code}, language={self.language})>"
+
 class User(Base):
     """
     User model for storing Telegram user information.
@@ -24,8 +52,12 @@ class User(Base):
     first_contact = Column(DateTime, default=datetime.utcnow)
     last_contact = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_premium = Column(Boolean, nullable=False, default=False)
+    language_id = Column(Integer, ForeignKey('languages.id'), nullable=True)
 
-    def __init__(self, telegram_id, username=None, first_name=None, last_name=None, is_premium=False):
+    # Define relationship
+    language = relationship("Language")
+
+    def __init__(self, telegram_id, username=None, first_name=None, last_name=None, is_premium=False, language_id=None):
         """
         Initialize a new user.
 
@@ -35,12 +67,14 @@ class User(Base):
             first_name: User's first name
             last_name: User's last name
             is_premium: Whether the user has Telegram Premium (default: False)
+            language_id: ID of the user's preferred language (default: None, will be set to English in migration)
         """
         self.telegram_id = telegram_id
         self.username = username
         self.first_name = first_name
         self.last_name = last_name
         self.is_premium = is_premium
+        self.language_id = language_id
         self.first_contact = datetime.utcnow()
         self.last_contact = datetime.utcnow()
 
