@@ -74,14 +74,26 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         openai_service = OpenAIService()
 
+        custom_prompt = """
+            Write a short Icelandic reading comprehension passage (A2 CEFR level) about a person’s 
+            daily life in Iceland. Include basic personal information (e.g., name, origin, family, age of children), 
+            their job, daily routine, weekend activities, and plans for the current day. 
+            Use simple vocabulary and short sentences. 
+            
+            After the passage, add 4–5 multiple-choice comprehension questions in Icelandic with three answer 
+            choices each. The questions should check understanding of key facts from the passage such as where 
+            the person is from, what job they do, what time they wake up, etc."
+            """
+
         start_step("Generating content...")
-        test_content = await asyncio.to_thread(openai_service.generate_icelandic_test)
+        content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
+
         complete_step()
 
         stop_event.set()
         await spinner
 
-        await update.message.reply_text(test_content, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
 
 
         logger.info(f"Successfully sent test and audio to user {user.id}")
@@ -105,13 +117,30 @@ async def section_03_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         openai_service = OpenAIService()
 
-        start_step("Generating writing prompt image...")
-        image_prompt = "A beautiful Icelandic landscape with mountains and a waterfall"
+        custom_prompt = """
+        Write a prompt that generates a description of a potential illustration in Icelandic. 
+        The description should be 5-7 sentences long and depict a colorful, 
+        cartoon-style scene from daily life with multiple diverse characters. 
+        The scene should be set in a public place like a café, park, or street, 
+        showing people engaged in various everyday activities. 
+        Make sure the description captures a lively atmosphere with bright colors and playful details. 
+        The final output should ONLY be the 5-7 sentence description in Icelandic, nothing else. 
+        """
+
+        start_step("Generating image description...")
+        content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
+
+        complete_step()
+
+        start_step("Generating image...")
+        image_prompt = content
         image_path = await asyncio.to_thread(openai_service.generate_image, image_prompt)
         complete_step()
 
         stop_event.set()
         await spinner
+
+        await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
 
         with open(image_path, "rb") as image_file:
             await update.message.reply_photo(image_file, caption="Write a short paragraph in Icelandic describing this image.")
@@ -130,5 +159,5 @@ async def section_03_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def section_04_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    logger.info(f"User {user.id} requested section_02 (Speaking Section)")
+    logger.info(f"User {user.id} requested section_04 (Speaking Section)")
     await update.message.reply_text("Speaking Section! Working in progress...")
