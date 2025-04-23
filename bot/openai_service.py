@@ -5,6 +5,7 @@ import os
 import logging
 import tempfile
 import re
+import requests
 from pathlib import Path
 from typing import List, Tuple
 from openai import OpenAI
@@ -124,6 +125,49 @@ class OpenAIService:
             ]
         
         return dialogue_lines
+
+    def generate_image(self, prompt: str) -> str:
+            """
+            Generate an image using DALL-E 2.
+
+            Args:
+                prompt: Description of the image to generate
+
+            Returns:
+                Path to the saved image file
+            """
+            logger.info(f"Generating image with prompt: {prompt[:50]}...")
+            try:
+                response = self.client.images.generate(
+                    model="dall-e-2",
+                    prompt=prompt,
+                    n=1,
+                    size="1024x1024",
+                )
+
+                image_url = response.data[0].url
+                logger.debug(f"Image generated with URL: {image_url}")
+
+                # Create directory for storing images if it doesn't exist
+                images_dir = Path(__file__).parent.parent / "data" / "images"
+                images_dir.mkdir(parents=True, exist_ok=True)
+
+                # Download and save the image
+
+                image_path = images_dir / f"generated_image_{hash(prompt)}.png"
+
+                logger.info(f"Downloading image to: {image_path}")
+                response = requests.get(image_url)
+                with open(image_path, "wb") as f:
+                    f.write(response.content)
+
+                logger.info(f"Image saved to: {image_path}")
+                return str(image_path)
+
+            except Exception as e:
+                logger.error(f"Error generating image: {e}")
+                raise
+
 
     def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]]) -> str:
         """

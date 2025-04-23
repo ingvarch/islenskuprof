@@ -13,7 +13,6 @@ logging.basicConfig(
     level=logging.INFO,
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("bot.log")
     ]
 )
 
