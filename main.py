@@ -49,6 +49,11 @@ def main():
         logger.info("Initializing database")
         init_db()
         logger.info("Database initialized successfully")
+
+        # Clear and fill persons table
+        from bot.db.person_generator import clear_and_fill_persons_table
+        clear_and_fill_persons_table()
+        logger.info("Persons table cleared and filled with random data")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         return

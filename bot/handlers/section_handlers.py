@@ -10,6 +10,7 @@ from bot.utils.spinner import create_spinner
 from bot.openai_service import OpenAIService
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
+from bot.db.person_generator import get_random_person_data
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -80,18 +81,59 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         openai_service = OpenAIService()
 
-        custom_prompt = """
-            Write a short Icelandic reading comprehension passage (A2 CEFR level) about a person’s 
-            daily life in Iceland. Include basic personal information (e.g., name, origin, family, age of children), 
-            their job, daily routine, weekend activities, and plans for the current day. 
-            Use simple vocabulary and short sentences. 
+        start_step("Fetching random person data...")
+        person_data = get_random_person_data()
 
-            After the passage, add 4–5 multiple-choice comprehension questions in Icelandic with three answer 
-            choices each. The questions should check understanding of key facts from the passage such as where 
-            the person is from, what job they do, what time they wake up, etc."
-            """
+        if not person_data:
+            logger.error("Failed to fetch random person data")
+            raise Exception("Failed to fetch random person data")
 
-        start_step("Generating content...")
+        complete_step()
+
+        # Format the prompt with the person data
+        custom_prompt = f"""
+        Write a short Icelandic reading comprehension passage - 20-25 sentences long (A2 CEFR level) 
+        about a person's daily life in Iceland. 
+
+        Use the following information to guide the story:
+
+        - Name: {person_data["name"]}
+        - Gender: {person_data["gender"]}
+        - Age: {person_data["age"]}
+        - From: {person_data["origin"]}
+        - Job: {person_data["job_title"]} at a {person_data["job_workplace"]}
+        - Children: {person_data["number_of_children"]} children (ages {person_data["age_of_children"]})
+        - Usual weekend activity: {person_data["weekend_activity"]}
+        - Plan for today: {person_data["current_plan"]}
+
+        Use simple vocabulary and short sentences. 
+
+        After the passage, add 5 multiple-choice comprehension questions in Icelandic with three answer choices each. 
+        The questions should test understanding of where the person is from, what job they do, what time they wake up, 
+        etc.
+        
+        Your output MUST strictly follow this exact template format:
+            
+            
+        *Saga um [person]*
+
+        ```
+        [passage"]
+        ```
+        
+        *Spurningar*
+
+        [5 multiple-choice questions about the passage in Icelandic]
+        
+        *Orðabók*
+        
+        ```
+        Here is the top-20 hardest word or phrases from the text with translation to Russia
+        * [word] - [translation]
+        ```
+        """
+
+        start_step(f"Generating content about {person_data['name']}")
         content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
 
         complete_step()
@@ -101,13 +143,12 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
 
-
-        logger.info(f"Successfully sent test and audio to user {user.id}")
+        logger.info(f"Successfully sent reading comprehension to user {user.id}")
 
     except Exception as e:
         stop_event.set()
         await spinner
-        logger.error(f"Error in section_01 command for user {user.id}: {e}", exc_info=True)
+        logger.error(f"Error in section_02 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
 @restricted
