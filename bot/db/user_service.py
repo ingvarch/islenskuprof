@@ -10,16 +10,17 @@ from bot.db.models import User
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
-def get_or_create_user(telegram_id, username=None, first_name=None, last_name=None):
+def get_or_create_user(telegram_id, username=None, first_name=None, last_name=None, is_premium=False):
     """
     Get an existing user or create a new one if not exists.
-    
+
     Args:
         telegram_id: Telegram user ID
         username: Telegram username
         first_name: User's first name
         last_name: User's last name
-        
+        is_premium: Whether the user has Telegram Premium
+
     Returns:
         User: The user object
     """
@@ -27,18 +28,21 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
     try:
         # Try to get the user
         user = session.query(User).filter(User.telegram_id == telegram_id).first()
-        
+
         if user:
             # Update user information if it has changed
             if (username and user.username != username) or \
                (first_name and user.first_name != first_name) or \
-               (last_name and user.last_name != last_name):
+               (last_name and user.last_name != last_name) or \
+               (is_premium is not None and user.is_premium != is_premium):
                 user.username = username or user.username
                 user.first_name = first_name or user.first_name
                 user.last_name = last_name or user.last_name
+                if is_premium is not None:
+                    user.is_premium = is_premium
                 session.commit()
                 logger.info(f"Updated user information for user {telegram_id}")
-            
+
             return user
         else:
             # Create a new user
@@ -46,7 +50,8 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
                 telegram_id=telegram_id,
                 username=username,
                 first_name=first_name,
-                last_name=last_name
+                last_name=last_name,
+                is_premium=is_premium
             )
             session.add(user)
             session.commit()
@@ -62,10 +67,10 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
 def update_user_last_contact(telegram_id):
     """
     Update the last_contact timestamp for a user.
-    
+
     Args:
         telegram_id: Telegram user ID
-        
+
     Returns:
         bool: True if the user was updated, False otherwise
     """
@@ -90,10 +95,10 @@ def update_user_last_contact(telegram_id):
 def get_user_by_telegram_id(telegram_id):
     """
     Get a user by Telegram ID.
-    
+
     Args:
         telegram_id: Telegram user ID
-        
+
     Returns:
         User: The user object or None if not found
     """
