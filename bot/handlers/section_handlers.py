@@ -9,11 +9,13 @@ from telegram.constants import ParseMode
 from bot.utils.spinner import create_spinner
 from bot.openai_service import OpenAIService
 from bot.utils.access_control import restricted
+from bot.utils.user_tracking import track_user_activity
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
 @restricted
+@track_user_activity
 async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_01 (Icelandic language test)")
@@ -64,6 +66,7 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
 @restricted
+@track_user_activity
 async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_02 (Reading Section)")
@@ -108,6 +111,7 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
 @restricted
+@track_user_activity
 async def section_03_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_02 (Writing Section)")
@@ -162,6 +166,7 @@ async def section_03_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
 @restricted
+@track_user_activity
 async def section_04_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_04 (Speaking Section)")

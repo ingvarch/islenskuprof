@@ -6,6 +6,7 @@ import os
 import logging
 from pathlib import Path
 from bot.telegram_bot import create_bot
+from bot.db.database import init_db
 
 # Set up logging
 logging.basicConfig(
@@ -25,31 +26,40 @@ logger = logging.getLogger(__name__)
 def main():
     """Main function to start the bot."""
     logger.info("Starting Icelandic Citizenship Test Bot")
-    
+
     # Get the bot token from environment variables
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     openai_api_key = os.environ.get("OPENAI_API_KEY")
-    
+
     if not token:
         logger.error("TELEGRAM_BOT_TOKEN environment variable is not set")
         return
-    
+
     if not openai_api_key:
         logger.error("OPENAI_API_KEY environment variable is not set. Bot will not function correctly.")
         return
-    
+
     # Create data directory if it doesn't exist
     data_dir = Path(__file__).parent / "data"
     data_dir.mkdir(exist_ok=True)
     logger.info(f"Ensured data directory exists: {data_dir}")
-    
+
+    # Initialize the database
+    try:
+        logger.info("Initializing database")
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+        return
+
     # Create and start the bot
     logger.info("Creating bot instance")
     bot = create_bot(token)
-    
+
     logger.info("Starting bot polling")
     bot.run_polling()
-    
+
     logger.info("Bot has stopped")
 
 if __name__ == "__main__":

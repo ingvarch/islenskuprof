@@ -1,9 +1,11 @@
 FROM python:3.9-slim
 
-# Install ffmpeg and other dependencies
+# Install ffmpeg, PostgreSQL client, and other dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ffmpeg \
+    libpq-dev \
+    gcc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
