@@ -12,6 +12,7 @@ from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
 from bot.db.person_generator import get_random_person_data
 from bot.db.topic_generator import get_random_topic
+from bot.db.user_service import get_user_by_telegram_id
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -30,6 +31,12 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     try:
         openai_service = OpenAIService()
+
+        # Get user's language preference
+        db_user = get_user_by_telegram_id(user.id)
+        user_language = "English"  # Default to English if no language preference is set
+        if db_user and db_user.language:
+            user_language = db_user.language.language
 
         # Get a random topic from the database
         start_step("Fetching random topic...")
@@ -72,7 +79,7 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             *Orðabók*
 
             ```
-            Here is the top-20 hardest word or phrases from the text with translation to Russia
+            Here is the top-20 hardest word or phrases from the text with translation to {user_language}
             * [word] - [translation]
             ```
             """
@@ -128,6 +135,12 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         openai_service = OpenAIService()
 
+        # Get user's language preference
+        db_user = get_user_by_telegram_id(user.id)
+        user_language = "English"  # Default to English if no language preference is set
+        if db_user and db_user.language:
+            user_language = db_user.language.language
+
         start_step("Fetching random person data...")
         person_data = get_random_person_data()
 
@@ -175,7 +188,7 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         *Orðabók*
 
         ```
-        Here is the top-20 hardest word or phrases from the text with translation to Russia
+        Here is the top-20 hardest word or phrases from the text with translation to {user_language}
         * [word] - [translation]
         ```
         """

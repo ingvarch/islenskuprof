@@ -4,6 +4,7 @@ User service module for database operations.
 import logging
 from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
+import sqlalchemy.orm
 from bot.db.database import get_db_session
 from bot.db.models import User
 
@@ -104,7 +105,10 @@ def get_user_by_telegram_id(telegram_id):
     """
     session = get_db_session()
     try:
-        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        # Eagerly load the language relationship to avoid DetachedInstanceError
+        user = session.query(User).options(
+            sqlalchemy.orm.joinedload(User.language)
+        ).filter(User.telegram_id == telegram_id).first()
         return user
     except SQLAlchemyError as e:
         logger.error(f"Error getting user by telegram_id {telegram_id}: {e}")
