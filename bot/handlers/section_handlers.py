@@ -8,10 +8,12 @@ from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 from bot.utils.spinner import create_spinner
 from bot.openai_service import OpenAIService
+from bot.utils.access_control import restricted
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
+@restricted
 async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_01 (Icelandic language test)")
@@ -61,6 +63,7 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         logger.error(f"Error in section_01 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
+@restricted
 async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_02 (Reading Section)")
@@ -79,7 +82,7 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             daily life in Iceland. Include basic personal information (e.g., name, origin, family, age of children), 
             their job, daily routine, weekend activities, and plans for the current day. 
             Use simple vocabulary and short sentences. 
-            
+
             After the passage, add 4–5 multiple-choice comprehension questions in Icelandic with three answer 
             choices each. The questions should check understanding of key facts from the passage such as where 
             the person is from, what job they do, what time they wake up, etc."
@@ -104,6 +107,7 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         logger.error(f"Error in section_01 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
+@restricted
 async def section_03_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_02 (Writing Section)")
@@ -157,6 +161,7 @@ async def section_03_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         logger.error(f"Error in section_03 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
 
+@restricted
 async def section_04_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_04 (Speaking Section)")

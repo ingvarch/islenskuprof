@@ -5,16 +5,19 @@ from telegram.constants import ParseMode
 from telegram.ext import (
     ContextTypes
 )
+from bot.utils.access_control import restricted
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
+@restricted
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a greeting message when the command /start is issued."""
     user = update.effective_user
     logger.info(f"User {user.id} ({user.first_name}) started the bot")
     await update.message.reply_text(f"Hi, {user.first_name}! Welcome to the bot.", parse_mode=ParseMode.MARKDOWN)
 
+@restricted
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message with available commands when the command /help is issued."""
     user = update.effective_user
@@ -30,6 +33,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
     await update.message.reply_text(help_text, parse_mode=None)
 
+@restricted
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle unknown commands."""
     user = update.effective_user
