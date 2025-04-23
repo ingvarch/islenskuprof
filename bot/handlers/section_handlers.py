@@ -11,6 +11,7 @@ from bot.openai_service import OpenAIService
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
 from bot.db.person_generator import get_random_person_data
+from bot.db.topic_generator import get_random_topic
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -30,12 +31,58 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         openai_service = OpenAIService()
 
-        start_step("Generating content...")
-        test_content = await asyncio.to_thread(openai_service.generate_icelandic_test)
+        # Get a random topic from the database
+        start_step("Fetching random topic...")
+        topic = get_random_topic()
+
+        if not topic:
+            logger.error("Failed to fetch random topic, using default")
+            topic = "grocery shopping"
+
+        complete_step()
+
+        custom_prompt = f"""
+            Create an Icelandic language proficiency test for citizenship purposes focusing on just ONE dialogue scenario.
+            IMPORTANT: The topic for this dialogue is: {topic}
+
+            Listening Section:
+            * Create a realistic dialogue between two people (a man and a woman) about the chosen everyday topic.
+            * The dialogue should include 8-10 exchanges and be in Icelandic.
+            * Include common phrases that would be useful in such a setting.
+            * Clearly identify speakers with labels like "Kona:" (Woman) and "Maður:" (Man)
+            * After the dialogue, add 3 multiple-choice questions about details in the conversation.
+            * Make sure all sections reflect common vocabulary and sentence structures suitable for A2 level in the CEFR framework.
+            Format the dialogue clearly so I can easily extract it for audio processing.
+
+            Your output MUST strictly follow this exact template format:
+
+
+            *Saga:* [title of the dialogue]
+
+            *Hlustaðu á þetta samtal.*
+
+            ```
+            [dialogue with speakers clearly identified as "Kona:" and "Maður:"]
+            ```
+
+            *Spurningar um samtal*
+
+            [3 multiple-choice questions about the dialogue in Icelandic]
+
+            *Orðabók*
+
+            ```
+            Here is the top-20 hardest word or phrases from the text with translation to Russia
+            * [word] - [translation]
+            ```
+            """
+
+        start_step(f"Generating content about {topic}...")
+        content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
         complete_step()
 
         start_step("Extracting dialogue from content...")
-        dialogue_lines = await asyncio.to_thread(openai_service.extract_dialogue, test_content)
+        dialogue_lines = await asyncio.to_thread(openai_service.extract_dialogue, content)
         complete_step()
 
         start_step("Starting audio generation...")
@@ -49,7 +96,7 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         stop_event.set()
         await spinner
 
-        await update.message.reply_text(test_content, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
 
         with open(audio_path, "rb") as audio_file:
             await update.message.reply_audio(audio_file, title="Icelandic Dialogue")
@@ -111,22 +158,22 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         After the passage, add 5 multiple-choice comprehension questions in Icelandic with three answer choices each. 
         The questions should test understanding of where the person is from, what job they do, what time they wake up, 
         etc.
-        
+
         Your output MUST strictly follow this exact template format:
-            
-            
+
+
         *Saga um [person]*
 
         ```
         [passage"]
         ```
-        
+
         *Spurningar*
 
         [5 multiple-choice questions about the passage in Icelandic]
-        
+
         *Orðabók*
-        
+
         ```
         Here is the top-20 hardest word or phrases from the text with translation to Russia
         * [word] - [translation]

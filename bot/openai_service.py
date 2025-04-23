@@ -35,45 +35,6 @@ class OpenAIService:
         Returns:
             str: Generated test content
         """
-        # Default prompt if none is provided
-        if prompt is None:
-            prompt = """
-            Create an Icelandic language proficiency test for citizenship purposes focusing on just ONE dialogue scenario.
-            IMPORTANT: Choose a different topic each time from this list: grocery shopping, at a restaurant, 
-            talking about hobbies, discussing the weather, asking for directions, at a clothing store, 
-            planning a weekend trip, or meeting someone new. 
-        
-            Listening Section:
-            * Create a realistic dialogue between two people (a man and a woman) about the chosen everyday topic.
-            * The dialogue should include 8-10 exchanges and be in Icelandic.
-            * Include common phrases that would be useful in such a setting.
-            * Clearly identify speakers with labels like "Kona:" (Woman) and "Maður:" (Man)
-            * After the dialogue, add 3 multiple-choice questions about details in the conversation.
-            * Make sure all sections reflect common vocabulary and sentence structures suitable for A2 level in the CEFR framework.
-            Format the dialogue clearly so I can easily extract it for audio processing.
-            
-            Your output MUST strictly follow this exact template format:
-            
-            
-            *Saga:* [title of the dialogue]
-
-            *Hlustaðu á þetta samtal.*
-
-            ```
-            [dialogue with speakers clearly identified as "Kona:" and "Maður:"]
-            ```
-            
-            *Spurningar um samtal*
-
-            [3 multiple-choice questions about the dialogue in Icelandic]
-            
-            *Orðabók*
-            
-            ```
-            Here is the top-20 hardest word or phrases from the text with translation to Russia
-            * [word] - [translation]
-            ```
-            """
 
         logger.info("Sending request to OpenAI to generate Icelandic test content")
         try:
