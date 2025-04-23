@@ -26,7 +26,7 @@ class User(Base):
     def __init__(self, telegram_id, username=None, first_name=None, last_name=None):
         """
         Initialize a new user.
-        
+
         Args:
             telegram_id: Telegram user ID
             username: Telegram username
@@ -51,3 +51,56 @@ class User(Base):
         String representation of the user.
         """
         return f"<User(telegram_id={self.telegram_id}, username={self.username})>"
+
+
+class Topic(Base):
+    """
+    Topic model for storing content generation topics.
+    """
+    __tablename__ = "topic"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True, index=True)
+
+    def __init__(self, name):
+        """
+        Initialize a new topic.
+
+        Args:
+            name: Topic name
+        """
+        self.name = name
+
+    def __repr__(self):
+        """
+        String representation of the topic.
+        """
+        return f"<Topic(id={self.id}, name={self.name})>"
+
+
+class Name(Base):
+    """
+    Name model for storing people names for content generation.
+    """
+    __tablename__ = "names"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+
+    def __init__(self, first_name, last_name):
+        """
+        Initialize a new name.
+
+        Args:
+            first_name: Person's first name
+            last_name: Person's last name
+        """
+        self.first_name = first_name
+        self.last_name = last_name
+
+    def __repr__(self):
+        """
+        String representation of the name.
+        """
+        return f"<Name(id={self.id}, first_name={self.first_name}, last_name={self.last_name})>"
