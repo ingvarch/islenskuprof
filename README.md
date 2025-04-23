@@ -41,11 +41,11 @@ A simple Telegram bot built with python-telegram-bot library that generates Icel
    # Linux/macOS
    export TELEGRAM_BOT_TOKEN="your_bot_token_here"
    export OPENAI_API_KEY="your_openai_api_key_here"
-   
+
    # Windows (Command Prompt)
    set TELEGRAM_BOT_TOKEN=your_bot_token_here
    set OPENAI_API_KEY=your_openai_api_key_here
-   
+
    # Windows (PowerShell)
    $env:TELEGRAM_BOT_TOKEN="your_bot_token_here"
    $env:OPENAI_API_KEY="your_openai_api_key_here"
@@ -53,12 +53,28 @@ A simple Telegram bot built with python-telegram-bot library that generates Icel
 
 ## Running the Bot
 
+### Standard Method
 Run the bot with the following command:
 ```
 python main.py
 ```
 
 The bot will start and listen for commands from users.
+
+### Using Docker
+You can also run the bot using Docker:
+
+1. Build the Docker image:
+   ```
+   docker build -t islenska-citizenship-bot .
+   ```
+
+2. Run the Docker container with your environment variables:
+   ```
+   docker run -e TELEGRAM_BOT_TOKEN="your_bot_token_here" -e OPENAI_API_KEY="your_openai_api_key_here" islenska-citizenship-bot
+   ```
+
+Note: The Docker image includes ffmpeg, which is required for audio processing.
 
 ## Project Structure
 
