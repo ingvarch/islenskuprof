@@ -11,7 +11,6 @@ from bot.utils.user_tracking import track_user_activity
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
-@restricted
 @track_user_activity
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a greeting message when the command /start is issued."""

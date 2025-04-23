@@ -3,7 +3,7 @@ Database models for the Telegram bot.
 """
 import logging
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, SmallInteger
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, SmallInteger, Boolean
 from sqlalchemy.orm import relationship
 from bot.db.database import Base
 
@@ -17,14 +17,15 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(Integer, unique=True, nullable=False, index=True)
+    telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
     username = Column(String, nullable=True)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     first_contact = Column(DateTime, default=datetime.utcnow)
     last_contact = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_premium = Column(Boolean, nullable=False, default=False)
 
-    def __init__(self, telegram_id, username=None, first_name=None, last_name=None):
+    def __init__(self, telegram_id, username=None, first_name=None, last_name=None, is_premium=False):
         """
         Initialize a new user.
 
@@ -33,11 +34,13 @@ class User(Base):
             username: Telegram username
             first_name: User's first name
             last_name: User's last name
+            is_premium: Whether the user has Telegram Premium (default: False)
         """
         self.telegram_id = telegram_id
         self.username = username
         self.first_name = first_name
         self.last_name = last_name
+        self.is_premium = is_premium
         self.first_contact = datetime.utcnow()
         self.last_contact = datetime.utcnow()
 
@@ -51,7 +54,7 @@ class User(Base):
         """
         String representation of the user.
         """
-        return f"<User(telegram_id={self.telegram_id}, username={self.username})>"
+        return f"<User(telegram_id={self.telegram_id}, username={self.username}, is_premium={self.is_premium})>"
 
 
 class Topic(Base):
