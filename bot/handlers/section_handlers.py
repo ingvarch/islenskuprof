@@ -1,6 +1,7 @@
 import logging
 import os
 import asyncio
+import random
 from pathlib import Path
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 @restricted
 @track_user_activity
-async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_01 (Icelandic language test)")
 
@@ -129,7 +130,7 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 @restricted
 @track_user_activity
-async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     logger.info(f"User {user.id} requested section_02 (Reading Section)")
 
@@ -226,74 +227,18 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 @restricted
 @track_user_activity
-async def section_03_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def understanding_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /understanding command by randomly selecting between listening and reading sections."""
     user = update.effective_user
-    logger.info(f"User {user.id} requested section_02 (Writing Section)")
+    logger.info(f"User {user.id} requested understanding command")
 
-    msg = await update.message.reply_text("```\nStarting...\n```", parse_mode=ParseMode.MARKDOWN_V2)
-
-    stop_event = asyncio.Event()
-    spinner_task_func, start_step, complete_step = create_spinner()
-    spinner = asyncio.create_task(spinner_task_func(msg, stop_event))
-
-    try:
-        openai_service = OpenAIService()
-
-        custom_prompt = """
-        Write a prompt that generates a description of a potential illustration in Icelandic. 
-        The description should be 5-7 sentences long and depict a colorful, 
-        cartoon-style scene from daily life with multiple diverse characters. 
-        The scene should be set in a public place like a café, park, or street, 
-        showing people engaged in various everyday activities. 
-        Make sure the description captures a lively atmosphere with bright colors and playful details. 
-        The final output should ONLY be the 5-7 sentence description in Icelandic, nothing else. 
-        """
-
-        start_step("Generating image description...")
-        content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
-
-        complete_step()
-
-        start_step("Generating image...")
-        image_prompt = content
-        image_path = await asyncio.to_thread(openai_service.generate_image, image_prompt)
-        complete_step()
-
-        stop_event.set()
-        await spinner
-
-        await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
-
-        with open(image_path, "rb") as image_file:
-            await update.message.reply_photo(image_file, caption="Write a short paragraph in Icelandic describing this image.")
-
-        image_path_obj = Path(image_path)
-        if image_path_obj.exists():
-            os.remove(image_path)
-
-        logger.info(f"Successfully sent writing prompt image to user {user.id}")
-
-        # Delete the user's command message
-        await delete_user_command_message(update, context)
-
-    except Exception as e:
-        stop_event.set()
-        await spinner
-        logger.error(f"Error in section_03 command for user {user.id}: {e}", exc_info=True)
-        await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
-
-        # Delete the user's command message even if an error occurred
-        await delete_user_command_message(update, context)
-
-@restricted
-@track_user_activity
-async def section_04_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    logger.info(f"User {user.id} requested section_04 (Speaking Section)")
-    await update.message.reply_text("Speaking Section! Working in progress...")
-
-    # Delete the user's command message
-    await delete_user_command_message(update, context)
+    # Randomly select between dialogue_story and about_story
+    if random.choice([True, False]):
+        logger.info(f"Randomly selected listening section for user {user.id}")
+        await dialogue_story(update, context)
+    else:
+        logger.info(f"Randomly selected reading section for user {user.id}")
+        await about_story(update, context)
 
 @restricted
 @track_user_activity

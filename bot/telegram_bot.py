@@ -17,8 +17,7 @@ from bot.handlers.basic_handlers import (
     unknown_command
 )
 from bot.handlers.section_handlers import (
-    section_01_command,
-    section_02_command,
+    understanding_command,
     communication_command
 )
 from bot.handlers.settings_handlers import (
@@ -46,8 +45,7 @@ def create_bot(token: str) -> Application:
     # Add command handlers
     logger.debug("Adding command handlers")
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("section_01", section_01_command))
-    application.add_handler(CommandHandler("section_02", section_02_command))
+    application.add_handler(CommandHandler("understanding", understanding_command))
     application.add_handler(CommandHandler("communication", communication_command))
     application.add_handler(CommandHandler("settings", settings_command))
 

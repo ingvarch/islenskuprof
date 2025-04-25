@@ -23,8 +23,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     help_text = (
         "Available commands :\n"
         "/start - Start interaction with the bot\n"
-        "/section_01 - Listening Section\n"
-        "/section_02 - Reading Section\n"
+        "/understanding - Understanding Section (Listening and Reading)\n"
         "/communication - Communication Section\n"
         "/settings - Bot settings\n"
     )
@@ -43,8 +42,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "Available commands :\n"
         "/start - Start interaction with the bot\n"
         "/help - Show list of available commands\n"
-        "/section_01 - Listening Section\n"
-        "/section_02 - Reading Section\n"
+        "/understanding - Understanding Section (Listening and Reading)\n"
         "/communication - Communication Section\n"
         "/settings - Bot settings\n"
     )

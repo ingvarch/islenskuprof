@@ -11,8 +11,7 @@ async def register_bot_commands(application: Application) -> None:
     # Define commands with descriptions
     commands = [
         BotCommand("start", "Start interaction with the bot"),
-        BotCommand("section_01", "Listening Section"),
-        BotCommand("section_02", "Reading Section"),
+        BotCommand("understanding", "Understanding Section (Listening and Reading)"),
         BotCommand("communication", "Communication Section"),
         BotCommand("settings", "Bot settings")
     ]
