@@ -10,6 +10,7 @@ from bot.utils.spinner import create_spinner
 from bot.openai_service import OpenAIService
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
+from bot.utils.message_cleaner import delete_user_command_message
 from bot.db.person_generator import get_random_person_data
 from bot.db.topic_generator import get_random_topic
 from bot.db.user_service import get_user_by_telegram_id
@@ -114,11 +115,17 @@ async def section_01_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         logger.info(f"Successfully sent test and audio to user {user.id}")
 
+        # Delete the user's command message
+        await delete_user_command_message(update, context)
+
     except Exception as e:
         stop_event.set()
         await spinner
         logger.error(f"Error in section_01 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
+
+        # Delete the user's command message even if an error occurred
+        await delete_user_command_message(update, context)
 
 @restricted
 @track_user_activity
@@ -205,11 +212,17 @@ async def section_02_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         logger.info(f"Successfully sent reading comprehension to user {user.id}")
 
+        # Delete the user's command message
+        await delete_user_command_message(update, context)
+
     except Exception as e:
         stop_event.set()
         await spinner
         logger.error(f"Error in section_02 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
+
+        # Delete the user's command message even if an error occurred
+        await delete_user_command_message(update, context)
 
 @restricted
 @track_user_activity
@@ -260,11 +273,17 @@ async def section_03_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         logger.info(f"Successfully sent writing prompt image to user {user.id}")
 
+        # Delete the user's command message
+        await delete_user_command_message(update, context)
+
     except Exception as e:
         stop_event.set()
         await spinner
         logger.error(f"Error in section_03 command for user {user.id}: {e}", exc_info=True)
         await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
+
+        # Delete the user's command message even if an error occurred
+        await delete_user_command_message(update, context)
 
 @restricted
 @track_user_activity
@@ -272,3 +291,6 @@ async def section_04_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user = update.effective_user
     logger.info(f"User {user.id} requested section_04 (Speaking Section)")
     await update.message.reply_text("Speaking Section! Working in progress...")
+
+    # Delete the user's command message
+    await delete_user_command_message(update, context)

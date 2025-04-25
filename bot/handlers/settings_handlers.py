@@ -8,6 +8,7 @@ from telegram.constants import ParseMode
 
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
+from bot.utils.message_cleaner import delete_user_command_message
 from bot.db.user_service import get_user_by_telegram_id, update_user_language, get_all_languages
 
 # Get logger for this module
@@ -40,6 +41,9 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         reply_markup=reply_markup
     )
     logger.info(f"Settings menu sent to user {user.id}")
+
+    # Delete the user's command message
+    await delete_user_command_message(update, context)
 
 async def language_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the language menu button callback."""

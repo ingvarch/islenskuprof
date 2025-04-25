@@ -7,6 +7,7 @@ from telegram.ext import (
 )
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
+from bot.utils.message_cleaner import delete_user_command_message
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -30,6 +31,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
     await update.message.reply_text(help_text, parse_mode=None)
 
+    # Delete the user's command message
+    await delete_user_command_message(update, context)
+
 @restricted
 @track_user_activity
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -47,6 +51,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
     await update.message.reply_text(help_text, parse_mode=None)
 
+    # Delete the user's command message
+    await delete_user_command_message(update, context)
+
 @restricted
 @track_user_activity
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -58,3 +65,6 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "Sorry I don't know that command. Type /start to see the list of available commands.",
         parse_mode=ParseMode.MARKDOWN
     )
+
+    # Delete the user's command message
+    await delete_user_command_message(update, context)
