@@ -19,8 +19,7 @@ from bot.handlers.basic_handlers import (
 from bot.handlers.section_handlers import (
     section_01_command,
     section_02_command,
-    section_03_command,
-    section_04_command
+    communication_command
 )
 from bot.handlers.settings_handlers import (
     settings_command,
@@ -49,8 +48,7 @@ def create_bot(token: str) -> Application:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("section_01", section_01_command))
     application.add_handler(CommandHandler("section_02", section_02_command))
-    application.add_handler(CommandHandler("section_03", section_03_command))
-    application.add_handler(CommandHandler("section_04", section_04_command))
+    application.add_handler(CommandHandler("communication", communication_command))
     application.add_handler(CommandHandler("settings", settings_command))
 
     # Add callback query handler for settings with explicit pattern

@@ -25,8 +25,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "/start - Start interaction with the bot\n"
         "/section_01 - Listening Section\n"
         "/section_02 - Reading Section\n"
-        "/section_03 - Writing Section\n"
-        "/section_04 - Speaking Section\n"
+        "/communication - Communication Section\n"
         "/settings - Bot settings\n"
     )
     await update.message.reply_text(help_text, parse_mode=None)
@@ -46,8 +45,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/help - Show list of available commands\n"
         "/section_01 - Listening Section\n"
         "/section_02 - Reading Section\n"
-        "/section_03 - Writing Section\n"
-        "/section_04 - Speaking Section\n"
+        "/communication - Communication Section\n"
+        "/settings - Bot settings\n"
     )
     await update.message.reply_text(help_text, parse_mode=None)
 

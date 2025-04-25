@@ -294,3 +294,58 @@ async def section_04_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Delete the user's command message
     await delete_user_command_message(update, context)
+
+@restricted
+@track_user_activity
+async def communication_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    logger.info(f"User {user.id} requested communication command")
+
+    msg = await update.message.reply_text("```\nStarting...\n```", parse_mode=ParseMode.MARKDOWN_V2)
+
+    stop_event = asyncio.Event()
+    spinner_task_func, start_step, complete_step = create_spinner()
+    spinner = asyncio.create_task(spinner_task_func(msg, stop_event))
+
+    try:
+        from bot.db.communication_generator import get_random_communication
+
+        start_step("Fetching communication data...")
+        communication_data = get_random_communication()
+
+        if not communication_data:
+            logger.error("Failed to fetch communication data")
+            raise Exception("Failed to fetch communication data")
+
+        complete_step()
+
+        description = communication_data["description"]
+        image_url = communication_data["image_url"]
+
+        stop_event.set()
+        await spinner
+
+        await update.message.reply_text(description, parse_mode=ParseMode.MARKDOWN)
+
+        # Check if the image_url is a local path or a URL
+        if image_url.startswith(('http://', 'https://')):
+            # It's a URL, send it directly
+            await update.message.reply_photo(image_url, caption="Write a short paragraph in Icelandic describing this image.")
+        else:
+            # It's a local path, open the file and send it
+            with open(image_url, "rb") as image_file:
+                await update.message.reply_photo(image_file, caption="Write a short paragraph in Icelandic describing this image.")
+
+        logger.info(f"Successfully sent communication data to user {user.id}")
+
+        # Delete the user's command message
+        await delete_user_command_message(update, context)
+
+    except Exception as e:
+        stop_event.set()
+        await spinner
+        logger.error(f"Error in communication command for user {user.id}: {e}", exc_info=True)
+        await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
+
+        # Delete the user's command message even if an error occurred
+        await delete_user_command_message(update, context)
