@@ -225,6 +225,40 @@ class Activity(Base):
         return f"<Activity(id={self.id}, activity={self.activity}, type={self.type})>"
 
 
+class Communication(Base):
+    """
+    Communication model for storing image URLs and descriptions related to topics.
+    """
+    __tablename__ = "communication"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    topic_id = Column(Integer, ForeignKey('topic.id'), nullable=False)
+    image_url = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+
+    # Define relationship
+    topic = relationship("Topic")
+
+    def __init__(self, topic_id, image_url, description):
+        """
+        Initialize a new communication entry.
+
+        Args:
+            topic_id: ID of the related topic (foreign key to topic table)
+            image_url: URL to the image
+            description: Description of the image
+        """
+        self.topic_id = topic_id
+        self.image_url = image_url
+        self.description = description
+
+    def __repr__(self):
+        """
+        String representation of the communication entry.
+        """
+        return f"<Communication(id={self.id}, topic_id={self.topic_id}, image_url={self.image_url})>"
+
+
 class Person(Base):
     """
     Person model for storing person information.
