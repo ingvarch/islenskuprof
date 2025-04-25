@@ -18,6 +18,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.info(f"User {user.id} ({user.first_name}) started the bot")
     await update.message.reply_text(f"Hi, {user.first_name}! Welcome to the bot.", parse_mode=ParseMode.MARKDOWN)
 
+    # Show available commands (previously in help_command)
+    help_text = (
+        "Available commands :\n"
+        "/start - Start interaction with the bot\n"
+        "/section_01 - Listening Section\n"
+        "/section_02 - Reading Section\n"
+        "/section_03 - Writing Section\n"
+        "/section_04 - Speaking Section\n"
+        "/settings - Bot settings\n"
+    )
+    await update.message.reply_text(help_text, parse_mode=None)
+
 @restricted
 @track_user_activity
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -43,6 +55,6 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     command = update.message.text
     logger.info(f"User {user.id} sent unknown command: {command}")
     await update.message.reply_text(
-        "Sorry I don't know that command. Type /help to see the list of available commands.",
+        "Sorry I don't know that command. Type /start to see the list of available commands.",
         parse_mode=ParseMode.MARKDOWN
     )

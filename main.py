@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from bot.telegram_bot import create_bot
 from bot.db.database import init_db
+from run_migrations import run_migrations
 
 # Set up logging
 logging.basicConfig(
@@ -43,6 +44,18 @@ def main():
     data_dir = Path(__file__).parent / "data"
     data_dir.mkdir(exist_ok=True)
     logger.info(f"Ensured data directory exists: {data_dir}")
+
+    # Run database migrations
+    try:
+        logger.info("Running database migrations")
+        migration_success = run_migrations("upgrade")
+        if not migration_success:
+            logger.error("Failed to run database migrations")
+            return
+        logger.info("Database migrations completed successfully")
+    except Exception as e:
+        logger.error(f"Error running database migrations: {e}")
+        return
 
     # Initialize the database
     try:

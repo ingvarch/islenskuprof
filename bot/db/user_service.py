@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 import sqlalchemy.orm
 from bot.db.database import get_db_session
-from bot.db.models import User
+from bot.db.models import User, Language
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -113,5 +113,51 @@ def get_user_by_telegram_id(telegram_id):
     except SQLAlchemyError as e:
         logger.error(f"Error getting user by telegram_id {telegram_id}: {e}")
         return None
+    finally:
+        session.close()
+
+def update_user_language(telegram_id, language_id):
+    """
+    Update the language preference for a user.
+
+    Args:
+        telegram_id: Telegram user ID
+        language_id: ID of the language to set
+
+    Returns:
+        bool: True if the user was updated, False otherwise
+    """
+    session = get_db_session()
+    try:
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if user:
+            user.language_id = language_id
+            session.commit()
+            logger.info(f"Updated language preference for user {telegram_id} to language_id {language_id}")
+            return True
+        else:
+            logger.warning(f"User {telegram_id} not found for updating language preference")
+            return False
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(f"Error updating language preference for user {telegram_id}: {e}")
+        return False
+    finally:
+        session.close()
+
+def get_all_languages():
+    """
+    Get all available languages.
+
+    Returns:
+        list: List of Language objects
+    """
+    session = get_db_session()
+    try:
+        languages = session.query(Language).all()
+        return languages
+    except SQLAlchemyError as e:
+        logger.error(f"Error getting all languages: {e}")
+        return []
     finally:
         session.close()

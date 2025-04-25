@@ -4,8 +4,7 @@ A simple Telegram bot built with python-telegram-bot library that generates Icel
 
 ## Features
 
-- Responds to `/start` command with a greeting
-- Responds to `/help` command with a list of available commands
+- Responds to `/start` command with a greeting and a list of available commands
 - Responds to `/section_01` command by generating Icelandic language test content and audio
 - Supports Markdown formatting in messages
 - Automatically cleans up temporary audio files after sending
@@ -103,7 +102,7 @@ Note: The Docker image includes ffmpeg, which is required for audio processing.
   - `telegram_bot.py`: Bot implementation with command handlers
   - `openai_service.py`: Service for OpenAI interactions
   - `handlers/`: Command handlers for the bot
-    - `basic_handlers.py`: Basic command handlers (start, help, etc.)
+    - `basic_handlers.py`: Basic command handlers (start, etc.)
     - `section_handlers.py`: Section-specific command handlers
   - `utils/`: Utility functions and decorators
     - `access_control.py`: Access control utilities
@@ -121,6 +120,5 @@ Note: The Docker image includes ffmpeg, which is required for audio processing.
 
 ## Available Commands
 
-- `/start`: Start interaction with the bot
-- `/help`: Show list of available commands
+- `/start`: Start interaction with the bot and show list of available commands
 - `/section_01`: Generate Icelandic language test content with audio dialogue
