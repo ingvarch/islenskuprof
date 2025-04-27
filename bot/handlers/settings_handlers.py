@@ -11,7 +11,8 @@ from bot.utils.user_tracking import track_user_activity
 from bot.utils.message_cleaner import delete_user_command_message
 from bot.db.user_service import (
     get_user_by_telegram_id, update_user_language, get_all_languages,
-    get_all_audio_speeds, update_user_audio_speed
+    get_all_audio_speeds, update_user_audio_speed,
+    get_all_language_levels, update_user_language_level
 )
 
 # Get logger for this module
@@ -27,6 +28,11 @@ AUDIO_SPEED_PREFIX = "speed_"
 AUDIO_SPEED_MENU = "speed_menu"
 AUDIO_SPEED_SELECT_PREFIX = "speed_select_"
 
+# Language level callback data prefixes
+LANGUAGE_LEVEL_PREFIX = "level_"
+LANGUAGE_LEVEL_MENU = "level_menu"
+LANGUAGE_LEVEL_SELECT_PREFIX = "level_select_"
+
 @restricted
 @track_user_activity
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -34,14 +40,15 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user = update.effective_user
     logger.info(f"User {user.id} requested settings menu")
 
-    # Create keyboard with language and voice speed buttons
+    # Create keyboard with language, language level, and voice speed buttons
     keyboard = [
         [InlineKeyboardButton("Language", callback_data=LANGUAGE_MENU)],
+        [InlineKeyboardButton("Language Level", callback_data=LANGUAGE_LEVEL_MENU)],
         [InlineKeyboardButton("Voice Speed", callback_data=AUDIO_SPEED_MENU)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    logger.info(f"Creating settings keyboard with language and voice speed buttons")
+    logger.info(f"Creating settings keyboard with language, language level, and voice speed buttons")
 
     # Send message with inline keyboard
     await context.bot.send_message(
@@ -272,6 +279,122 @@ async def audio_speed_select_callback(update: Update, context: ContextTypes.DEFA
         except Exception as e:
             logger.error(f"Error editing message: {e}", exc_info=True)
 
+
+async def language_level_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the language level menu button callback."""
+    query = update.callback_query
+    user = update.effective_user
+    logger.info(f"LANGUAGE LEVEL MENU CALLBACK ENTERED for user {user.id}")
+
+    # Get all available language levels
+    language_levels = get_all_language_levels()
+    logger.info(f"Retrieved {len(language_levels)} language levels from database")
+
+    if not language_levels:
+        logger.error("No language levels found in database. Make sure migrations have been run.")
+        await query.answer(text="No language levels available")
+        await query.edit_message_text(
+            text="Error: No language levels available. Please contact the administrator."
+        )
+        return
+
+    # Get the user's current language level setting
+    db_user = get_user_by_telegram_id(user.id)
+    current_language_level_id = None
+    if hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language_level:
+        current_language_level_id = db_user.settings.language_level.id
+        logger.info(f"User {user.id} current language level ID: {current_language_level_id}")
+
+    # Create keyboard with language level buttons (2 buttons per row)
+    keyboard = []
+    current_row = []
+
+    for language_level in language_levels:
+        # Add green checkmark to the current level
+        if current_language_level_id and language_level.id == current_language_level_id:
+            button_text = f"{language_level.level} ✅"
+        else:
+            button_text = f"{language_level.level}"
+
+        callback_data = f"{LANGUAGE_LEVEL_SELECT_PREFIX}{language_level.id}"
+        logger.info(f"Adding language level button: {button_text} with callback_data: {callback_data}")
+
+        # Add button to current row
+        current_row.append(InlineKeyboardButton(
+            button_text,
+            callback_data=callback_data
+        ))
+
+        # If we have 2 buttons in the current row, add it to the keyboard and start a new row
+        if len(current_row) == 2:
+            keyboard.append(current_row)
+            current_row = []
+
+    # Add any remaining buttons (in case of odd number of buttons)
+    if current_row:
+        keyboard.append(current_row)
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    logger.info(f"Created language level selection keyboard with {len(language_levels)} buttons")
+
+    # First answer the callback query
+    await query.answer()
+
+    # Then edit message to show language level selection
+    try:
+        await query.edit_message_text(
+            text="Select your preferred language level:",
+            reply_markup=reply_markup
+        )
+        logger.info(f"Successfully edited message to show language level selection for user {user.id}")
+    except Exception as e:
+        logger.error(f"Error editing message: {e}", exc_info=True)
+
+
+async def language_level_select_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the language level selection callback."""
+    query = update.callback_query
+    user = update.effective_user
+    logger.info(f"LANGUAGE LEVEL SELECT CALLBACK ENTERED for user {user.id} with data: {query.data}")
+
+    language_level_id = int(query.data.replace(LANGUAGE_LEVEL_SELECT_PREFIX, ""))
+    logger.info(f"Parsed language_level_id: {language_level_id}")
+
+    # First answer the callback query
+    await query.answer()
+
+    # Update user's language level preference
+    success = update_user_language_level(user.id, language_level_id)
+
+    if success:
+        # Get the selected language level
+        db_user = get_user_by_telegram_id(user.id)
+
+        # Get language level from user_settings
+        if hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language_level:
+            language_level = db_user.settings.language_level.level
+        else:
+            # Default to A2 if no settings or language level available
+            language_level = "A2"
+
+        # Confirmation message
+        message = f"You have selected language level {language_level}"
+
+        logger.info(f"User {user.id} selected language level: {language_level}")
+
+        # Edit message to show confirmation
+        try:
+            await query.edit_message_text(text=message)
+            logger.info(f"Successfully updated message with confirmation for user {user.id}")
+        except Exception as e:
+            logger.error(f"Error editing message: {e}", exc_info=True)
+    else:
+        logger.error(f"Failed to update language level preference for user {user.id}")
+        try:
+            await query.edit_message_text(text="Failed to update language level preference. Please try again.")
+        except Exception as e:
+            logger.error(f"Error editing message: {e}", exc_info=True)
+
 async def settings_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle settings callback queries."""
     query = update.callback_query
@@ -287,6 +410,12 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
     elif callback_data.startswith(LANGUAGE_SELECT_PREFIX):
         logger.info(f"Routing to language_select_callback for user {user.id}")
         await language_select_callback(update, context)
+    elif callback_data == LANGUAGE_LEVEL_MENU:
+        logger.info(f"Routing to language_level_menu_callback for user {user.id}")
+        await language_level_menu_callback(update, context)
+    elif callback_data.startswith(LANGUAGE_LEVEL_SELECT_PREFIX):
+        logger.info(f"Routing to language_level_select_callback for user {user.id}")
+        await language_level_select_callback(update, context)
     elif callback_data == AUDIO_SPEED_MENU:
         logger.info(f"Routing to audio_speed_menu_callback for user {user.id}")
         await audio_speed_menu_callback(update, context)
