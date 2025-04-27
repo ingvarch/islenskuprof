@@ -37,8 +37,9 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # Get user's language preference
         db_user = get_user_by_telegram_id(user.id)
         user_language = "English"  # Default to English if no language preference is set
-        if db_user and db_user.language:
-            user_language = db_user.language.language
+        if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+            user_language = db_user.settings.language.language
+        # No fallback needed anymore as language is only in settings
 
         # Get a random topic from the database
         start_step("Fetching random topic...")
@@ -146,8 +147,9 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # Get user's language preference
         db_user = get_user_by_telegram_id(user.id)
         user_language = "English"  # Default to English if no language preference is set
-        if db_user and db_user.language:
-            user_language = db_user.language.language
+        if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+            user_language = db_user.settings.language.language
+        # No fallback needed anymore as language is only in settings
 
         start_step("Fetching random person data...")
         person_data = get_random_person_data()

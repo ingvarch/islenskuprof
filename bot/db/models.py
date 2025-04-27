@@ -3,7 +3,7 @@ Database models for the Telegram bot.
 """
 import logging
 from datetime import datetime
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, SmallInteger, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, SmallInteger, Boolean, Float
 from sqlalchemy.orm import relationship
 from bot.db.database import Base
 
@@ -52,12 +52,12 @@ class User(Base):
     first_contact = Column(DateTime, default=datetime.utcnow)
     last_contact = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_premium = Column(Boolean, nullable=False, default=False)
-    language_id = Column(Integer, ForeignKey('languages.id'), nullable=True)
 
-    # Define relationship
-    language = relationship("Language")
+    # Define relationship with UserSettings
+    settings = relationship("UserSettings", back_populates="user", uselist=False)
+    # Access language through settings: user.settings.language
 
-    def __init__(self, telegram_id, username=None, first_name=None, last_name=None, is_premium=False, language_id=None):
+    def __init__(self, telegram_id, username=None, first_name=None, last_name=None, is_premium=False):
         """
         Initialize a new user.
 
@@ -67,14 +67,12 @@ class User(Base):
             first_name: User's first name
             last_name: User's last name
             is_premium: Whether the user has Telegram Premium (default: False)
-            language_id: ID of the user's preferred language (default: None, will be set to English in migration)
         """
         self.telegram_id = telegram_id
         self.username = username
         self.first_name = first_name
         self.last_name = last_name
         self.is_premium = is_premium
-        self.language_id = language_id
         self.first_contact = datetime.utcnow()
         self.last_contact = datetime.utcnow()
 
@@ -305,3 +303,67 @@ class Communication(Base):
         String representation of the communication.
         """
         return f"<Communication(id={self.id}, topic_id={self.topic_id})>"
+
+
+class AudioSpeed(Base):
+    """
+    AudioSpeed model for storing audio playback speed options.
+    """
+    __tablename__ = "audio_speeds"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    speed = Column(Float, nullable=False)
+    description = Column(String, nullable=True)
+
+    def __init__(self, speed, description=None):
+        """
+        Initialize a new audio speed.
+
+        Args:
+            speed: Playback speed factor (e.g., 0.5, 1.0, 1.5)
+            description: Description of the speed (e.g., "Slow", "Normal", "Fast")
+        """
+        self.speed = speed
+        self.description = description
+
+    def __repr__(self):
+        """
+        String representation of the audio speed.
+        """
+        return f"<AudioSpeed(id={self.id}, speed={self.speed}, description={self.description})>"
+
+
+class UserSettings(Base):
+    """
+    UserSettings model for storing user preferences.
+    """
+    __tablename__ = "user_settings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    audio_speed_id = Column(Integer, ForeignKey('audio_speeds.id'), nullable=False)
+    language_id = Column(Integer, ForeignKey('languages.id'), nullable=True)
+
+    # Define relationships
+    user = relationship("User", back_populates="settings")
+    audio_speed = relationship("AudioSpeed")
+    language = relationship("Language")
+
+    def __init__(self, user_id, audio_speed_id, language_id=None):
+        """
+        Initialize new user settings.
+
+        Args:
+            user_id: ID of the user (foreign key to users table)
+            audio_speed_id: ID of the audio speed (foreign key to audio_speeds table)
+            language_id: ID of the language (foreign key to languages table)
+        """
+        self.user_id = user_id
+        self.audio_speed_id = audio_speed_id
+        self.language_id = language_id
+
+    def __repr__(self):
+        """
+        String representation of the user settings.
+        """
+        return f"<UserSettings(id={self.id}, user_id={self.user_id}, audio_speed_id={self.audio_speed_id}, language_id={self.language_id})>"

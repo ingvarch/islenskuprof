@@ -30,27 +30,11 @@ def upgrade():
         sa.Column('language', sa.String, nullable=False)
     )
 
-    # Add language_id column to users table
-    op.add_column('users', sa.Column('language_id', sa.Integer, nullable=True))
-
-    # Create foreign key constraint
-    op.create_foreign_key(
-        'fk_users_language_id',
-        'users', 'languages',
-        ['language_id'], ['id']
-    )
-
     logger.info("Migration %s applied successfully", revision)
 
 
 def downgrade():
     logger.info("Rolling back migration %s: Removing language_id from users table and dropping languages table", revision)
-
-    # Remove foreign key constraint
-    op.drop_constraint('fk_users_language_id', 'users', type_='foreignkey')
-
-    # Remove language_id column from users table
-    op.drop_column('users', 'language_id')
 
     # Drop languages table
     op.drop_table('languages')

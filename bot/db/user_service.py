@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 import sqlalchemy.orm
 from bot.db.database import get_db_session
-from bot.db.models import User, Language
+from bot.db.models import User, Language, UserSettings, AudioSpeed
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -46,6 +46,15 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
 
             return user
         else:
+            # Get the English language ID (default)
+            english_language = session.query(Language).filter(Language.code == 'en').first()
+            if not english_language:
+                logger.warning("English language not found in the database, this should not happen")
+                # If English language is not found, we'll create it
+                english_language = Language(code='en', language='English')
+                session.add(english_language)
+                session.commit()
+
             # Create a new user
             user = User(
                 telegram_id=telegram_id,
@@ -57,6 +66,24 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
             session.add(user)
             session.commit()
             logger.info(f"Created new user with telegram_id {telegram_id}")
+
+            # Get the default audio speed (Normal)
+            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
+            if not default_audio_speed:
+                default_audio_speed_id = 3  # Fallback to ID 3 if not found
+            else:
+                default_audio_speed_id = default_audio_speed.id
+
+            # Create user settings with default language
+            user_settings = UserSettings(
+                user_id=user.id,
+                audio_speed_id=default_audio_speed_id,
+                language_id=english_language.id
+            )
+            session.add(user_settings)
+            session.commit()
+            logger.info(f"Created user settings for new user {telegram_id} with default language")
+
             return user
     except SQLAlchemyError as e:
         session.rollback()
@@ -105,10 +132,13 @@ def get_user_by_telegram_id(telegram_id):
     """
     session = get_db_session()
     try:
-        # Eagerly load the language relationship to avoid DetachedInstanceError
+        # Eagerly load the settings relationship and its language to avoid DetachedInstanceError
         user = session.query(User).options(
-            sqlalchemy.orm.joinedload(User.language)
+            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language)
         ).filter(User.telegram_id == telegram_id).first()
+
+        # User settings and language are already loaded through the joinedload above
+
         return user
     except SQLAlchemyError as e:
         logger.error(f"Error getting user by telegram_id {telegram_id}: {e}")
@@ -118,26 +148,51 @@ def get_user_by_telegram_id(telegram_id):
 
 def update_user_language(telegram_id, language_id):
     """
-    Update the language preference for a user.
+    Update the language preference for a user in the user_settings table.
 
     Args:
         telegram_id: Telegram user ID
         language_id: ID of the language to set
 
     Returns:
-        bool: True if the user was updated, False otherwise
+        bool: True if the user settings were updated, False otherwise
     """
     session = get_db_session()
     try:
+        # Get the user by telegram_id
         user = session.query(User).filter(User.telegram_id == telegram_id).first()
-        if user:
-            user.language_id = language_id
+        if not user:
+            logger.warning(f"User {telegram_id} not found for updating language preference")
+            return False
+
+        # Check if user has settings
+        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
+
+        if user_settings:
+            # Update existing settings
+            user_settings.language_id = language_id
             session.commit()
             logger.info(f"Updated language preference for user {telegram_id} to language_id {language_id}")
             return True
         else:
-            logger.warning(f"User {telegram_id} not found for updating language preference")
-            return False
+            # Create new settings with default audio_speed_id=3 (Normal)
+            # Get the default audio speed (Normal)
+            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
+            if not default_audio_speed:
+                default_audio_speed_id = 3  # Fallback to ID 3 if not found
+            else:
+                default_audio_speed_id = default_audio_speed.id
+
+            # Create new user settings
+            new_settings = UserSettings(
+                user_id=user.id,
+                audio_speed_id=default_audio_speed_id,
+                language_id=language_id
+            )
+            session.add(new_settings)
+            session.commit()
+            logger.info(f"Created new settings with language preference for user {telegram_id} to language_id {language_id}")
+            return True
     except SQLAlchemyError as e:
         session.rollback()
         logger.error(f"Error updating language preference for user {telegram_id}: {e}")

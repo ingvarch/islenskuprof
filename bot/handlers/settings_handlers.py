@@ -110,8 +110,15 @@ async def language_select_callback(update: Update, context: ContextTypes.DEFAULT
     if success:
         # Get the selected language
         db_user = get_user_by_telegram_id(user.id)
-        language_name = db_user.language.language
-        language_code = db_user.language.code
+
+        # Get language from user_settings
+        if hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+            language_name = db_user.settings.language.language
+            language_code = db_user.settings.language.code
+        else:
+            # Default to English if no settings or language available
+            language_name = "English"
+            language_code = "en"
 
         # Add flag emoji based on language code
         flag = "🇷🇺" if language_code == "ru" else "🇬🇧"

@@ -29,18 +29,6 @@ def upgrade():
     connection.execute(
         text("INSERT INTO languages (code, language) VALUES ('en', 'English'), ('ru', 'Russian')")
     )
-    
-    # Get the ID of English language
-    result = connection.execute(text("SELECT id FROM languages WHERE code = 'en'"))
-    english_id = result.fetchone()[0]
-    
-    # Set English as default language for all existing users
-    connection.execute(
-        text(f"UPDATE users SET language_id = {english_id}")
-    )
-    
-    # Make language_id not nullable after setting default values
-    op.alter_column('users', 'language_id', nullable=False)
 
     logger.info("Migration %s applied successfully", revision)
 
@@ -48,12 +36,8 @@ def upgrade():
 def downgrade():
     logger.info("Rolling back migration %s: Reverting user language settings", revision)
 
-    # Make language_id nullable again
-    op.alter_column('users', 'language_id', nullable=True)
-    
     # Set language_id to NULL for all users
     connection = op.get_bind()
-    connection.execute(text("UPDATE users SET language_id = NULL"))
     
     # Delete all languages
     connection.execute(text("DELETE FROM languages"))
