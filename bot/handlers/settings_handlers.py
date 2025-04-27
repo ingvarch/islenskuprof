@@ -42,9 +42,9 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     # Create keyboard with language, language level, and voice speed buttons
     keyboard = [
-        [InlineKeyboardButton("Language", callback_data=LANGUAGE_MENU)],
-        [InlineKeyboardButton("Language Level", callback_data=LANGUAGE_LEVEL_MENU)],
-        [InlineKeyboardButton("Voice Speed", callback_data=AUDIO_SPEED_MENU)]
+        [InlineKeyboardButton("🌍 Language", callback_data=LANGUAGE_MENU)],
+        [InlineKeyboardButton("📝 Language Level", callback_data=LANGUAGE_LEVEL_MENU)],
+        [InlineKeyboardButton("🎧 Voice Speed", callback_data=AUDIO_SPEED_MENU)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -141,9 +141,9 @@ async def language_select_callback(update: Update, context: ContextTypes.DEFAULT
 
         # Confirmation message based on language
         if language_code == "ru":
-            message = f"Вы выбрали Русский язык {flag}"
+            message = f"Вы выбрали Русский язык {flag} ✅"
         else:
-            message = f"You have selected English language {flag}"
+            message = f"You have selected English language {flag} ✅"
 
         logger.info(f"User {user.id} selected language: {language_name}")
 
@@ -262,7 +262,7 @@ async def audio_speed_select_callback(update: Update, context: ContextTypes.DEFA
         # emoji = "🐢" if audio_speed_value < 1.0 else "🐇" if audio_speed_value > 1.0 else "🐾"
 
         # Confirmation message
-        message = f"You have selected {audio_speed_description} voice speed"
+        message = f"You have selected {audio_speed_description} voice speed ✅"
 
         logger.info(f"User {user.id} selected audio speed: {audio_speed_description}")
 
@@ -378,7 +378,7 @@ async def language_level_select_callback(update: Update, context: ContextTypes.D
             language_level = "A2"
 
         # Confirmation message
-        message = f"You have selected language level {language_level}"
+        message = f"You have selected language level {language_level} ✅"
 
         logger.info(f"User {user.id} selected language level: {language_level}")
 

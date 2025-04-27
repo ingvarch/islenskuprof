@@ -34,11 +34,15 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         openai_service = OpenAIService()
 
-        # Get user's language preference
+        # Get user's language preference and language level
         db_user = get_user_by_telegram_id(user.id)
         user_language = "English"  # Default to English if no language preference is set
-        if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
-            user_language = db_user.settings.language.language
+        user_language_level = "A2"  # Default to A2 if no language level is set
+        if db_user and hasattr(db_user, 'settings') and db_user.settings:
+            if db_user.settings.language:
+                user_language = db_user.settings.language.language
+            if db_user.settings.language_level:
+                user_language_level = db_user.settings.language_level.level
         # No fallback needed anymore as language is only in settings
 
         # Get a random topic from the database
@@ -61,7 +65,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             * Include common phrases that would be useful in such a setting.
             * Clearly identify speakers with labels like "Kona:" (Woman) and "Maður:" (Man)
             * After the dialogue, add 3 multiple-choice questions about details in the conversation.
-            * Make sure all sections reflect common vocabulary and sentence structures suitable for A2 level in the CEFR framework.
+            * Make sure all sections reflect common vocabulary and sentence structures suitable for {user_language_level} level in the CEFR framework.
             Format the dialogue clearly so I can easily extract it for audio processing.
 
             Your output MUST strictly follow this exact template format:
@@ -144,11 +148,15 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     try:
         openai_service = OpenAIService()
 
-        # Get user's language preference
+        # Get user's language preference and language level
         db_user = get_user_by_telegram_id(user.id)
         user_language = "English"  # Default to English if no language preference is set
-        if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
-            user_language = db_user.settings.language.language
+        user_language_level = "A2"  # Default to A2 if no language level is set
+        if db_user and hasattr(db_user, 'settings') and db_user.settings:
+            if db_user.settings.language:
+                user_language = db_user.settings.language.language
+            if db_user.settings.language_level:
+                user_language_level = db_user.settings.language_level.level
         # No fallback needed anymore as language is only in settings
 
         start_step("Fetching random person data...")
@@ -162,7 +170,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         # Format the prompt with the person data
         custom_prompt = f"""
-        Write a short Icelandic reading comprehension passage - 20-25 sentences long (A2 CEFR level) 
+        Write a short Icelandic reading comprehension passage - 20-25 sentences long ({user_language_level} CEFR level) 
         about a person's daily life in Iceland. 
 
         Use the following information to guide the story:
