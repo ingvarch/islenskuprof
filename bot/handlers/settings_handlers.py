@@ -171,14 +171,24 @@ async def audio_speed_menu_callback(update: Update, context: ContextTypes.DEFAUL
         )
         return
 
+    # Get the user's current audio speed setting
+    db_user = get_user_by_telegram_id(user.id)
+    current_audio_speed_id = None
+    if hasattr(db_user, 'settings') and db_user.settings and db_user.settings.audio_speed:
+        current_audio_speed_id = db_user.settings.audio_speed.id
+        logger.info(f"User {user.id} current audio speed ID: {current_audio_speed_id}")
+
     # Create keyboard with audio speed buttons (2 buttons per row)
     keyboard = []
     current_row = []
 
     for audio_speed in audio_speeds:
-        # Add emoji based on speed
-        # emoji = "🐢" if audio_speed.speed < 1.0 else "🐇" if audio_speed.speed > 1.0 else "🐾"
-        button_text = f"{audio_speed.description}"
+        # Add green checkmark to the current speed
+        if current_audio_speed_id and audio_speed.id == current_audio_speed_id:
+            button_text = f"{audio_speed.description} ✅"
+        else:
+            button_text = f"{audio_speed.description}"
+
         callback_data = f"{AUDIO_SPEED_SELECT_PREFIX}{audio_speed.id}"
         logger.info(f"Adding audio speed button: {button_text} with callback_data: {callback_data}")
 

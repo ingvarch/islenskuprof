@@ -38,10 +38,15 @@ def upgrade():
             sa.column('description', sa.String)
         ),
         [
-            {'speed': 0.5, 'description': 'Very Slow'},
-            {'speed': 0.75, 'description': 'Slow'},
+            {'speed': 0.25, 'description': '0.25x'},
+            {'speed': 0.5, 'description': '0.5x'},
+            {'speed': 0.75, 'description': '0.75x'},
             {'speed': 1.0, 'description': 'Normal'},
-            {'speed': 1.5, 'description': 'Fast'}
+            {'speed': 1.25, 'description': '1.25x'},
+            {'speed': 1.5, 'description': '1.5x'},
+            {'speed': 1.75, 'description': '1.75x'},
+            {'speed': 2.0, 'description': '2x'}
+
         ]
     )
 
