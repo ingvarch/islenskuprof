@@ -9,6 +9,7 @@ from telegram.constants import ParseMode
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
 from bot.utils.message_cleaner import delete_user_command_message
+from bot.utils.translations import get_translation, get_flag_emoji
 from bot.db.user_service import (
     get_user_by_telegram_id, update_user_language, get_all_languages,
     get_all_audio_speeds, update_user_audio_speed,
@@ -40,11 +41,17 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user = update.effective_user
     logger.info(f"User {user.id} requested settings menu")
 
+    # Get user's language preference
+    db_user = get_user_by_telegram_id(user.id)
+    language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        language = db_user.settings.language.language
+
     # Create keyboard with language, language level, and voice speed buttons (2 buttons per row)
     keyboard = [
-        [InlineKeyboardButton("🌍 Language", callback_data=LANGUAGE_MENU), 
-         InlineKeyboardButton("📝 Language Level", callback_data=LANGUAGE_LEVEL_MENU)],
-        [InlineKeyboardButton("🎧 Voice Speed", callback_data=AUDIO_SPEED_MENU)]
+        [InlineKeyboardButton("🌍 " + get_translation("bot_language", language), callback_data=LANGUAGE_MENU), 
+         InlineKeyboardButton("📝 " + get_translation("learning_level", language), callback_data=LANGUAGE_LEVEL_MENU)],
+        [InlineKeyboardButton("🎧 " + get_translation("voice_speed", language), callback_data=AUDIO_SPEED_MENU)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -53,7 +60,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     # Send message with inline keyboard
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="*Settings:*",
+        text=f"*{get_translation('settings', language)}*",
         reply_markup=reply_markup,
         parse_mode=ParseMode.MARKDOWN
     )
@@ -68,23 +75,29 @@ async def language_menu_callback(update: Update, context: ContextTypes.DEFAULT_T
     user = update.effective_user
     logger.info(f"LANGUAGE MENU CALLBACK ENTERED for user {user.id}")
 
+    # Get user's current language preference
+    db_user = get_user_by_telegram_id(user.id)
+    user_language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        user_language = db_user.settings.language.language
+
     # Get all available languages
     languages = get_all_languages()
     logger.info(f"Retrieved {len(languages)} languages from database")
 
     if not languages:
         logger.error("No languages found in database. Make sure migrations have been run.")
-        await query.answer(text="No languages available")
+        await query.answer(text=get_translation("no_languages", user_language))
         await query.edit_message_text(
-            text="Error: No languages available. Please contact the administrator."
+            text=get_translation("error_no_languages", user_language)
         )
         return
 
     # Create keyboard with language buttons
     keyboard = []
     for language in languages:
-        # Add flag emoji based on language code
-        flag = "🇷🇺" if language.code == "ru" else "🇬🇧"
+        # Get flag emoji based on language code
+        flag = get_flag_emoji(language.code)
         button_text = f"{language.language} {flag}"
         callback_data = f"{LANGUAGE_SELECT_PREFIX}{language.id}"
         logger.info(f"Adding language button: {button_text} with callback_data: {callback_data}")
@@ -102,7 +115,7 @@ async def language_menu_callback(update: Update, context: ContextTypes.DEFAULT_T
     # Then edit message to show language selection
     try:
         await query.edit_message_text(
-            text="Select your preferred language:",
+            text=get_translation("select_language", user_language),
             reply_markup=reply_markup
         )
         logger.info(f"Successfully edited message to show language selection for user {user.id}")
@@ -137,14 +150,11 @@ async def language_select_callback(update: Update, context: ContextTypes.DEFAULT
             language_name = "English"
             language_code = "en"
 
-        # Add flag emoji based on language code
-        flag = "🇷🇺" if language_code == "ru" else "🇬🇧"
+        # Get flag emoji based on language code
+        flag = get_flag_emoji(language_code)
 
-        # Confirmation message based on language
-        if language_code == "ru":
-            message = f"Вы выбрали Русский язык {flag} ✅"
-        else:
-            message = f"You have selected English language {flag} ✅"
+        # Get confirmation message in the user's newly selected language
+        message = get_translation('language_updated', language_name) + f" {flag} ✅"
 
         logger.info(f"User {user.id} selected language: {language_name}")
 
@@ -157,7 +167,8 @@ async def language_select_callback(update: Update, context: ContextTypes.DEFAULT
     else:
         logger.error(f"Failed to update language preference for user {user.id}")
         try:
-            await query.edit_message_text(text="Failed to update language preference. Please try again.")
+            # Use English as fallback for error message
+            await query.edit_message_text(text=get_translation('error_occurred', "English", error="Failed to update language preference"))
         except Exception as e:
             logger.error(f"Error editing message: {e}", exc_info=True)
 
@@ -167,15 +178,21 @@ async def audio_speed_menu_callback(update: Update, context: ContextTypes.DEFAUL
     user = update.effective_user
     logger.info(f"AUDIO SPEED MENU CALLBACK ENTERED for user {user.id}")
 
+    # Get user's language preference
+    db_user = get_user_by_telegram_id(user.id)
+    language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        language = db_user.settings.language.language
+
     # Get all available audio speeds
     audio_speeds = get_all_audio_speeds()
     logger.info(f"Retrieved {len(audio_speeds)} audio speeds from database")
 
     if not audio_speeds:
         logger.error("No audio speeds found in database. Make sure migrations have been run.")
-        await query.answer(text="No audio speeds available")
+        await query.answer(text=get_translation("no_languages", language))
         await query.edit_message_text(
-            text="Error: No audio speeds available. Please contact the administrator."
+            text=get_translation("error_no_languages", language)
         )
         return
 
@@ -224,7 +241,7 @@ async def audio_speed_menu_callback(update: Update, context: ContextTypes.DEFAUL
     # Then edit message to show audio speed selection
     try:
         await query.edit_message_text(
-            text="Select your preferred voice speed:",
+            text=get_translation("select_audio_speed", language),
             reply_markup=reply_markup
         )
         logger.info(f"Successfully edited message to show audio speed selection for user {user.id}")
@@ -259,11 +276,13 @@ async def audio_speed_select_callback(update: Update, context: ContextTypes.DEFA
             audio_speed_description = "Normal"
             audio_speed_value = 1.0
 
-        # Add emoji based on speed
-        # emoji = "🐢" if audio_speed_value < 1.0 else "🐇" if audio_speed_value > 1.0 else "🐾"
+        # Get user's language preference
+        language = "English"  # Default to English if no language preference is set
+        if hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+            language = db_user.settings.language.language
 
-        # Confirmation message
-        message = f"You have selected {audio_speed_description} voice speed ✅"
+        # Confirmation message using translation
+        message = get_translation("audio_speed_updated", language, speed=audio_speed_description) + " ✅"
 
         logger.info(f"User {user.id} selected audio speed: {audio_speed_description}")
 
@@ -276,7 +295,8 @@ async def audio_speed_select_callback(update: Update, context: ContextTypes.DEFA
     else:
         logger.error(f"Failed to update audio speed preference for user {user.id}")
         try:
-            await query.edit_message_text(text="Failed to update audio speed preference. Please try again.")
+            # Use English as fallback for error message
+            await query.edit_message_text(text=get_translation('error_occurred', "English", error="Failed to update audio speed preference"))
         except Exception as e:
             logger.error(f"Error editing message: {e}", exc_info=True)
 
@@ -287,15 +307,21 @@ async def language_level_menu_callback(update: Update, context: ContextTypes.DEF
     user = update.effective_user
     logger.info(f"LANGUAGE LEVEL MENU CALLBACK ENTERED for user {user.id}")
 
+    # Get user's language preference
+    db_user = get_user_by_telegram_id(user.id)
+    language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        language = db_user.settings.language.language
+
     # Get all available language levels
     language_levels = get_all_language_levels()
     logger.info(f"Retrieved {len(language_levels)} language levels from database")
 
     if not language_levels:
         logger.error("No language levels found in database. Make sure migrations have been run.")
-        await query.answer(text="No language levels available")
+        await query.answer(text=get_translation("no_languages", language))
         await query.edit_message_text(
-            text="Error: No language levels available. Please contact the administrator."
+            text=get_translation("error_no_languages", language)
         )
         return
 
@@ -344,7 +370,7 @@ async def language_level_menu_callback(update: Update, context: ContextTypes.DEF
     # Then edit message to show language level selection
     try:
         await query.edit_message_text(
-            text="Select your preferred language level:",
+            text=get_translation("select_language_level", language),
             reply_markup=reply_markup
         )
         logger.info(f"Successfully edited message to show language level selection for user {user.id}")
@@ -378,8 +404,13 @@ async def language_level_select_callback(update: Update, context: ContextTypes.D
             # Default to A2 if no settings or language level available
             language_level = "A2"
 
-        # Confirmation message
-        message = f"You have selected language level {language_level} ✅"
+        # Get user's language preference
+        language = "English"  # Default to English if no language preference is set
+        if hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+            language = db_user.settings.language.language
+
+        # Confirmation message using translation
+        message = get_translation("language_level_updated", language, level=language_level) + " ✅"
 
         logger.info(f"User {user.id} selected language level: {language_level}")
 
@@ -392,7 +423,8 @@ async def language_level_select_callback(update: Update, context: ContextTypes.D
     else:
         logger.error(f"Failed to update language level preference for user {user.id}")
         try:
-            await query.edit_message_text(text="Failed to update language level preference. Please try again.")
+            # Use English as fallback for error message
+            await query.edit_message_text(text=get_translation('error_occurred', "English", error="Failed to update language level preference"))
         except Exception as e:
             logger.error(f"Error editing message: {e}", exc_info=True)
 
@@ -426,5 +458,12 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
     else:
         # Handle unknown callback data
         logger.warning(f"Unknown callback_data received: {callback_data}")
-        await query.answer(text="Unknown button")
-        await query.edit_message_text(text=f"Unknown action: {callback_data}")
+
+        # Get user's language preference
+        db_user = get_user_by_telegram_id(user.id)
+        language = "English"  # Default to English if no language preference is set
+        if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+            language = db_user.settings.language.language
+
+        await query.answer(text=get_translation("unknown_command", language))
+        await query.edit_message_text(text=get_translation("error_occurred", language, error=f"Unknown action: {callback_data}"))

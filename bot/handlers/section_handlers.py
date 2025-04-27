@@ -12,6 +12,7 @@ from bot.openai_service import OpenAIService
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
 from bot.utils.message_cleaner import delete_user_command_message
+from bot.utils.translations import get_translation
 from bot.db.person_generator import get_random_person_data
 from bot.db.topic_generator import get_random_topic
 from bot.db.user_service import get_user_by_telegram_id
@@ -25,7 +26,13 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user = update.effective_user
     logger.info(f"User {user.id} requested section_01 (Icelandic language test)")
 
-    msg = await update.message.reply_text("```\nStarting...\n```", parse_mode=ParseMode.MARKDOWN_V2)
+    # Get user's language preference
+    db_user = get_user_by_telegram_id(user.id)
+    user_language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        user_language = db_user.settings.language.language
+
+    msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
 
     stop_event = asyncio.Event()
     spinner_task_func, start_step, complete_step = create_spinner()
@@ -46,7 +53,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # No fallback needed anymore as language is only in settings
 
         # Get a random topic from the database
-        start_step("Fetching random topic...")
+        start_step(get_translation("fetching_topic", user_language))
         topic = get_random_topic()
 
         if not topic:
@@ -91,19 +98,19 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             ```
             """
 
-        start_step(f"Generating content about {topic}...")
+        start_step(get_translation("generating_content", user_language, topic=topic))
         content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
         complete_step()
 
-        start_step("Extracting dialogue from content...")
+        start_step(get_translation("extracting_dialogue", user_language))
         dialogue_lines = await asyncio.to_thread(openai_service.extract_dialogue, content)
         complete_step()
 
-        start_step("Starting audio generation...")
+        start_step(get_translation("starting_audio", user_language))
         audio_path = await asyncio.to_thread(openai_service.generate_audio_for_dialogue, dialogue_lines, user.id)
         complete_step()
 
-        start_step("Merging individual audio files...")
+        start_step(get_translation("merging_audio", user_language))
         await asyncio.sleep(0.2)  # visual delay
         complete_step()
 
@@ -128,7 +135,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         stop_event.set()
         await spinner
         logger.error(f"Error in section_01 command for user {user.id}: {e}", exc_info=True)
-        await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(get_translation("error_occurred", user_language, error=str(e)), parse_mode=ParseMode.MARKDOWN)
 
         # Delete the user's command message even if an error occurred
         await delete_user_command_message(update, context)
@@ -139,7 +146,13 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     user = update.effective_user
     logger.info(f"User {user.id} requested section_02 (Reading Section)")
 
-    msg = await update.message.reply_text("```\nStarting...\n```", parse_mode=ParseMode.MARKDOWN_V2)
+    # Get user's language preference
+    db_user = get_user_by_telegram_id(user.id)
+    user_language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        user_language = db_user.settings.language.language
+
+    msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
 
     stop_event = asyncio.Event()
     spinner_task_func, start_step, complete_step = create_spinner()
@@ -159,7 +172,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 user_language_level = db_user.settings.language_level.level
         # No fallback needed anymore as language is only in settings
 
-        start_step("Fetching random person data...")
+        start_step(get_translation("fetching_person", user_language))
         person_data = get_random_person_data()
 
         if not person_data:
@@ -211,7 +224,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         ```
         """
 
-        start_step(f"Generating content about {person_data['name']}")
+        start_step(get_translation("generating_content", user_language, topic=person_data['name']))
         content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
 
         complete_step()
@@ -230,7 +243,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         stop_event.set()
         await spinner
         logger.error(f"Error in section_02 command for user {user.id}: {e}", exc_info=True)
-        await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(get_translation("error_occurred", user_language, error=str(e)), parse_mode=ParseMode.MARKDOWN)
 
         # Delete the user's command message even if an error occurred
         await delete_user_command_message(update, context)
@@ -256,7 +269,13 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
     user = update.effective_user
     logger.info(f"User {user.id} requested communication command")
 
-    msg = await update.message.reply_text("```\nStarting...\n```", parse_mode=ParseMode.MARKDOWN_V2)
+    # Get user's language preference
+    db_user = get_user_by_telegram_id(user.id)
+    user_language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        user_language = db_user.settings.language.language
+
+    msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
 
     stop_event = asyncio.Event()
     spinner_task_func, start_step, complete_step = create_spinner()
@@ -265,7 +284,7 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         from bot.db.communication_generator import get_random_communication
 
-        start_step("Fetching communication data...")
+        start_step(get_translation("fetching_communication", user_language))
         communication_data = get_random_communication()
 
         if not communication_data:
@@ -283,13 +302,14 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(description, parse_mode=ParseMode.MARKDOWN)
 
         # Check if the image_url is a local path or a URL
+        caption = get_translation("write_paragraph", user_language)
         if image_url.startswith(('http://', 'https://')):
             # It's a URL, send it directly
-            await update.message.reply_photo(image_url, caption="Write a short paragraph in Icelandic describing this image.")
+            await update.message.reply_photo(image_url, caption=caption)
         else:
             # It's a local path, open the file and send it
             with open(image_url, "rb") as image_file:
-                await update.message.reply_photo(image_file, caption="Write a short paragraph in Icelandic describing this image.")
+                await update.message.reply_photo(image_file, caption=caption)
 
         logger.info(f"Successfully sent communication data to user {user.id}")
 
@@ -300,7 +320,7 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
         stop_event.set()
         await spinner
         logger.error(f"Error in communication command for user {user.id}: {e}", exc_info=True)
-        await update.message.reply_text(f"Sorry, an error occurred: {str(e)}", parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(get_translation("error_occurred", user_language, error=str(e)), parse_mode=ParseMode.MARKDOWN)
 
         # Delete the user's command message even if an error occurred
         await delete_user_command_message(update, context)
