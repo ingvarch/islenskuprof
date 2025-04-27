@@ -40,10 +40,10 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user = update.effective_user
     logger.info(f"User {user.id} requested settings menu")
 
-    # Create keyboard with language, language level, and voice speed buttons
+    # Create keyboard with language, language level, and voice speed buttons (2 buttons per row)
     keyboard = [
-        [InlineKeyboardButton("🌍 Language", callback_data=LANGUAGE_MENU)],
-        [InlineKeyboardButton("📝 Language Level", callback_data=LANGUAGE_LEVEL_MENU)],
+        [InlineKeyboardButton("🌍 Language", callback_data=LANGUAGE_MENU), 
+         InlineKeyboardButton("📝 Language Level", callback_data=LANGUAGE_LEVEL_MENU)],
         [InlineKeyboardButton("🎧 Voice Speed", callback_data=AUDIO_SPEED_MENU)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -53,8 +53,9 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     # Send message with inline keyboard
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Settings",
-        reply_markup=reply_markup
+        text="*Settings:*",
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN
     )
     logger.info(f"Settings menu sent to user {user.id}")
 
