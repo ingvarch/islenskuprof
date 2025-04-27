@@ -62,25 +62,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 @restricted
 @track_user_activity
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message with available commands when the command /help is issued."""
-    user = update.effective_user
-    logger.info(f"User {user.id} requested help")
-    help_text = (
-        "Available commands :\n"
-        "/start - Start interaction with the bot\n"
-        "/help - Show list of available commands\n"
-        "/understanding - Understanding Section (Listening and Reading)\n"
-        "/communication - Communication Section\n"
-        "/settings - Bot settings\n"
-    )
-    await update.message.reply_text(help_text, parse_mode=None)
-
-    # Delete the user's command message
-    await delete_user_command_message(update, context)
-
-@restricted
-@track_user_activity
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle unknown commands."""
     user = update.effective_user

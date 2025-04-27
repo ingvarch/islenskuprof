@@ -13,7 +13,6 @@ from telegram.ext import (
 from bot.utils.commands import register_bot_commands
 from bot.handlers.basic_handlers import (
     start_command,
-    help_command,
     unknown_command
 )
 from bot.handlers.section_handlers import (
