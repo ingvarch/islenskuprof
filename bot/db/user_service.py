@@ -132,12 +132,13 @@ def get_user_by_telegram_id(telegram_id):
     """
     session = get_db_session()
     try:
-        # Eagerly load the settings relationship and its language to avoid DetachedInstanceError
+        # Eagerly load the settings relationship and its language and audio_speed to avoid DetachedInstanceError
         user = session.query(User).options(
-            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language)
+            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language),
+            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.audio_speed)
         ).filter(User.telegram_id == telegram_id).first()
 
-        # User settings and language are already loaded through the joinedload above
+        # User settings, language, and audio_speed are already loaded through the joinedload above
 
         return user
     except SQLAlchemyError as e:
@@ -214,6 +215,69 @@ def get_all_languages():
     except SQLAlchemyError as e:
         logger.error(f"Error getting all languages: {e}")
         return []
+    finally:
+        session.close()
+
+def get_all_audio_speeds():
+    """
+    Get all available audio speeds.
+
+    Returns:
+        list: List of AudioSpeed objects
+    """
+    session = get_db_session()
+    try:
+        audio_speeds = session.query(AudioSpeed).order_by(AudioSpeed.id).all()
+        return audio_speeds
+    except SQLAlchemyError as e:
+        logger.error(f"Error getting all audio speeds: {e}")
+        return []
+    finally:
+        session.close()
+
+def update_user_audio_speed(telegram_id, audio_speed_id):
+    """
+    Update the audio speed setting for a user in the user_settings table.
+
+    Args:
+        telegram_id: Telegram user ID
+        audio_speed_id: ID of the audio speed to set
+
+    Returns:
+        bool: True if the user settings were updated, False otherwise
+    """
+    session = get_db_session()
+    try:
+        # Get the user by telegram_id
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if not user:
+            logger.warning(f"User {telegram_id} not found for updating audio speed")
+            return False
+
+        # Check if user has settings
+        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
+
+        if user_settings:
+            # Update existing settings
+            user_settings.audio_speed_id = audio_speed_id
+            session.commit()
+            logger.info(f"Updated audio speed for user {telegram_id} to audio_speed_id {audio_speed_id}")
+            return True
+        else:
+            # Create new settings with default language_id=None
+            new_settings = UserSettings(
+                user_id=user.id,
+                audio_speed_id=audio_speed_id,
+                language_id=None
+            )
+            session.add(new_settings)
+            session.commit()
+            logger.info(f"Created new settings with audio speed for user {telegram_id} to audio_speed_id {audio_speed_id}")
+            return True
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(f"Error updating audio speed for user {telegram_id}: {e}")
+        return False
     finally:
         session.close()
 
