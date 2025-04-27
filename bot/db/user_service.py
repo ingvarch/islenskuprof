@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 import sqlalchemy.orm
 from bot.db.database import get_db_session
-from bot.db.models import User, Language, UserSettings, AudioSpeed
+from bot.db.models import User, Language, UserSettings, AudioSpeed, LanguageLevel
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -74,11 +74,21 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
             else:
                 default_audio_speed_id = default_audio_speed.id
 
-            # Create user settings with default language
+            # Get the default language level (A2)
+            default_language_level = session.query(LanguageLevel).filter(LanguageLevel.level == "A2").first()
+            if not default_language_level:
+                logger.warning("A2 language level not found in the database, this should not happen")
+                # If A2 language level is not found, we'll use None
+                default_language_level_id = None
+            else:
+                default_language_level_id = default_language_level.id
+
+            # Create user settings with default language and language level
             user_settings = UserSettings(
                 user_id=user.id,
                 audio_speed_id=default_audio_speed_id,
-                language_id=english_language.id
+                language_id=english_language.id,
+                language_level_id=default_language_level_id
             )
             session.add(user_settings)
             session.commit()
@@ -132,10 +142,11 @@ def get_user_by_telegram_id(telegram_id):
     """
     session = get_db_session()
     try:
-        # Eagerly load the settings relationship and its language and audio_speed to avoid DetachedInstanceError
+        # Eagerly load the settings relationship and its language, audio_speed, and language_level to avoid DetachedInstanceError
         user = session.query(User).options(
             sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language),
-            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.audio_speed)
+            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.audio_speed),
+            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language_level)
         ).filter(User.telegram_id == telegram_id).first()
 
         # User settings, language, and audio_speed are already loaded through the joinedload above
@@ -235,6 +246,24 @@ def get_all_audio_speeds():
     finally:
         session.close()
 
+
+def get_all_language_levels():
+    """
+    Get all available language levels.
+
+    Returns:
+        list: List of LanguageLevel objects
+    """
+    session = get_db_session()
+    try:
+        language_levels = session.query(LanguageLevel).order_by(LanguageLevel.id).all()
+        return language_levels
+    except SQLAlchemyError as e:
+        logger.error(f"Error getting all language levels: {e}")
+        return []
+    finally:
+        session.close()
+
 def update_user_audio_speed(telegram_id, audio_speed_id):
     """
     Update the audio speed setting for a user in the user_settings table.
@@ -315,5 +344,61 @@ def get_user_audio_speed(telegram_id):
     except SQLAlchemyError as e:
         logger.error(f"Error getting audio speed for user {telegram_id}: {e}")
         return 1.0  # Default speed on error
+    finally:
+        session.close()
+
+
+def update_user_language_level(telegram_id, language_level_id):
+    """
+    Update the language level setting for a user in the user_settings table.
+
+    Args:
+        telegram_id: Telegram user ID
+        language_level_id: ID of the language level to set
+
+    Returns:
+        bool: True if the user settings were updated, False otherwise
+    """
+    session = get_db_session()
+    try:
+        # Get the user by telegram_id
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if not user:
+            logger.warning(f"User {telegram_id} not found for updating language level")
+            return False
+
+        # Check if user has settings
+        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
+
+        if user_settings:
+            # Update existing settings
+            user_settings.language_level_id = language_level_id
+            session.commit()
+            logger.info(f"Updated language level for user {telegram_id} to language_level_id {language_level_id}")
+            return True
+        else:
+            # Create new settings with default audio_speed_id and language_id=None
+            # Get the default audio speed (Normal)
+            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
+            if not default_audio_speed:
+                default_audio_speed_id = 3  # Fallback to ID 3 if not found
+            else:
+                default_audio_speed_id = default_audio_speed.id
+
+            # Create new user settings
+            new_settings = UserSettings(
+                user_id=user.id,
+                audio_speed_id=default_audio_speed_id,
+                language_id=None,
+                language_level_id=language_level_id
+            )
+            session.add(new_settings)
+            session.commit()
+            logger.info(f"Created new settings with language level for user {telegram_id} to language_level_id {language_level_id}")
+            return True
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(f"Error updating language level for user {telegram_id}: {e}")
+        return False
     finally:
         session.close()

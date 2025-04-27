@@ -333,6 +333,31 @@ class AudioSpeed(Base):
         return f"<AudioSpeed(id={self.id}, speed={self.speed}, description={self.description})>"
 
 
+class LanguageLevel(Base):
+    """
+    LanguageLevel model for storing language proficiency levels.
+    """
+    __tablename__ = "language_levels"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    level = Column(String, nullable=False, unique=True)
+
+    def __init__(self, level):
+        """
+        Initialize a new language level.
+
+        Args:
+            level: Language proficiency level (e.g., 'A1', 'B2', 'C1')
+        """
+        self.level = level
+
+    def __repr__(self):
+        """
+        String representation of the language level.
+        """
+        return f"<LanguageLevel(id={self.id}, level={self.level})>"
+
+
 class UserSettings(Base):
     """
     UserSettings model for storing user preferences.
@@ -343,13 +368,15 @@ class UserSettings(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     audio_speed_id = Column(Integer, ForeignKey('audio_speeds.id'), nullable=False)
     language_id = Column(Integer, ForeignKey('languages.id'), nullable=True)
+    language_level_id = Column(Integer, ForeignKey('language_levels.id'), nullable=True)
 
     # Define relationships
     user = relationship("User", back_populates="settings")
     audio_speed = relationship("AudioSpeed")
     language = relationship("Language")
+    language_level = relationship("LanguageLevel")
 
-    def __init__(self, user_id, audio_speed_id, language_id=None):
+    def __init__(self, user_id, audio_speed_id, language_id=None, language_level_id=None):
         """
         Initialize new user settings.
 
@@ -357,10 +384,12 @@ class UserSettings(Base):
             user_id: ID of the user (foreign key to users table)
             audio_speed_id: ID of the audio speed (foreign key to audio_speeds table)
             language_id: ID of the language (foreign key to languages table)
+            language_level_id: ID of the language level (foreign key to language_levels table)
         """
         self.user_id = user_id
         self.audio_speed_id = audio_speed_id
         self.language_id = language_id
+        self.language_level_id = language_level_id
 
     def __repr__(self):
         """
