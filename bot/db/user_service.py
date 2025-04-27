@@ -216,3 +216,40 @@ def get_all_languages():
         return []
     finally:
         session.close()
+
+def get_user_audio_speed(telegram_id):
+    """
+    Get the audio speed setting for a user.
+
+    Args:
+        telegram_id: Telegram user ID
+
+    Returns:
+        float: The audio speed value or 1.0 if not found
+    """
+    session = get_db_session()
+    try:
+        # Get the user by telegram_id
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if not user:
+            logger.warning(f"User {telegram_id} not found for getting audio speed")
+            return 1.0  # Default speed if user not found
+
+        # Get the user settings
+        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
+        if not user_settings:
+            logger.warning(f"User settings not found for user {telegram_id}")
+            return 1.0  # Default speed if settings not found
+
+        # Get the audio speed
+        audio_speed = session.query(AudioSpeed).filter(AudioSpeed.id == user_settings.audio_speed_id).first()
+        if not audio_speed:
+            logger.warning(f"Audio speed not found for user settings {user_settings.id}")
+            return 1.0  # Default speed if audio speed not found
+
+        return audio_speed.speed
+    except SQLAlchemyError as e:
+        logger.error(f"Error getting audio speed for user {telegram_id}: {e}")
+        return 1.0  # Default speed on error
+    finally:
+        session.close()

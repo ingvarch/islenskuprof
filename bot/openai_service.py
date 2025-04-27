@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 from openai import OpenAI
 from pydub import AudioSegment
+from bot.db.user_service import get_user_audio_speed
 
 logger = logging.getLogger(__name__)
 
@@ -93,12 +94,13 @@ class OpenAIService:
         return dialogue_lines
 
 
-    def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]]) -> str:
+    def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None) -> str:
         """
         Generate audio files for each line in the dialogue and merge them into a single file.
 
         Args:
             dialogue_lines: List of (speaker, text) tuples
+            user_id: Telegram user ID to get audio speed settings (optional)
 
         Returns:
             Path to the generated audio file
@@ -108,15 +110,21 @@ class OpenAIService:
         logger.debug(f"Created temporary directory: {temp_dir}")
         temp_files = []
 
+        # Get user's audio speed if user_id is provided
+        user_audio_speed = 1.0  # Default speed
+        if user_id:
+            user_audio_speed = get_user_audio_speed(user_id)
+            logger.info(f"Using audio speed {user_audio_speed} for user {user_id}")
+
         # Define consistent voice settings for each speaker
         voice_settings = {
             "Kona": {
                 "voice": "alloy",
-                "speed": 1.0,  # Add consistent speed parameter
+                "speed": user_audio_speed,  # Use user's audio speed
             },
             "Maður": {
                 "voice": "echo",
-                "speed": 1.0,  # Add consistent speed parameter
+                "speed": user_audio_speed,  # Use user's audio speed
             }
         }
 

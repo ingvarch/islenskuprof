@@ -96,7 +96,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         complete_step()
 
         start_step("Starting audio generation...")
-        audio_path = await asyncio.to_thread(openai_service.generate_audio_for_dialogue, dialogue_lines)
+        audio_path = await asyncio.to_thread(openai_service.generate_audio_for_dialogue, dialogue_lines, user.id)
         complete_step()
 
         start_step("Merging individual audio files...")
