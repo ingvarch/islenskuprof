@@ -171,18 +171,31 @@ async def audio_speed_menu_callback(update: Update, context: ContextTypes.DEFAUL
         )
         return
 
-    # Create keyboard with audio speed buttons
+    # Create keyboard with audio speed buttons (2 buttons per row)
     keyboard = []
+    current_row = []
+
     for audio_speed in audio_speeds:
         # Add emoji based on speed
         # emoji = "🐢" if audio_speed.speed < 1.0 else "🐇" if audio_speed.speed > 1.0 else "🐾"
         button_text = f"{audio_speed.description}"
         callback_data = f"{AUDIO_SPEED_SELECT_PREFIX}{audio_speed.id}"
         logger.info(f"Adding audio speed button: {button_text} with callback_data: {callback_data}")
-        keyboard.append([InlineKeyboardButton(
+
+        # Add button to current row
+        current_row.append(InlineKeyboardButton(
             button_text,
             callback_data=callback_data
-        )])
+        ))
+
+        # If we have 2 buttons in the current row, add it to the keyboard and start a new row
+        if len(current_row) == 2:
+            keyboard.append(current_row)
+            current_row = []
+
+    # Add any remaining buttons (in case of odd number of buttons)
+    if current_row:
+        keyboard.append(current_row)
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     logger.info(f"Created audio speed selection keyboard with {len(audio_speeds)} buttons")
