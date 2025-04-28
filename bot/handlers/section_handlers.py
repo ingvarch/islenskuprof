@@ -93,8 +93,39 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             *Orðabók*
 
             ```
-            Here is the top-20 hardest word or phrases from the text with translation to {user_language}
-            * [word] - [translation]
+            KEY VOCABULARY:
+
+            * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}]
+            * [Another key word] (grammatical info) - [Translation] - [Part of speech] in {user_language}]
+            * þurfa - нуждаться, требоваться - глагол
+            * [Include all words that will appear in Grammar Notes section]
+            ```
+
+            ```
+            USEFUL PHRASES:
+
+            * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
+            * [Greeting/Expression] - [Translation] - [When to use this phrase]
+            ```
+
+            ```
+            WORD COMBINATIONS:
+
+            * [Common word combination] - [Translation showing how meaning changes in this context]
+            * [Combination using words from KEY VOCABULARY section] - [Translation and usage example]
+            ```
+
+            ```
+            GRAMMAR NOTES:
+
+            * [Grammatical construction from dialogue] - [Explanation in {user_language}]
+            * Þurfa + að + инфинитив - выражение необходимости (используя глагол þurfa из словаря)
+            * [Other grammatical notes using words already listed in KEY VOCABULARY]
+            ```
+
+            Important: Ensure all words mentioned in GRAMMAR NOTES are first included in the KEY VOCABULARY section.
+            Include 15-20 items total, prioritizing practical expressions and phrases over single words.
+            Avoid including very basic words that a {user_language_level} learner would already know.
             ```
             """
 
@@ -205,7 +236,6 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         Your output MUST strictly follow this exact template format:
 
-
         *Saga um [person]*
 
         ```
@@ -219,8 +249,31 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         *Orðabók*
 
         ```
-        Here is the top-20 hardest word or phrases from the text with translation to {user_language}
-        * [word] - [translation]
+        KEY VOCABULARY:
+        * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}
+        * [Include all words that will appear in Grammar Notes section]
+        ```
+
+        ```
+        USEFUL PHRASES:
+        * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
+        * [Expression from the passage] - [Translation] - [When to use this phrase]
+        ```
+
+        ```
+        WORD COMBINATIONS:
+        * [Common word combination from the passage] - [Translation showing how meaning changes in this context]
+        * [Combination using words from KEY VOCABULARY section] - [Translation and usage example]
+        ```
+
+        ```
+        GRAMMAR NOTES:
+        * [Grammatical construction from the passage] - [Explanation in {user_language}]
+        * [Other grammatical notes using words already listed in KEY VOCABULARY]
+
+        Important: Ensure all words mentioned in GRAMMAR NOTES are first included in the KEY VOCABULARY section.
+        Include 15-20 items total, prioritizing practical expressions and phrases over single words.
+        Avoid including very basic words that a {user_language_level} learner would already know.
         ```
         """
 
