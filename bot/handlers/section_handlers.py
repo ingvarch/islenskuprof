@@ -304,17 +304,28 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 @restricted
 @track_user_activity
 async def understanding_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /understanding command by randomly selecting between listening and reading sections."""
+    """Handle the /understanding command by alternating between listening and reading sections for each user."""
     user = update.effective_user
     logger.info(f"User {user.id} requested understanding command")
 
-    # Randomly select between dialogue_story and about_story
-    if random.choice([True, False]):
-        logger.info(f"Randomly selected listening section for user {user.id}")
+    # Get user from database
+    db_user = get_user_by_telegram_id(user.id)
+
+    # Determine which section to show based on last selection
+    if not db_user or not db_user.settings or not db_user.settings.last_section or db_user.settings.last_section == 'reading':
+        # If no previous selection or last was reading, show listening
+        logger.info(f"Selected listening section for user {user.id} (alternating)")
         await dialogue_story(update, context)
+        # Update the last section
+        from bot.db.user_service import update_user_last_section
+        update_user_last_section(user.id, 'listening')
     else:
-        logger.info(f"Randomly selected reading section for user {user.id}")
+        # If last was listening, show reading
+        logger.info(f"Selected reading section for user {user.id} (alternating)")
         await about_story(update, context)
+        # Update the last section
+        from bot.db.user_service import update_user_last_section
+        update_user_last_section(user.id, 'reading')
 
 @restricted
 @track_user_activity

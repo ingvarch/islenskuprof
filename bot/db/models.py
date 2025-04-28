@@ -369,6 +369,7 @@ class UserSettings(Base):
     audio_speed_id = Column(Integer, ForeignKey('audio_speeds.id'), nullable=False)
     language_id = Column(Integer, ForeignKey('languages.id'), nullable=True)
     language_level_id = Column(Integer, ForeignKey('language_levels.id'), nullable=True)
+    last_section = Column(String, nullable=True)  # Can be 'listening' or 'reading'
 
     # Define relationships
     user = relationship("User", back_populates="settings")
@@ -376,7 +377,7 @@ class UserSettings(Base):
     language = relationship("Language")
     language_level = relationship("LanguageLevel")
 
-    def __init__(self, user_id, audio_speed_id, language_id=None, language_level_id=None):
+    def __init__(self, user_id, audio_speed_id, language_id=None, language_level_id=None, last_section=None):
         """
         Initialize new user settings.
 
@@ -385,11 +386,13 @@ class UserSettings(Base):
             audio_speed_id: ID of the audio speed (foreign key to audio_speeds table)
             language_id: ID of the language (foreign key to languages table)
             language_level_id: ID of the language level (foreign key to language_levels table)
+            last_section: Last section shown to the user ('listening' or 'reading')
         """
         self.user_id = user_id
         self.audio_speed_id = audio_speed_id
         self.language_id = language_id
         self.language_level_id = language_level_id
+        self.last_section = last_section
 
     def __repr__(self):
         """

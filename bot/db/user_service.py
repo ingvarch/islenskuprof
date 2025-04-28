@@ -402,3 +402,59 @@ def update_user_language_level(telegram_id, language_level_id):
         return False
     finally:
         session.close()
+
+
+def update_user_last_section(telegram_id, section):
+    """
+    Update the last section shown to a user in the user_settings table.
+
+    Args:
+        telegram_id: Telegram user ID
+        section: Section name ('listening' or 'reading')
+
+    Returns:
+        bool: True if the user settings were updated, False otherwise
+    """
+    session = get_db_session()
+    try:
+        # Get the user by telegram_id
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if not user:
+            logger.warning(f"User {telegram_id} not found for updating last section")
+            return False
+
+        # Check if user has settings
+        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
+
+        if user_settings:
+            # Update existing settings
+            user_settings.last_section = section
+            session.commit()
+            logger.info(f"Updated last section for user {telegram_id} to {section}")
+            return True
+        else:
+            # Create new settings with default audio_speed_id and language_id=None
+            # Get the default audio speed (Normal)
+            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
+            if not default_audio_speed:
+                default_audio_speed_id = 3  # Fallback to ID 3 if not found
+            else:
+                default_audio_speed_id = default_audio_speed.id
+
+            # Create new user settings
+            new_settings = UserSettings(
+                user_id=user.id,
+                audio_speed_id=default_audio_speed_id,
+                language_id=None,
+                last_section=section
+            )
+            session.add(new_settings)
+            session.commit()
+            logger.info(f"Created new settings with last section for user {telegram_id} to {section}")
+            return True
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(f"Error updating last section for user {telegram_id}: {e}")
+        return False
+    finally:
+        session.close()
