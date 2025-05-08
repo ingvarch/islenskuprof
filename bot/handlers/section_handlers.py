@@ -148,10 +148,37 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         stop_event.set()
         await spinner
 
-        await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
+        # Split content into three parts
+        # 1. Title and dialogue section
+        # 2. Audio file (already separate)
+        # 3. Questions and dictionary/vocabulary sections
 
-        with open(audio_path, "rb") as audio_file:
-            await update.message.reply_audio(audio_file, title="Icelandic Dialogue")
+        # Find the markers for splitting
+        dialogue_end_marker = "*Spurningar um samtal*"
+
+        # Split the content
+        parts = content.split(dialogue_end_marker, 1)
+
+        if len(parts) == 2:
+            first_part = parts[0].strip()
+            third_part = dialogue_end_marker + parts[1].strip()
+
+            # Send first part (title and dialogue)
+            await update.message.reply_text(first_part, parse_mode=ParseMode.MARKDOWN)
+
+            # Send audio file
+            with open(audio_path, "rb") as audio_file:
+                await update.message.reply_audio(audio_file, title="Icelandic Dialogue")
+
+            # Send third part (questions and vocabulary)
+            await update.message.reply_text(third_part, parse_mode=ParseMode.MARKDOWN)
+        else:
+            # Fallback if splitting fails
+            logger.warning("Failed to split content, sending as a single message")
+            await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
+
+            with open(audio_path, "rb") as audio_file:
+                await update.message.reply_audio(audio_file, title="Icelandic Dialogue")
 
         audio_path_obj = Path(audio_path)
         if audio_path_obj.exists():
