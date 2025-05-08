@@ -30,15 +30,56 @@ def main():
 
     # Get the bot token from environment variables
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
+    ai_provider = os.environ.get("AI_PROVIDER", "OPENAI").upper()
 
     if not token:
         logger.error("TELEGRAM_BOT_TOKEN environment variable is not set")
         return
 
-    if not openai_api_key:
-        logger.error("OPENAI_API_KEY environment variable is not set. Bot will not function correctly.")
-        return
+    # Check for the appropriate API key based on the selected AI provider
+    logger.info(f"Using AI provider: {ai_provider}")
+
+    if ai_provider == "OPENAI":
+        openai_api_key = os.environ.get("OPENAI_API_KEY")
+        openai_model = os.environ.get("OPENAI_MODEL")
+
+        if not openai_api_key:
+            logger.error("OPENAI_API_KEY environment variable is not set. Bot will not function correctly.")
+            return
+
+        if not openai_model:
+            logger.error("OPENAI_MODEL environment variable is not set. Bot will not function correctly.")
+            return
+
+        logger.info(f"OpenAI API key found, using model: {openai_model}")
+    elif ai_provider == "CLAUDE":
+        claude_api_key = os.environ.get("CLAUDE_API_KEY")
+        claude_model = os.environ.get("CLAUDE_MODEL", "claude-3-opus-20240229")  # Default model if not specified
+        openai_api_key = os.environ.get("OPENAI_API_KEY")  # Still needed for TTS
+
+        if not claude_api_key:
+            logger.error("CLAUDE_API_KEY environment variable is not set. Bot will not function correctly.")
+            return
+        logger.info(f"Claude API key found, using model: {claude_model}")
+
+        if not openai_api_key:
+            logger.error("OPENAI_API_KEY environment variable is not set (required for TTS). Bot will not function correctly.")
+            return
+        logger.info("OpenAI API key found (required for TTS)")
+    else:
+        logger.warning(f"Unknown AI provider: {ai_provider}. Falling back to OpenAI.")
+        openai_api_key = os.environ.get("OPENAI_API_KEY")
+        openai_model = os.environ.get("OPENAI_MODEL")
+
+        if not openai_api_key:
+            logger.error("OPENAI_API_KEY environment variable is not set. Bot will not function correctly.")
+            return
+
+        if not openai_model:
+            logger.error("OPENAI_MODEL environment variable is not set. Bot will not function correctly.")
+            return
+
+        logger.info(f"Falling back to OpenAI, using model: {openai_model}")
 
     # Create data directory if it doesn't exist
     data_dir = Path(__file__).parent / "data"

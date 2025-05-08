@@ -1,5 +1,5 @@
 """
-Module for handling OpenAI API interactions.
+Module for handling Claude AI API interactions.
 """
 import os
 import logging
@@ -8,33 +8,31 @@ import re
 import requests
 from pathlib import Path
 from typing import List, Tuple, Optional
-from openai import OpenAI
+import anthropic
 from pydub import AudioSegment
 from bot.db.user_service import get_user_audio_speed
 from bot.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 
-class OpenAIService(AIService):
-    """Service for interacting with OpenAI API."""
+class ClaudeAIService(AIService):
+    """Service for interacting with Claude AI API."""
 
     def __init__(self):
-        """Initialize OpenAI client using API key from environment variables."""
-        api_key = os.environ.get("OPENAI_API_KEY")
+        """Initialize Claude client using API key from environment variables."""
+        api_key = os.environ.get("CLAUDE_API_KEY")
         if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is not set")
+            raise ValueError("CLAUDE_API_KEY environment variable is not set")
 
-        model = os.environ.get("OPENAI_MODEL")
-        if not model:
-            raise ValueError("OPENAI_MODEL environment variable is not set")
+        model = os.environ.get("CLAUDE_MODEL", "claude-3-7-sonnet-latest")
 
-        self.client = OpenAI(api_key=api_key)
+        self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
-        logger.info("OpenAI service initialized")
+        logger.info("Claude AI service initialized")
 
     def generate_icelandic_test(self, prompt: Optional[str] = None) -> str:
         """
-        Generate Icelandic language test content using OpenAI.
+        Generate Icelandic language test content using Claude.
 
         Args:
             prompt: Custom prompt to use for generation. If None, the default prompt will be used.
@@ -47,17 +45,18 @@ class OpenAIService(AIService):
         if prompt and "Spurningar" in prompt:
             prompt += "\n\nIMPORTANT: For all multiple-choice questions, mark the correct answer with (CORRECT) at the end of the option text. For example: 'a) This is the right answer (CORRECT)'."
 
-        logger.info("Sending request to OpenAI to generate Icelandic test content")
+        logger.info("Sending request to Claude to generate Icelandic test content")
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.messages.create(
                 model=self.model,
+                max_tokens=4000,
+                system="You are a helpful assistant specialized in creating Icelandic language tests. Always mark the correct answer in multiple-choice questions with (CORRECT).",
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant specialized in creating Icelandic language tests. Always mark the correct answer in multiple-choice questions with (CORRECT)."},
                     {"role": "user", "content": prompt}
                 ]
             )
-            content = response.choices[0].message.content
-            logger.info(f"Received {len(content)} characters of test content from OpenAI")
+            content = response.content[0].text
+            logger.info(f"Received {len(content)} characters of test content from Claude")
             return content
         except Exception as e:
             logger.error(f"Error generating test content: {e}")
@@ -103,10 +102,12 @@ class OpenAIService(AIService):
 
         return dialogue_lines
 
-
     def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None) -> str:
         """
         Generate audio files for each line in the dialogue and merge them into a single file.
+
+        Note: Since Claude doesn't have a native TTS API, we'll use OpenAI's TTS API for audio generation.
+        This ensures consistent audio output regardless of which AI provider is used for text generation.
 
         Args:
             dialogue_lines: List of (speaker, text) tuples
@@ -115,7 +116,7 @@ class OpenAIService(AIService):
         Returns:
             Path to the generated audio file
         """
-        logger.info(f"Generating audio for {len(dialogue_lines)} dialogue lines")
+        logger.info(f"Generating audio for {len(dialogue_lines)} dialogue lines using OpenAI TTS API")
         temp_dir = tempfile.mkdtemp()
         logger.debug(f"Created temporary directory: {temp_dir}")
         temp_files = []
@@ -139,6 +140,14 @@ class OpenAIService(AIService):
         }
 
         try:
+            # Initialize OpenAI client for TTS
+            openai_api_key = os.environ.get("OPENAI_API_KEY")
+            if not openai_api_key:
+                raise ValueError("OPENAI_API_KEY environment variable is not set (required for TTS)")
+
+            from openai import OpenAI
+            openai_client = OpenAI(api_key=openai_api_key)
+
             # Generate individual audio files for each line
             for i, (speaker, text) in enumerate(dialogue_lines):
                 # Get voice settings based on speaker
@@ -158,7 +167,7 @@ class OpenAIService(AIService):
 
                 # Generate audio with OpenAI with consistent parameters
                 try:
-                    with self.client.audio.speech.with_streaming_response.create(
+                    with openai_client.audio.speech.with_streaming_response.create(
                             model="gpt-4o-mini-tts",
                             voice=voice,
                             speed=settings["speed"],  # Add speed parameter

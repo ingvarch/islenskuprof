@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 
 from telegram.constants import ParseMode
 from bot.utils.spinner import create_spinner
-from bot.openai_service import OpenAIService
+from bot.ai_service import get_ai_service
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
 from bot.utils.message_cleaner import delete_user_command_message
@@ -120,7 +120,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     spinner = asyncio.create_task(spinner_task_func(msg, stop_event))
 
     try:
-        openai_service = OpenAIService()
+        ai_service = get_ai_service()
 
         # Get user's language preference and language level
         db_user = get_user_by_telegram_id(user.id)
@@ -175,7 +175,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
             *KEY VOCABULARY:*
-            
+
             ```
             * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}]
             * [Another key word] (grammatical info) - [Translation] - [Part of speech] in {user_language}]
@@ -185,22 +185,22 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
             *USEFUL PHRASES:*
-            
+
             ```
             * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
             * [Greeting/Expression] - [Translation] - [When to use this phrase]
             ```
 
             *WORD COMBINATIONS:*
-            
+
             ```
             * [Common word combination] - [Translation showing how meaning changes in this context]
             * [Combination using words from KEY VOCABULARY section] - [Translation and usage example]
             ```
 
-            
+
             *GRAMMAR NOTES:*
-            
+
             ```
             * [Grammatical construction from dialogue] - [Explanation in {user_language}]
             * Þurfa + að + инфинитив - выражение необходимости (используя глагол þurfa из словаря)
@@ -214,15 +214,15 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             """
 
         start_step(get_translation("generating_content", user_language, topic=topic))
-        content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
+        content = await asyncio.to_thread(ai_service.generate_icelandic_test, custom_prompt)
         complete_step()
 
         start_step(get_translation("extracting_dialogue", user_language))
-        dialogue_lines = await asyncio.to_thread(openai_service.extract_dialogue, content)
+        dialogue_lines = await asyncio.to_thread(ai_service.extract_dialogue, content)
         complete_step()
 
         start_step(get_translation("starting_audio", user_language))
-        audio_path = await asyncio.to_thread(openai_service.generate_audio_for_dialogue, dialogue_lines, user.id)
+        audio_path = await asyncio.to_thread(ai_service.generate_audio_for_dialogue, dialogue_lines, user.id)
         complete_step()
 
         start_step(get_translation("merging_audio", user_language))
@@ -314,7 +314,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     spinner = asyncio.create_task(spinner_task_func(msg, stop_event))
 
     try:
-        openai_service = OpenAIService()
+        ai_service = get_ai_service()
 
         # Get user's language preference and language level
         db_user = get_user_by_telegram_id(user.id)
@@ -377,7 +377,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
         *KEY VOCABULARY:*
-        
+
         ```
         * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}
         * [Include all words that will appear in Grammar Notes section]
@@ -385,7 +385,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
         *USEFUL PHRASES:*
-        
+
         ```
         * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
         * [Expression from the passage] - [Translation] - [When to use this phrase]
@@ -411,7 +411,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         Avoid including very basic words that a {user_language_level} learner would already know.
         ```
         """
-        content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
+        content = await asyncio.to_thread(ai_service.generate_icelandic_test, custom_prompt)
         complete_step()
 
         stop_event.set()
