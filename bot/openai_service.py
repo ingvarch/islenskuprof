@@ -22,8 +22,13 @@ class OpenAIService:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is not set")
+            
+        model = os.environ.get("OPENAI_MODEL")
+        if not model:
+            raise ValueError("OPENAI_MODEL environment variable is not set")
 
         self.client = OpenAI(api_key=api_key)
+        self.model = model
         logger.info("OpenAI service initialized")
 
     def generate_icelandic_test(self, prompt: Optional[str] = None) -> str:
@@ -44,7 +49,7 @@ class OpenAIService:
         logger.info("Sending request to OpenAI to generate Icelandic test content")
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4.1-mini",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant specialized in creating Icelandic language tests. Always mark the correct answer in multiple-choice questions with (CORRECT)."},
                     {"role": "user", "content": prompt}
