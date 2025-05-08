@@ -54,7 +54,7 @@ def main():
         logger.info(f"OpenAI API key found, using model: {openai_model}")
     elif ai_provider == "CLAUDE":
         claude_api_key = os.environ.get("CLAUDE_API_KEY")
-        claude_model = os.environ.get("CLAUDE_MODEL", "claude-3-opus-20240229")  # Default model if not specified
+        claude_model = os.environ.get("CLAUDE_MODEL", "claude-3-7-sonnet-latest")  # Default model if not specified
         openai_api_key = os.environ.get("OPENAI_API_KEY")  # Still needed for TTS
 
         if not claude_api_key:
