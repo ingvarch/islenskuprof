@@ -2,8 +2,9 @@ import logging
 import os
 import asyncio
 import random
+import re
 from pathlib import Path
-from telegram import Update
+from telegram import Update, Poll
 from telegram.ext import ContextTypes
 
 from telegram.constants import ParseMode
@@ -19,6 +20,80 @@ from bot.db.user_service import get_user_by_telegram_id
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
+
+async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -> None:
+    """
+    Parse multiple-choice questions from content and send them as quiz polls.
+
+    Args:
+        update: The update object from Telegram
+        content: The content containing the questions
+        marker: The marker that precedes the questions section (e.g., "*Spurningar*")
+    """
+    # Extract the questions section
+    parts = content.split(marker, 1)
+    if len(parts) != 2:
+        logger.warning("Failed to find questions section")
+        return
+
+    # Get the questions part (everything after the marker until the next section marker)
+    questions_text = parts[1].strip()
+    next_section = questions_text.find("*")
+    if next_section != -1:
+        questions_text = questions_text[:next_section].strip()
+
+    # Split into individual questions
+    # Look for patterns like "1. Question" or "1) Question" or just numbered lines
+    questions = re.split(r'\n\s*\d+[\.\)]\s+|\n\s*\d+\.\s+|\n\s*\d+\s+', questions_text)
+    questions = [q.strip() for q in questions if q.strip()]
+
+    if not questions:
+        logger.warning("No questions found in the content")
+        return
+
+    # Process each question
+    for question in questions:
+        # Split the question into the question text and options
+        lines = question.split('\n')
+        if not lines:
+            continue
+
+        question_text = lines[0].strip()
+        options = []
+
+        # Extract options (a, b, c) or (A, B, C) format
+        for i, line in enumerate(lines[1:]):
+            line = line.strip()
+            if not line:
+                continue
+
+            # Remove option markers like a), b), c) or A), B), C)
+            option_match = re.match(r'^[a-zA-Z]\)\s*(.+)$', line)
+            if option_match:
+                option_text = option_match.group(1).strip()
+            else:
+                option_text = line
+
+            options.append(option_text)
+
+        if options:
+            # Assume the first option is correct, but randomize the order
+            correct_option = options[0]
+
+            # Shuffle the options to randomize the position of the correct answer
+            random.shuffle(options)
+
+            # Find the new position of the correct answer
+            correct_option_id = options.index(correct_option)
+            # Send the poll
+            await update.message.reply_poll(
+                question=question_text,
+                options=options,
+                type=Poll.QUIZ,
+                correct_option_id=correct_option_id,
+                is_anonymous=False,
+                explanation="Veldu rétta svarið (Choose the correct answer)"
+            )
 
 @restricted
 @track_user_activity
@@ -71,7 +146,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             * The dialogue should include 8-10 exchanges and be in Icelandic.
             * Include common phrases that would be useful in such a setting.
             * Clearly identify speakers with labels like "Kona:" (Woman) and "Maður:" (Man)
-            * After the dialogue, add 3 multiple-choice questions about details in the conversation.
+            * After the dialogue, add 5 multiple-choice questions about details in the conversation.
             * Make sure all sections reflect common vocabulary and sentence structures suitable for {user_language_level} level in the CEFR framework.
             Format the dialogue clearly so I can easily extract it for audio processing.
 
@@ -88,7 +163,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             *Spurningar um samtal*
 
-            [3 multiple-choice questions about the dialogue in Icelandic]
+            [5 multiple-choice questions about the dialogue in Icelandic]
 
             *Orðabók*
 
@@ -148,20 +223,29 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         stop_event.set()
         await spinner
 
-        # Split content into three parts
+        # Split content into parts
         # 1. Title and dialogue section
         # 2. Audio file (already separate)
-        # 3. Questions and dictionary/vocabulary sections
+        # 3. Questions (to be sent as polls)
+        # 4. Dictionary/vocabulary sections
 
         # Find the markers for splitting
         dialogue_end_marker = "*Spurningar um samtal*"
+        vocabulary_marker = "*Orðabók*"
 
         # Split the content
         parts = content.split(dialogue_end_marker, 1)
 
         if len(parts) == 2:
             first_part = parts[0].strip()
-            third_part = dialogue_end_marker + parts[1].strip()
+            remaining_content = parts[1].strip()
+
+            # Further split to separate questions from vocabulary
+            vocab_parts = remaining_content.split(vocabulary_marker, 1)
+            if len(vocab_parts) == 2:
+                vocabulary_part = vocabulary_marker + vocab_parts[1].strip()
+            else:
+                vocabulary_part = ""
 
             # Send first part (title and dialogue)
             await update.message.reply_text(first_part, parse_mode=ParseMode.MARKDOWN)
@@ -170,8 +254,12 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             with open(audio_path, "rb") as audio_file:
                 await update.message.reply_audio(audio_file, title="Icelandic Dialogue")
 
-            # Send third part (questions and vocabulary)
-            await update.message.reply_text(third_part, parse_mode=ParseMode.MARKDOWN)
+            # Send questions as quiz polls
+            await parse_and_send_quiz_polls(update, content, dialogue_end_marker)
+
+            # Send vocabulary part if it exists
+            if vocabulary_part:
+                await update.message.reply_text(vocabulary_part, parse_mode=ParseMode.MARKDOWN)
         else:
             # Fallback if splitting fails
             logger.warning("Failed to split content, sending as a single message")
@@ -266,7 +354,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         *Saga um [person]*
 
         ```
-        [passage"]
+        [passage]
         ```
 
         *Spurningar*
@@ -277,24 +365,28 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         ```
         KEY VOCABULARY:
+
         * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}
         * [Include all words that will appear in Grammar Notes section]
         ```
 
         ```
         USEFUL PHRASES:
+
         * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
         * [Expression from the passage] - [Translation] - [When to use this phrase]
         ```
 
         ```
         WORD COMBINATIONS:
+
         * [Common word combination from the passage] - [Translation showing how meaning changes in this context]
         * [Combination using words from KEY VOCABULARY section] - [Translation and usage example]
         ```
 
         ```
         GRAMMAR NOTES:
+
         * [Grammatical construction from the passage] - [Explanation in {user_language}]
         * [Other grammatical notes using words already listed in KEY VOCABULARY]
 
@@ -312,7 +404,42 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         stop_event.set()
         await spinner
 
-        await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
+        # Split content into parts
+        # 1. Passage section
+        # 2. Questions (to be sent as polls)
+        # 3. Dictionary/vocabulary sections
+
+        # Find the markers for splitting
+        questions_marker = "*Spurningar*"
+        vocabulary_marker = "*Orðabók*"
+
+        # Split to get the passage part
+        passage_parts = content.split(questions_marker, 1)
+
+        if len(passage_parts) == 2:
+            passage_part = passage_parts[0].strip()
+            remaining_content = passage_parts[1].strip()
+
+            # Further split to separate questions from vocabulary
+            vocab_parts = remaining_content.split(vocabulary_marker, 1)
+            if len(vocab_parts) == 2:
+                vocabulary_part = vocabulary_marker + vocab_parts[1].strip()
+            else:
+                vocabulary_part = ""
+
+            # Send passage part
+            await update.message.reply_text(passage_part, parse_mode=ParseMode.MARKDOWN)
+
+            # Send questions as quiz polls
+            await parse_and_send_quiz_polls(update, content, questions_marker)
+
+            # Send vocabulary part if it exists
+            if vocabulary_part:
+                await update.message.reply_text(vocabulary_part, parse_mode=ParseMode.MARKDOWN)
+        else:
+            # Fallback if splitting fails
+            logger.warning("Failed to split content, sending as a single message")
+            await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
 
         logger.info(f"Successfully sent reading comprehension to user {user.id}")
 
