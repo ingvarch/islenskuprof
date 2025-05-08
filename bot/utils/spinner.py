@@ -26,7 +26,7 @@ def create_spinner():
 
             i += 1
             try:
-                await asyncio.wait_for(update_event.wait(), timeout=0.25)
+                await asyncio.wait_for(update_event.wait(), timeout=0.75)
                 update_event.clear()
             except asyncio.TimeoutError:
                 pass
