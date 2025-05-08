@@ -123,7 +123,7 @@ class OpenAIService:
                 "speed": user_audio_speed,  # Use user's audio speed
             },
             "Maður": {
-                "voice": "echo",
+                "voice": "onyx",
                 "speed": user_audio_speed,  # Use user's audio speed
             }
         }
@@ -138,9 +138,10 @@ class OpenAIService:
                 logger.info(f"Generating audio for line {i+1}: {speaker} - '{text[:30]}...' using voice '{voice}'")
 
                 instructions = """
-                Speak in an authentic Icelandic accent. Pronounce words naturally as a native Icelandic speaker would.
-                Tone: Clear and conversational, appropriate for an everyday dialogue.
-                Speed: Natural conversational pace with appropriate pauses.
+                Voice: Clear, authoritative, and composed, projecting confidence and professionalism.
+                Tone: Neutral and informative, maintaining a balance between formality and approachability.
+                Punctuation: Structured with commas and pauses for clarity, ensuring information is digestible and well-paced.
+                Delivery: Steady and measured, with slight emphasis on key figures and deadlines to highlight critical points.
                 """
 
                 file_path = os.path.join(temp_dir, f"part_{i}.mp3")
@@ -152,6 +153,7 @@ class OpenAIService:
                             voice=voice,
                             speed=settings["speed"],  # Add speed parameter
                             input=text,
+                            instructions=instructions,
                             response_format="mp3",
                     ) as response:
                         logger.debug(f"Streaming audio response to file: {file_path}")
