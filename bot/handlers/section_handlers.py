@@ -60,6 +60,7 @@ async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -
 
         question_text = lines[0].strip()
         options = []
+        correct_option_id = 0  # Default to first option if no marker found
 
         # Extract options (a, b, c) or (A, B, C) format
         for i, line in enumerate(lines[1:]):
@@ -74,25 +75,30 @@ async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -
             else:
                 option_text = line
 
+            # Check if this option is marked as correct with (CORRECT) marker
+            is_correct = False
+            if "(CORRECT)" in option_text:
+                is_correct = True
+                option_text = option_text.replace("(CORRECT)", "").strip()
+                correct_option_id = len(options)  # Current position will be the correct answer
+
             options.append(option_text)
 
         if options:
-            # Assume the first option is correct, but randomize the order
-            correct_option = options[0]
+            # Shuffle the options while keeping track of correct answer
+            combined = list(zip(options, [i == correct_option_id for i in range(len(options))]))
+            random.shuffle(combined)
+            options, correct_positions = zip(*combined)
+            options = list(options)
+            correct_option_id = correct_positions.index(True)
 
-            # Shuffle the options to randomize the position of the correct answer
-            random.shuffle(options)
-
-            # Find the new position of the correct answer
-            correct_option_id = options.index(correct_option)
             # Send the poll
             await update.message.reply_poll(
                 question=question_text,
                 options=options,
                 type=Poll.QUIZ,
                 correct_option_id=correct_option_id,
-                is_anonymous=False,
-                explanation="Veldu rétta svarið (Choose the correct answer)"
+                is_anonymous=False
             )
 
 @restricted
@@ -167,32 +173,35 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             *Orðabók*
 
-            ```
-            KEY VOCABULARY:
 
+            *KEY VOCABULARY:*
+            
+            ```
             * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}]
             * [Another key word] (grammatical info) - [Translation] - [Part of speech] in {user_language}]
             * þurfa - нуждаться, требоваться - глагол
             * [Include all words that will appear in Grammar Notes section]
             ```
 
-            ```
-            USEFUL PHRASES:
 
+            *USEFUL PHRASES:*
+            
+            ```
             * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
             * [Greeting/Expression] - [Translation] - [When to use this phrase]
             ```
 
+            *WORD COMBINATIONS:*
+            
             ```
-            WORD COMBINATIONS:
-
             * [Common word combination] - [Translation showing how meaning changes in this context]
             * [Combination using words from KEY VOCABULARY section] - [Translation and usage example]
             ```
 
+            
+            *GRAMMAR NOTES:*
+            
             ```
-            GRAMMAR NOTES:
-
             * [Grammatical construction from dialogue] - [Explanation in {user_language}]
             * Þurfa + að + инфинитив - выражение необходимости (используя глагол þurfa из словаря)
             * [Other grammatical notes using words already listed in KEY VOCABULARY]
@@ -328,6 +337,9 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         complete_step()
 
         # Format the prompt with the person data
+
+        start_step(get_translation("generating_content", user_language, topic=person_data['name']))
+
         custom_prompt = f"""
         Write a short Icelandic reading comprehension passage - 20-25 sentences long ({user_language_level} CEFR level) 
         about a person's daily life in Iceland. 
@@ -363,30 +375,34 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         *Orðabók*
 
-        ```
-        KEY VOCABULARY:
 
+        *KEY VOCABULARY:*
+        
+        ```
         * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}
         * [Include all words that will appear in Grammar Notes section]
         ```
 
-        ```
-        USEFUL PHRASES:
 
+        *USEFUL PHRASES:*
+        
+        ```
         * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
         * [Expression from the passage] - [Translation] - [When to use this phrase]
         ```
 
-        ```
-        WORD COMBINATIONS:
 
+        *WORD COMBINATIONS:*
+
+        ```
         * [Common word combination from the passage] - [Translation showing how meaning changes in this context]
         * [Combination using words from KEY VOCABULARY section] - [Translation and usage example]
         ```
 
-        ```
-        GRAMMAR NOTES:
 
+        *GRAMMAR NOTES:*
+
+        ```
         * [Grammatical construction from the passage] - [Explanation in {user_language}]
         * [Other grammatical notes using words already listed in KEY VOCABULARY]
 
@@ -395,10 +411,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         Avoid including very basic words that a {user_language_level} learner would already know.
         ```
         """
-
-        start_step(get_translation("generating_content", user_language, topic=person_data['name']))
         content = await asyncio.to_thread(openai_service.generate_icelandic_test, custom_prompt)
-
         complete_step()
 
         stop_event.set()

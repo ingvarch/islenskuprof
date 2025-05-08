@@ -37,12 +37,16 @@ class OpenAIService:
             str: Generated test content
         """
 
+        # Add instruction to mark correct answers
+        if prompt and "Spurningar" in prompt:
+            prompt += "\n\nIMPORTANT: For all multiple-choice questions, mark the correct answer with (CORRECT) at the end of the option text. For example: 'a) This is the right answer (CORRECT)'."
+
         logger.info("Sending request to OpenAI to generate Icelandic test content")
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4.1-mini",
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant specialized in creating Icelandic language tests."},
+                    {"role": "system", "content": "You are a helpful assistant specialized in creating Icelandic language tests. Always mark the correct answer in multiple-choice questions with (CORRECT)."},
                     {"role": "user", "content": prompt}
                 ]
             )
