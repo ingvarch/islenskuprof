@@ -34,7 +34,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "en": "Voice speed",
         "ru": "Скорость голоса"
     },
-    
+
     # Commands
     "available_commands": {
         "en": "Available commands",
@@ -56,7 +56,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "en": "Bot settings",
         "ru": "Настройки бота"
     },
-    
+
     # Error messages
     "unknown_command": {
         "en": "Sorry I don't know that command. Type /start to see the list of available commands.",
@@ -66,7 +66,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "en": "Sorry, an error occurred: {error}",
         "ru": "Извините, произошла ошибка: {error}"
     },
-    
+
     # Settings messages
     "settings": {
         "en": "Settings:",
@@ -88,7 +88,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "en": "Error: No languages available. Please contact the administrator.",
         "ru": "Ошибка: Нет доступных языков. Пожалуйста, свяжитесь с администратором."
     },
-    
+
     # Audio speed settings
     "select_audio_speed": {
         "en": "Select audio playback speed:",
@@ -98,7 +98,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "en": "Audio speed updated to {speed}",
         "ru": "Скорость аудио изменена на {speed}"
     },
-    
+
     # Language level settings
     "select_language_level": {
         "en": "Select your language proficiency level:",
@@ -108,7 +108,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "en": "Language level updated to {level}",
         "ru": "Уровень языка изменен на {level}"
     },
-    
+
     # Section handlers messages
     "starting": {
         "en": "Starting...",
@@ -145,16 +145,22 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "write_paragraph": {
         "en": "Write a short paragraph in Icelandic describing this image.",
         "ru": "Напишите короткий абзац на исландском языке, описывающий это изображение."
+    },
+
+    # Processing status messages
+    "already_processing": {
+        "en": "I'm already processing your request. Please wait until it's completed.",
+        "ru": "Я уже обрабатываю ваш запрос. Пожалуйста, подождите до его завершения."
     }
 }
 
 def get_flag_emoji(language_code: str) -> str:
     """
     Get the flag emoji for a language code.
-    
+
     Args:
         language_code: Language code (e.g., 'en', 'ru')
-        
+
     Returns:
         str: Flag emoji for the language
     """
@@ -181,24 +187,24 @@ def get_flag_emoji(language_code: str) -> str:
         "vi": "🇻🇳",  # Vietnamese
         "th": "🇹🇭",  # Thai
     }
-    
+
     return flags.get(language_code.lower(), "🌐")  # Default to globe emoji if language not found
 
 def get_translation(message_id: str, language: Optional[str] = None, **kwargs) -> str:
     """
     Get a translated message based on the user's language preference.
-    
+
     Args:
         message_id: ID of the message to translate
         language: Language to translate to (e.g., 'English', 'Russian')
         **kwargs: Format parameters for the translated message
-        
+
     Returns:
         str: Translated message
     """
     # Default to English if language is not provided or not found
     language_code = "en"
-    
+
     # Convert language name to language code
     if language:
         language_lower = language.lower()
@@ -207,13 +213,13 @@ def get_translation(message_id: str, language: Optional[str] = None, **kwargs) -
         elif language_lower == "russian":
             language_code = "ru"
         # Add more language mappings as needed
-    
+
     # Get the translations for the message ID
     message_translations = TRANSLATIONS.get(message_id, {})
-    
+
     # Get the translation for the language code, or fall back to English
     translation = message_translations.get(language_code, message_translations.get("en", f"[{message_id}]"))
-    
+
     # Format the translation with the provided parameters
     try:
         return translation.format(**kwargs)

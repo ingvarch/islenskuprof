@@ -39,7 +39,7 @@ def create_bot(token: str) -> Application:
     """
     # Create the Application
     logger.info("Creating Telegram bot application")
-    application = Application.builder().token(token).build()
+    application = Application.builder().token(token).concurrent_updates(8).build()
 
     # Add command handlers
     logger.debug("Adding command handlers")

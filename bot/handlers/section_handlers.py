@@ -21,6 +21,10 @@ from bot.db.user_service import get_user_by_telegram_id
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
+# Dictionary to track ongoing requests per user and command type
+# Key: (user_id, command_type), Value: True if processing
+ongoing_requests = {}
+
 async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -> None:
     """
     Parse multiple-choice questions from content and send them as quiz polls.
@@ -146,14 +150,14 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         custom_prompt = f"""
             Create an Icelandic language proficiency test for citizenship purposes focusing on just ONE dialogue scenario.
             IMPORTANT: The topic for this dialogue is: {topic}
-            
+
             STRICTLY follow these guidelines for {user_language_level} level according to CEFR:
             * A1: Only use basic phrases, present tense, simple questions. Vocabulary limited to 500 most common words. Only simple sentences (subject-verb-object).
             * A2: Simple past tense allowed, basic conjunctions, vocabulary up to 1000 most common words. Simple sentences with basic connectors.
             * B1: Some compound sentences, more verb tenses, vocabulary up to 2000 most common words. Avoid idioms and complex structures.
             * B2: Natural flow of conversation, wider range of vocabulary up to 4000 words, some idioms allowed but explained in footnotes.
             * C1-C2: No restrictions on vocabulary or grammar complexity.
-            
+
             Listening Section:
             * Create a realistic dialogue between two people (a man and a woman) about the chosen everyday topic.
             * The dialogue should include 8-10 exchanges and be in Icelandic.
@@ -161,7 +165,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             * Clearly identify speakers with labels like "Kona:" (Woman) and "Maður:" (Man)
             * After the dialogue, add 5 multiple-choice questions about details in the conversation.
             * Double-check that ALL words and structures in the dialogue strictly match the specified CEFR level.
-            
+
             Format the dialogue clearly so I can easily extract it for audio processing.
 
             Your output MUST strictly follow this exact template format:
@@ -351,16 +355,16 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         custom_prompt = f"""
         Write a short Icelandic reading comprehension passage - 20-25 sentences long ({user_language_level} CEFR level) 
         about a person's daily life in Iceland.
-        
+
         STRICTLY follow these guidelines for {user_language_level} level according to CEFR:
         * A1: Only use basic phrases, present tense, simple questions. Vocabulary limited to 500 most common words. Only simple sentences (subject-verb-object). Sentences should be very short (5-7 words).
         * A2: Simple past tense allowed, basic conjunctions, vocabulary up to 1000 most common words. Simple sentences with basic connectors like "og" (and), "en" (but), "því" (because).
         * B1: Some compound sentences, more verb tenses, vocabulary up to 2000 most common words. Avoid idioms and complex structures. 
         * B2: Natural flow of text, wider range of vocabulary up to 4000 words, some idioms allowed but explained in footnotes.
         * C1-C2: No restrictions on vocabulary or grammar complexity.
-        
+
         Use the following information to guide the story:
-        
+
         - Name: {person_data["name"]}
         - Gender: {person_data["gender"]}
         - Age: {person_data["age"]}
@@ -369,20 +373,20 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         - Children: {person_data["number_of_children"]} children (ages {person_data["age_of_children"]})
         - Usual weekend activity: {person_data["weekend_activity"]}
         - Plan for today: {person_data["current_plan"]}
-        
+
         Before writing the passage:
         1. Make sure to use time expressions, daily routine verbs, and family-related vocabulary appropriate for the specified level.
-        
+
         The passage should:
         - Use vocabulary and grammar structures strictly matching the {user_language_level} level
         - Include frequently used Icelandic phrases for the level
         - Have clear paragraph breaks for readability
         - Use sentence length appropriate for the level (shorter for A1-A2, gradually longer for B1-B2)
-        
+
         After the passage, add 5 multiple-choice comprehension questions in Icelandic with three answer choices each. 
         The questions should test understanding of where the person is from, what job they do, what time they wake up, 
         etc. Ensure that the questions and answer choices also follow the same CEFR level restrictions.
-        
+
         Your output MUST strictly follow this exact template format:
 
         *Saga um [person]*
@@ -500,21 +504,45 @@ async def understanding_command(update: Update, context: ContextTypes.DEFAULT_TY
     # Get user from database
     db_user = get_user_by_telegram_id(user.id)
 
-    # Determine which section to show based on last selection
-    if not db_user or not db_user.settings or not db_user.settings.last_section or db_user.settings.last_section == 'reading':
-        # If no previous selection or last was reading, show listening
-        logger.info(f"Selected listening section for user {user.id} (alternating)")
-        await dialogue_story(update, context)
-        # Update the last section
-        from bot.db.user_service import update_user_last_section
-        update_user_last_section(user.id, 'listening')
-    else:
-        # If last was listening, show reading
-        logger.info(f"Selected reading section for user {user.id} (alternating)")
-        await about_story(update, context)
-        # Update the last section
-        from bot.db.user_service import update_user_last_section
-        update_user_last_section(user.id, 'reading')
+    # Get user's language preference
+    user_language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        user_language = db_user.settings.language.language
+
+    # Check if user already has an ongoing request
+    if (user.id, "understanding") in ongoing_requests:
+        logger.info(f"User {user.id} already has an ongoing understanding request")
+        # Send popup message
+        await update.message.reply_text(
+            get_translation("already_processing", user_language),
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
+    try:
+        # Mark user as having an ongoing request
+        ongoing_requests[(user.id, "understanding")] = True
+
+        # Determine which section to show based on last selection
+        if not db_user or not db_user.settings or not db_user.settings.last_section or db_user.settings.last_section == 'reading':
+            # If no previous selection or last was reading, show listening
+            logger.info(f"Selected listening section for user {user.id} (alternating)")
+            await dialogue_story(update, context)
+            # Update the last section
+            from bot.db.user_service import update_user_last_section
+            update_user_last_section(user.id, 'listening')
+        else:
+            # If last was listening, show reading
+            logger.info(f"Selected reading section for user {user.id} (alternating)")
+            await about_story(update, context)
+            # Update the last section
+            from bot.db.user_service import update_user_last_section
+            update_user_last_section(user.id, 'reading')
+    finally:
+        # Remove user from ongoing requests, even if an error occurred
+        if (user.id, "understanding") in ongoing_requests:
+            del ongoing_requests[(user.id, "understanding")]
+            logger.info(f"Removed user {user.id} from ongoing understanding requests")
 
 @restricted
 @track_user_activity
@@ -527,6 +555,19 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
     user_language = "English"  # Default to English if no language preference is set
     if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
         user_language = db_user.settings.language.language
+
+    # Check if user already has an ongoing request
+    if (user.id, "communication") in ongoing_requests:
+        logger.info(f"User {user.id} already has an ongoing communication request")
+        # Send popup message
+        await update.message.reply_text(
+            get_translation("already_processing", user_language),
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
+    # Mark user as having an ongoing request
+    ongoing_requests[(user.id, "communication")] = True
 
     msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
 
@@ -577,3 +618,8 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
 
         # Delete the user's command message even if an error occurred
         await delete_user_command_message(update, context)
+    finally:
+        # Remove user from ongoing requests, even if an error occurred
+        if (user.id, "communication") in ongoing_requests:
+            del ongoing_requests[(user.id, "communication")]
+            logger.info(f"Removed user {user.id} from ongoing communication requests")
