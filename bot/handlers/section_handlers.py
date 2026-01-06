@@ -247,7 +247,11 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         else:
             # Fallback if splitting fails
             logger.warning("Failed to split content, sending as a single message")
-            await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
+            try:
+                await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
+            except Exception as md_error:
+                logger.warning(f"Markdown parsing failed, sending as plain text: {md_error}")
+                await update.message.reply_text(content)
 
             with open(audio_path, "rb") as audio_file:
                 await update.message.reply_audio(audio_file, title=f"{lang_config.name} Dialogue")
@@ -358,7 +362,11 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else:
             # Fallback if splitting fails
             logger.warning("Failed to split content, sending as a single message")
-            await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
+            try:
+                await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
+            except Exception as md_error:
+                logger.warning(f"Markdown parsing failed, sending as plain text: {md_error}")
+                await update.message.reply_text(content)
 
         logger.info(f"Successfully sent reading comprehension to user {user.id}")
 
