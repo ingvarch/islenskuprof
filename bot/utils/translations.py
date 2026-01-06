@@ -169,6 +169,24 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "already_processing": {
         "en": "I'm already processing your request. Please wait until it's completed.",
         "ru": "Я уже обрабатываю ваш запрос. Пожалуйста, подождите до его завершения."
+    },
+
+    # Background effects settings
+    "background_effects": {
+        "en": "Background Effects",
+        "ru": "Фоновые эффекты"
+    },
+    "background_effects_updated": {
+        "en": "Background effects {status}",
+        "ru": "Фоновые эффекты {status}"
+    },
+    "enabled": {
+        "en": "enabled",
+        "ru": "включены"
+    },
+    "disabled": {
+        "en": "disabled",
+        "ru": "выключены"
     }
 }
 

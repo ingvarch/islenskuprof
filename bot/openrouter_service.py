@@ -160,7 +160,7 @@ class OpenRouterService(AIService):
 
         return dialogue_lines
 
-    def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None, lang_config=None) -> str:
+    def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None, lang_config=None, language_level: str = "A2") -> str:
         """
         Generate audio files for each line in the dialogue and merge them into a single file.
 
@@ -170,6 +170,7 @@ class OpenRouterService(AIService):
             dialogue_lines: List of (speaker, text) tuples
             user_id: Telegram user ID to get audio speed settings (optional)
             lang_config: Language configuration (optional, defaults to TARGET_LANGUAGE config)
+            language_level: CEFR language level for VoxFX effects (default: A2)
 
         Returns:
             Path to the generated audio file
@@ -177,4 +178,4 @@ class OpenRouterService(AIService):
         from bot.voicemaker_service import get_voicemaker_service
 
         voicemaker = get_voicemaker_service()
-        return voicemaker.generate_audio_for_dialogue(dialogue_lines, user_id, lang_config)
+        return voicemaker.generate_audio_for_dialogue(dialogue_lines, user_id, lang_config, language_level)

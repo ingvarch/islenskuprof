@@ -14,7 +14,8 @@ from bot.db.user_service import (
     get_user_by_telegram_id, update_user_language, get_all_languages,
     get_all_audio_speeds, update_user_audio_speed,
     get_all_language_levels, update_user_language_level,
-    get_all_target_languages, get_target_language_by_id, update_user_target_language
+    get_all_target_languages, get_target_language_by_id, update_user_target_language,
+    get_user_background_effects, update_user_background_effects
 )
 
 # Get logger for this module
@@ -40,6 +41,9 @@ TARGET_LANGUAGE_PREFIX = "target_lang_"
 TARGET_LANGUAGE_MENU = "target_lang_menu"
 TARGET_LANGUAGE_SELECT_PREFIX = "target_lang_select_"
 
+# Background effects callback data
+BACKGROUND_EFFECTS_TOGGLE = "bg_effects_toggle"
+
 @restricted
 @track_user_activity
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -53,16 +57,21 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
         language = db_user.settings.language.language
 
-    # Create keyboard with language, target language, language level, and voice speed buttons (2 buttons per row)
+    # Get background effects status
+    bg_effects_enabled = get_user_background_effects(user.id)
+    bg_effects_status = "✅" if bg_effects_enabled else "❌"
+
+    # Create keyboard with language, target language, language level, voice speed, and background effects buttons
     keyboard = [
         [InlineKeyboardButton("🌍 " + get_translation("bot_language", language), callback_data=LANGUAGE_MENU),
          InlineKeyboardButton("📚 " + get_translation("target_language", language), callback_data=TARGET_LANGUAGE_MENU)],
         [InlineKeyboardButton("📝 " + get_translation("learning_level", language), callback_data=LANGUAGE_LEVEL_MENU),
-         InlineKeyboardButton("🎧 " + get_translation("voice_speed", language), callback_data=AUDIO_SPEED_MENU)]
+         InlineKeyboardButton("🎧 " + get_translation("voice_speed", language), callback_data=AUDIO_SPEED_MENU)],
+        [InlineKeyboardButton(f"🔊 {get_translation('background_effects', language)} {bg_effects_status}", callback_data=BACKGROUND_EFFECTS_TOGGLE)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    logger.info(f"Creating settings keyboard with language, target language, language level, and voice speed buttons")
+    logger.info(f"Creating settings keyboard with language, target language, language level, voice speed, and background effects buttons")
 
     # Send message with inline keyboard
     await context.bot.send_message(
@@ -545,6 +554,46 @@ async def target_language_select_callback(update: Update, context: ContextTypes.
             logger.error(f"Error editing message: {e}", exc_info=True)
 
 
+async def background_effects_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the background effects toggle callback."""
+    query = update.callback_query
+    user = update.effective_user
+    logger.info(f"BACKGROUND EFFECTS TOGGLE CALLBACK ENTERED for user {user.id}")
+
+    # Get user's language preference
+    db_user = get_user_by_telegram_id(user.id)
+    language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        language = db_user.settings.language.language
+
+    # Get current state and toggle it
+    current_state = get_user_background_effects(user.id)
+    new_state = not current_state
+
+    # First answer the callback query
+    await query.answer()
+
+    # Update the setting
+    success = update_user_background_effects(user.id, new_state)
+
+    if success:
+        status = get_translation("enabled", language) if new_state else get_translation("disabled", language)
+        message = get_translation("background_effects_updated", language, status=status) + " ✅"
+        logger.info(f"User {user.id} toggled background effects to {new_state}")
+
+        try:
+            await query.edit_message_text(text=message)
+            logger.info(f"Successfully updated message with confirmation for user {user.id}")
+        except Exception as e:
+            logger.error(f"Error editing message: {e}", exc_info=True)
+    else:
+        logger.error(f"Failed to update background effects for user {user.id}")
+        try:
+            await query.edit_message_text(text=get_translation('error_occurred', language, error="Failed to update background effects"))
+        except Exception as e:
+            logger.error(f"Error editing message: {e}", exc_info=True)
+
+
 async def settings_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle settings callback queries."""
     query = update.callback_query
@@ -578,6 +627,9 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
     elif callback_data.startswith(TARGET_LANGUAGE_SELECT_PREFIX):
         logger.info(f"Routing to target_language_select_callback for user {user.id}")
         await target_language_select_callback(update, context)
+    elif callback_data == BACKGROUND_EFFECTS_TOGGLE:
+        logger.info(f"Routing to background_effects_toggle_callback for user {user.id}")
+        await background_effects_toggle_callback(update, context)
     else:
         # Handle unknown callback data
         logger.warning(f"Unknown callback_data received: {callback_data}")

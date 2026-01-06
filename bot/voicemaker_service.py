@@ -9,7 +9,7 @@ import requests
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 from pydub import AudioSegment
-from bot.db.user_service import get_user_audio_speed
+from bot.db.user_service import get_user_audio_speed, get_user_background_effects
 from bot.languages import get_language_config
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,29 @@ ENGINE_MAP = {
     "ai2": "neural",
     "pro1": "neural",
     "standard": "standard",
+}
+
+# VoxFX preset mapping by CEFR level
+# Lower levels = cleaner audio, higher levels = more challenging listening conditions
+VOXFX_PRESETS_BY_LEVEL = {
+    "A1": None,  # No effects - clear audio for beginners
+    "A2": None,  # No effects - clear audio for elementary
+    "B1": {
+        "presetId": "67841788096cecfe8b18b2d5",  # Train Station
+        "dryWet": 30,  # Light effect
+    },
+    "B2": {
+        "presetId": "67841788096cecfe8b18b2d3",  # Airport Announcement
+        "dryWet": 50,  # Medium effect
+    },
+    "C1": {
+        "presetId": "67841788096cecfe8b18b2d7",  # Subway Train Inside
+        "dryWet": 60,  # Stronger effect
+    },
+    "C2": {
+        "presetId": "67841788096cecfe8b18b2f7",  # Poor Signal
+        "dryWet": 70,  # Challenging listening conditions
+    },
 }
 
 
@@ -61,6 +84,7 @@ class VoiceMakerService:
         voice_id: str,
         language_code: str,
         speed: int = 0,
+        voxfx: Optional[Dict] = None,
     ) -> bytes:
         """
         Generate audio for a single text using VoiceMaker API.
@@ -70,6 +94,7 @@ class VoiceMakerService:
             voice_id: VoiceMaker voice ID (e.g., "ai3-is-IS-Svana")
             language_code: Language code (e.g., "is-IS")
             speed: Speed adjustment (-100 to 100), default 0
+            voxfx: Optional VoxFX preset configuration for background effects
 
         Returns:
             Audio data as bytes
@@ -91,6 +116,11 @@ class VoiceMakerService:
             "MasterSpeed": str(speed),
             "MasterPitch": "0",
         }
+
+        # Add VoxFX effects if provided
+        if voxfx:
+            payload["VoxFx"] = voxfx
+            logger.debug(f"Applying VoxFX preset: {voxfx['presetId']} with dryWet: {voxfx['dryWet']}")
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -152,6 +182,7 @@ class VoiceMakerService:
         dialogue_lines: List[Tuple[str, str]],
         user_id: Optional[int] = None,
         lang_config=None,
+        language_level: str = "A2",
     ) -> str:
         """
         Generate audio files for each line in the dialogue and merge them into a single file.
@@ -160,6 +191,7 @@ class VoiceMakerService:
             dialogue_lines: List of (speaker, text) tuples
             user_id: Telegram user ID to get audio speed settings (optional)
             lang_config: Language configuration (optional, defaults to TARGET_LANGUAGE config)
+            language_level: CEFR language level for VoxFX effects (default: A2)
 
         Returns:
             Path to the generated audio file
@@ -174,9 +206,21 @@ class VoiceMakerService:
 
         # Get user's audio speed if user_id is provided
         user_audio_speed = 1.0  # Default speed
+        background_effects_enabled = False
         if user_id:
             user_audio_speed = get_user_audio_speed(user_id)
+            background_effects_enabled = get_user_background_effects(user_id)
             logger.info(f"Using audio speed {user_audio_speed} for user {user_id}")
+            logger.info(f"Background effects enabled: {background_effects_enabled}")
+
+        # Get VoxFX preset based on language level (only if enabled)
+        voxfx_preset = None
+        if background_effects_enabled:
+            voxfx_preset = VOXFX_PRESETS_BY_LEVEL.get(language_level)
+            if voxfx_preset:
+                logger.info(f"Using VoxFX preset for {language_level} level: {voxfx_preset['presetId']}")
+            else:
+                logger.info(f"No VoxFX preset for {language_level} level (clean audio)")
 
         # Convert speed to VoiceMaker format (-100 to 100)
         # user_audio_speed is typically 0.5 to 2.0, where 1.0 is normal
@@ -208,6 +252,7 @@ class VoiceMakerService:
                         voice_id=voice_id,
                         language_code=language_code,
                         speed=voicemaker_speed,
+                        voxfx=voxfx_preset,
                     )
 
                     with open(file_path, "wb") as f:

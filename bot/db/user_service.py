@@ -552,3 +552,90 @@ def update_user_target_language(telegram_id, target_language_id):
         return False
     finally:
         session.close()
+
+
+def get_user_background_effects(telegram_id):
+    """
+    Get the background effects setting for a user.
+
+    Args:
+        telegram_id: Telegram user ID
+
+    Returns:
+        bool: True if background effects are enabled, False otherwise
+    """
+    session = get_db_session()
+    try:
+        # Get the user by telegram_id
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if not user:
+            logger.warning(f"User {telegram_id} not found for getting background effects")
+            return False  # Default to disabled
+
+        # Get the user settings
+        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
+        if not user_settings:
+            logger.warning(f"User settings not found for user {telegram_id}")
+            return False  # Default to disabled
+
+        return user_settings.background_effects
+    except SQLAlchemyError as e:
+        logger.error(f"Error getting background effects for user {telegram_id}: {e}")
+        return False  # Default to disabled on error
+    finally:
+        session.close()
+
+
+def update_user_background_effects(telegram_id, enabled):
+    """
+    Update the background effects setting for a user in the user_settings table.
+
+    Args:
+        telegram_id: Telegram user ID
+        enabled: Whether to enable background effects
+
+    Returns:
+        bool: True if the user settings were updated, False otherwise
+    """
+    session = get_db_session()
+    try:
+        # Get the user by telegram_id
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if not user:
+            logger.warning(f"User {telegram_id} not found for updating background effects")
+            return False
+
+        # Check if user has settings
+        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
+
+        if user_settings:
+            # Update existing settings
+            user_settings.background_effects = enabled
+            session.commit()
+            logger.info(f"Updated background effects for user {telegram_id} to {enabled}")
+            return True
+        else:
+            # Create new settings with default audio_speed_id
+            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
+            if not default_audio_speed:
+                default_audio_speed_id = 3  # Fallback to ID 3 if not found
+            else:
+                default_audio_speed_id = default_audio_speed.id
+
+            # Create new user settings
+            new_settings = UserSettings(
+                user_id=user.id,
+                audio_speed_id=default_audio_speed_id,
+                language_id=None,
+                background_effects=enabled
+            )
+            session.add(new_settings)
+            session.commit()
+            logger.info(f"Created new settings with background effects for user {telegram_id} to {enabled}")
+            return True
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(f"Error updating background effects for user {telegram_id}: {e}")
+        return False
+    finally:
+        session.close()
