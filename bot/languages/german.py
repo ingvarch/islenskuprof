@@ -211,6 +211,7 @@ Example of appropriate {user_language_level} complexity: {constraints['example_c
 * Create a realistic dialogue between "{female_label}" (woman) and "{male_label}" (man)
 * CRITICAL: The dialogue MUST alternate between {female_label} and {male_label} - both speakers must be present!
 * Include 8-10 exchanges in German (each speaker speaks 4-5 times)
+* The dialogue MUST have a natural conclusion - end with a statement (agreement, confirmation, goodbye), NOT a question!
 * After the dialogue, add 5 multiple-choice questions (also at {user_language_level} level!)
 * VERIFY: Every single word and sentence matches {user_language_level} level before including it
 
@@ -224,11 +225,12 @@ Your output MUST strictly follow this exact template format:
 {markers.listen_instruction}
 
 ```
-{female_label}: [first line]
+{female_label}: [first line - starts the conversation]
 {male_label}: [response]
-{female_label}: [next line]
+{female_label}: [continues]
 {male_label}: [response]
-... (continue alternating between {female_label} and {male_label})
+... (continue alternating)
+{female_label} or {male_label}: [FINAL LINE - must be a closing statement like agreement, thanks, or goodbye - NOT a question!]
 ```
 
 {markers.dialogue_questions}
