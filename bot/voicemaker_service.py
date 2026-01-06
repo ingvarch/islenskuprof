@@ -14,8 +14,9 @@ from bot.languages import get_language_config
 
 logger = logging.getLogger(__name__)
 
-# VoiceMaker API endpoint
+# VoiceMaker API endpoints
 VOICEMAKER_API_URL = "https://developer.voicemaker.in/voice/api"
+VOICEMAKER_VOXFX_API_URL = "https://developer.voicemaker.in/api/v1/voice/convert"
 
 # Language code mapping for VoiceMaker
 LANGUAGE_CODE_MAP = {
@@ -117,13 +118,14 @@ class VoiceMakerService:
             "MasterPitch": "0",
         }
 
-        # TODO: VoxFX temporarily disabled - need to verify correct API format
-        # The current format breaks audio generation (produces clicks instead of speech)
-        # if voxfx:
-        #     payload["VoxFx"] = voxfx
-        #     logger.debug(f"Applying VoxFX preset: {voxfx['presetId']} with dryWet: {voxfx['dryWet']}")
+        # Determine which API endpoint to use
+        # VoxFX effects require the /api/v1/voice/convert endpoint
         if voxfx:
-            logger.info(f"VoxFX preset requested but temporarily disabled: {voxfx['presetId']}")
+            api_url = VOICEMAKER_VOXFX_API_URL
+            payload["VoxFx"] = voxfx
+            logger.info(f"Using VoxFX endpoint with preset: {voxfx['presetId']}, dryWet: {voxfx['dryWet']}")
+        else:
+            api_url = VOICEMAKER_API_URL
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -136,7 +138,7 @@ class VoiceMakerService:
                 logger.debug(f"Sending TTS request to VoiceMaker: voice={voice_id}, text='{text[:50]}...'")
 
                 response = requests.post(
-                    VOICEMAKER_API_URL,
+                    api_url,
                     json=payload,
                     headers=headers,
                     timeout=60,
