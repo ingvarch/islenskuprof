@@ -562,7 +562,7 @@ def get_user_background_effects(telegram_id):
         telegram_id: Telegram user ID
 
     Returns:
-        bool: True if background effects are enabled, False otherwise
+        str: Background effects setting ("off", "auto", or preset ID)
     """
     session = get_db_session()
     try:
@@ -570,29 +570,29 @@ def get_user_background_effects(telegram_id):
         user = session.query(User).filter(User.telegram_id == telegram_id).first()
         if not user:
             logger.warning(f"User {telegram_id} not found for getting background effects")
-            return False  # Default to disabled
+            return "off"  # Default to off
 
         # Get the user settings
         user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
         if not user_settings:
             logger.warning(f"User settings not found for user {telegram_id}")
-            return False  # Default to disabled
+            return "off"  # Default to off
 
-        return user_settings.background_effects
+        return user_settings.background_effects or "off"
     except SQLAlchemyError as e:
         logger.error(f"Error getting background effects for user {telegram_id}: {e}")
-        return False  # Default to disabled on error
+        return "off"  # Default to off on error
     finally:
         session.close()
 
 
-def update_user_background_effects(telegram_id, enabled):
+def update_user_background_effects(telegram_id, preset_value):
     """
     Update the background effects setting for a user in the user_settings table.
 
     Args:
         telegram_id: Telegram user ID
-        enabled: Whether to enable background effects
+        preset_value: Background effects preset ("off", "auto", or preset ID)
 
     Returns:
         bool: True if the user settings were updated, False otherwise
@@ -610,9 +610,9 @@ def update_user_background_effects(telegram_id, enabled):
 
         if user_settings:
             # Update existing settings
-            user_settings.background_effects = enabled
+            user_settings.background_effects = preset_value
             session.commit()
-            logger.info(f"Updated background effects for user {telegram_id} to {enabled}")
+            logger.info(f"Updated background effects for user {telegram_id} to {preset_value}")
             return True
         else:
             # Create new settings with default audio_speed_id
@@ -627,11 +627,11 @@ def update_user_background_effects(telegram_id, enabled):
                 user_id=user.id,
                 audio_speed_id=default_audio_speed_id,
                 language_id=None,
-                background_effects=enabled
+                background_effects=preset_value
             )
             session.add(new_settings)
             session.commit()
-            logger.info(f"Created new settings with background effects for user {telegram_id} to {enabled}")
+            logger.info(f"Created new settings with background effects for user {telegram_id} to {preset_value}")
             return True
     except SQLAlchemyError as e:
         session.rollback()

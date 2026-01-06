@@ -17,6 +17,7 @@ from bot.db.user_service import (
     get_all_target_languages, get_target_language_by_id, update_user_target_language,
     get_user_background_effects, update_user_background_effects
 )
+from bot.voicemaker_service import VOXFX_PRESETS
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -42,7 +43,8 @@ TARGET_LANGUAGE_MENU = "target_lang_menu"
 TARGET_LANGUAGE_SELECT_PREFIX = "target_lang_select_"
 
 # Background effects callback data
-BACKGROUND_EFFECTS_TOGGLE = "bg_effects_toggle"
+BACKGROUND_EFFECTS_MENU = "bg_effects_menu"
+BACKGROUND_EFFECTS_SELECT_PREFIX = "bg_effects_select_"
 
 @restricted
 @track_user_activity
@@ -58,8 +60,15 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         language = db_user.settings.language.language
 
     # Get background effects status
-    bg_effects_enabled = get_user_background_effects(user.id)
-    bg_effects_status = "✅" if bg_effects_enabled else "❌"
+    bg_effects_setting = get_user_background_effects(user.id)
+    if bg_effects_setting == "off":
+        bg_effects_display = "❌"
+    elif bg_effects_setting == "auto":
+        bg_effects_display = "🎲"
+    elif bg_effects_setting in VOXFX_PRESETS:
+        bg_effects_display = VOXFX_PRESETS[bg_effects_setting]["emoji"]
+    else:
+        bg_effects_display = "❌"
 
     # Create keyboard with language, target language, language level, voice speed, and background effects buttons
     keyboard = [
@@ -67,7 +76,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
          InlineKeyboardButton("📚 " + get_translation("target_language", language), callback_data=TARGET_LANGUAGE_MENU)],
         [InlineKeyboardButton("📝 " + get_translation("learning_level", language), callback_data=LANGUAGE_LEVEL_MENU),
          InlineKeyboardButton("🎧 " + get_translation("voice_speed", language), callback_data=AUDIO_SPEED_MENU)],
-        [InlineKeyboardButton(f"🔊 {get_translation('background_effects', language)} {bg_effects_status}", callback_data=BACKGROUND_EFFECTS_TOGGLE)]
+        [InlineKeyboardButton(f"🔊 {get_translation('background_effects', language)} {bg_effects_display}", callback_data=BACKGROUND_EFFECTS_MENU)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -554,11 +563,11 @@ async def target_language_select_callback(update: Update, context: ContextTypes.
             logger.error(f"Error editing message: {e}", exc_info=True)
 
 
-async def background_effects_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the background effects toggle callback."""
+async def background_effects_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the background effects menu callback - show available presets."""
     query = update.callback_query
     user = update.effective_user
-    logger.info(f"BACKGROUND EFFECTS TOGGLE CALLBACK ENTERED for user {user.id}")
+    logger.info(f"BACKGROUND EFFECTS MENU CALLBACK ENTERED for user {user.id}")
 
     # Get user's language preference
     db_user = get_user_by_telegram_id(user.id)
@@ -566,20 +575,86 @@ async def background_effects_toggle_callback(update: Update, context: ContextTyp
     if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
         language = db_user.settings.language.language
 
-    # Get current state and toggle it
-    current_state = get_user_background_effects(user.id)
-    new_state = not current_state
+    # Get current setting
+    current_setting = get_user_background_effects(user.id)
+
+    # First answer the callback query
+    await query.answer()
+
+    # Build keyboard with all preset options
+    keyboard = []
+
+    # Auto option (by CEFR level)
+    auto_marker = " ✓" if current_setting == "auto" else ""
+    keyboard.append([InlineKeyboardButton(
+        f"🎲 {get_translation('bg_effects_auto', language)}{auto_marker}",
+        callback_data=f"{BACKGROUND_EFFECTS_SELECT_PREFIX}auto"
+    )])
+
+    # Individual presets
+    for preset_key, preset_data in VOXFX_PRESETS.items():
+        marker = " ✓" if current_setting == preset_key else ""
+        preset_name = get_translation(f"bg_preset_{preset_key}", language)
+        keyboard.append([InlineKeyboardButton(
+            f"{preset_data['emoji']} {preset_name}{marker}",
+            callback_data=f"{BACKGROUND_EFFECTS_SELECT_PREFIX}{preset_key}"
+        )])
+
+    # Off option
+    off_marker = " ✓" if current_setting == "off" else ""
+    keyboard.append([InlineKeyboardButton(
+        f"❌ {get_translation('bg_effects_off', language)}{off_marker}",
+        callback_data=f"{BACKGROUND_EFFECTS_SELECT_PREFIX}off"
+    )])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    try:
+        await query.edit_message_text(
+            text=f"*{get_translation('select_background_effect', language)}*",
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.MARKDOWN
+        )
+        logger.info(f"Displayed background effects menu for user {user.id}")
+    except Exception as e:
+        logger.error(f"Error editing message: {e}", exc_info=True)
+
+
+async def background_effects_select_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the background effects preset selection callback."""
+    query = update.callback_query
+    user = update.effective_user
+    logger.info(f"BACKGROUND EFFECTS SELECT CALLBACK ENTERED for user {user.id}")
+
+    # Get user's language preference
+    db_user = get_user_by_telegram_id(user.id)
+    language = "English"  # Default to English if no language preference is set
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        language = db_user.settings.language.language
+
+    # Extract selected preset from callback data
+    selected_preset = query.data.replace(BACKGROUND_EFFECTS_SELECT_PREFIX, "")
+    logger.info(f"User {user.id} selected background effect: {selected_preset}")
 
     # First answer the callback query
     await query.answer()
 
     # Update the setting
-    success = update_user_background_effects(user.id, new_state)
+    success = update_user_background_effects(user.id, selected_preset)
 
     if success:
-        status = get_translation("enabled", language) if new_state else get_translation("disabled", language)
-        message = get_translation("background_effects_updated", language, status=status) + " ✅"
-        logger.info(f"User {user.id} toggled background effects to {new_state}")
+        # Get display name for the selected preset
+        if selected_preset == "off":
+            preset_display = get_translation("bg_effects_off", language)
+        elif selected_preset == "auto":
+            preset_display = get_translation("bg_effects_auto", language)
+        elif selected_preset in VOXFX_PRESETS:
+            preset_display = get_translation(f"bg_preset_{selected_preset}", language)
+        else:
+            preset_display = selected_preset
+
+        message = get_translation("background_effects_updated", language, status=preset_display) + " ✅"
+        logger.info(f"User {user.id} set background effects to {selected_preset}")
 
         try:
             await query.edit_message_text(text=message)
@@ -627,9 +702,12 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
     elif callback_data.startswith(TARGET_LANGUAGE_SELECT_PREFIX):
         logger.info(f"Routing to target_language_select_callback for user {user.id}")
         await target_language_select_callback(update, context)
-    elif callback_data == BACKGROUND_EFFECTS_TOGGLE:
-        logger.info(f"Routing to background_effects_toggle_callback for user {user.id}")
-        await background_effects_toggle_callback(update, context)
+    elif callback_data == BACKGROUND_EFFECTS_MENU:
+        logger.info(f"Routing to background_effects_menu_callback for user {user.id}")
+        await background_effects_menu_callback(update, context)
+    elif callback_data.startswith(BACKGROUND_EFFECTS_SELECT_PREFIX):
+        logger.info(f"Routing to background_effects_select_callback for user {user.id}")
+        await background_effects_select_callback(update, context)
     else:
         # Handle unknown callback data
         logger.warning(f"Unknown callback_data received: {callback_data}")

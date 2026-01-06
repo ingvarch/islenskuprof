@@ -417,7 +417,8 @@ class UserSettings(Base):
     language_level_id = Column(Integer, ForeignKey('language_levels.id'), nullable=True)
     target_language_id = Column(Integer, ForeignKey('target_languages.id'), nullable=True)
     last_section = Column(String, nullable=True)  # Can be 'listening' or 'reading'
-    background_effects = Column(Boolean, nullable=False, default=False)  # Enable VoxFX background effects
+    # VoxFX background effects: "off", "auto", or preset ID (e.g., "67841788096cecfe8b18b2d5")
+    background_effects = Column(String, nullable=False, default="off")
 
     # Define relationships
     user = relationship("User", back_populates="settings")
@@ -426,7 +427,7 @@ class UserSettings(Base):
     language_level = relationship("LanguageLevel")
     target_language = relationship("TargetLanguage")
 
-    def __init__(self, user_id, audio_speed_id, language_id=None, language_level_id=None, target_language_id=None, last_section=None, background_effects=False):
+    def __init__(self, user_id, audio_speed_id, language_id=None, language_level_id=None, target_language_id=None, last_section=None, background_effects="off"):
         """
         Initialize new user settings.
 
@@ -437,7 +438,7 @@ class UserSettings(Base):
             language_level_id: ID of the language level (foreign key to language_levels table)
             target_language_id: ID of the target language to learn (foreign key to target_languages table)
             last_section: Last section shown to the user ('listening' or 'reading')
-            background_effects: Whether to enable VoxFX background effects (default: False)
+            background_effects: VoxFX preset ("off", "auto", or preset ID)
         """
         self.user_id = user_id
         self.audio_speed_id = audio_speed_id

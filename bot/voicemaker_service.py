@@ -33,27 +33,56 @@ ENGINE_MAP = {
     "standard": "standard",
 }
 
-# VoxFX preset mapping by CEFR level
+# All available VoxFX presets
+# Key is the preset ID, value contains name, emoji, and default dryWet
+VOXFX_PRESETS = {
+    "train_station": {
+        "presetId": "67841788096cecfe8b18b2d5",
+        "name": "Train Station",
+        "emoji": "🚂",
+        "dryWet": 40,
+    },
+    "airport": {
+        "presetId": "67841788096cecfe8b18b2d3",
+        "name": "Airport Announcement",
+        "emoji": "✈️",
+        "dryWet": 50,
+    },
+    "subway": {
+        "presetId": "67841788096cecfe8b18b2d7",
+        "name": "Subway Train Inside",
+        "emoji": "🚇",
+        "dryWet": 50,
+    },
+    "poor_signal": {
+        "presetId": "67841788096cecfe8b18b2f7",
+        "name": "Poor Signal",
+        "emoji": "📡",
+        "dryWet": 60,
+    },
+    "coffee_shop": {
+        "presetId": "67841788096cecfe8b18b2e9",  # TODO: Verify this preset ID
+        "name": "Coffee Shop",
+        "emoji": "☕",
+        "dryWet": 40,
+    },
+    "shopping_mall": {
+        "presetId": "67841788096cecfe8b18b2eb",  # TODO: Verify this preset ID
+        "name": "Shopping Mall",
+        "emoji": "🛒",
+        "dryWet": 45,
+    },
+}
+
+# VoxFX preset mapping by CEFR level (for "auto" mode)
 # Lower levels = cleaner audio, higher levels = more challenging listening conditions
 VOXFX_PRESETS_BY_LEVEL = {
     "A1": None,  # No effects - clear audio for beginners
     "A2": None,  # No effects - clear audio for elementary
-    "B1": {
-        "presetId": "67841788096cecfe8b18b2d5",  # Train Station
-        "dryWet": 30,  # Light effect
-    },
-    "B2": {
-        "presetId": "67841788096cecfe8b18b2d3",  # Airport Announcement
-        "dryWet": 50,  # Medium effect
-    },
-    "C1": {
-        "presetId": "67841788096cecfe8b18b2d7",  # Subway Train Inside
-        "dryWet": 60,  # Stronger effect
-    },
-    "C2": {
-        "presetId": "67841788096cecfe8b18b2f7",  # Poor Signal
-        "dryWet": 70,  # Challenging listening conditions
-    },
+    "B1": "train_station",
+    "B2": "airport",
+    "C1": "subway",
+    "C2": "poor_signal",
 }
 
 
@@ -211,21 +240,33 @@ class VoiceMakerService:
 
         # Get user's audio speed if user_id is provided
         user_audio_speed = 1.0  # Default speed
-        background_effects_enabled = False
+        background_effects_setting = "off"
         if user_id:
             user_audio_speed = get_user_audio_speed(user_id)
-            background_effects_enabled = get_user_background_effects(user_id)
+            background_effects_setting = get_user_background_effects(user_id)
             logger.info(f"Using audio speed {user_audio_speed} for user {user_id}")
-            logger.info(f"Background effects enabled: {background_effects_enabled}")
+            logger.info(f"Background effects setting: {background_effects_setting}")
 
-        # Get VoxFX preset based on language level (only if enabled)
+        # Get VoxFX preset based on user setting
         voxfx_preset = None
-        if background_effects_enabled:
-            voxfx_preset = VOXFX_PRESETS_BY_LEVEL.get(language_level)
-            if voxfx_preset:
-                logger.info(f"Using VoxFX preset for {language_level} level: {voxfx_preset['presetId']}")
+        if background_effects_setting == "off":
+            logger.info("Background effects disabled (off)")
+        elif background_effects_setting == "auto":
+            # Auto mode: select preset based on CEFR level
+            preset_key = VOXFX_PRESETS_BY_LEVEL.get(language_level)
+            if preset_key and preset_key in VOXFX_PRESETS:
+                preset_data = VOXFX_PRESETS[preset_key]
+                voxfx_preset = {"presetId": preset_data["presetId"], "dryWet": preset_data["dryWet"]}
+                logger.info(f"Auto mode: using VoxFX preset '{preset_key}' for {language_level} level")
             else:
-                logger.info(f"No VoxFX preset for {language_level} level (clean audio)")
+                logger.info(f"Auto mode: no VoxFX preset for {language_level} level (clean audio)")
+        elif background_effects_setting in VOXFX_PRESETS:
+            # Specific preset selected
+            preset_data = VOXFX_PRESETS[background_effects_setting]
+            voxfx_preset = {"presetId": preset_data["presetId"], "dryWet": preset_data["dryWet"]}
+            logger.info(f"Using user-selected VoxFX preset: {background_effects_setting}")
+        else:
+            logger.warning(f"Unknown background effects setting: {background_effects_setting}, using no effects")
 
         # Convert speed to VoiceMaker format (-100 to 100)
         # user_audio_speed is typically 0.5 to 2.0, where 1.0 is normal
