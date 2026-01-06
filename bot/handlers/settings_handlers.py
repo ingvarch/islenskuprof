@@ -14,7 +14,7 @@ from bot.db.user_service import (
     get_user_by_telegram_id, update_user_language, get_all_languages,
     get_all_audio_speeds, update_user_audio_speed,
     get_all_language_levels, update_user_language_level,
-    get_all_target_languages, update_user_target_language
+    get_all_target_languages, get_target_language_by_id, update_user_target_language
 )
 
 # Get logger for this module
@@ -459,10 +459,10 @@ async def target_language_menu_callback(update: Update, context: ContextTypes.DE
         )
         return
 
-    # Get the user's current target language setting
+    # Get the user's current target language setting (use FK column, not lazy-loaded relationship)
     current_target_language_id = None
-    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.target_language:
-        current_target_language_id = db_user.settings.target_language.id
+    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.target_language_id:
+        current_target_language_id = db_user.settings.target_language_id
         logger.info(f"User {user.id} current target language ID: {current_target_language_id}")
 
     # Create keyboard with target language buttons
@@ -514,23 +514,15 @@ async def target_language_select_callback(update: Update, context: ContextTypes.
     success = update_user_target_language(user.id, target_language_id)
 
     if success:
-        # Get the selected target language
-        db_user = get_user_by_telegram_id(user.id)
-
-        # Get target language from user_settings
-        target_lang_name = ""
-        target_lang_native = ""
-        if hasattr(db_user, 'settings') and db_user.settings and db_user.settings.target_language:
-            target_lang_name = db_user.settings.target_language.name
-            target_lang_native = db_user.settings.target_language.native_name
-        else:
-            # Default if no settings available
-            target_lang_name = "Unknown"
-            target_lang_native = "Unknown"
+        # Get the selected target language directly by ID (avoid lazy loading issues)
+        target_lang = get_target_language_by_id(target_language_id)
+        target_lang_name = target_lang.name if target_lang else "Unknown"
+        target_lang_native = target_lang.native_name if target_lang else "Unknown"
 
         # Get user's UI language preference
+        db_user = get_user_by_telegram_id(user.id)
         language = "English"  # Default to English if no language preference is set
-        if hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+        if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
             language = db_user.settings.language.language
 
         # Confirmation message using translation

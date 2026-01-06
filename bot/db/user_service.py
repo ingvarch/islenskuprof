@@ -478,6 +478,26 @@ def get_all_target_languages():
         session.close()
 
 
+def get_target_language_by_id(target_language_id):
+    """
+    Get a target language by its ID.
+
+    Args:
+        target_language_id: ID of the target language
+
+    Returns:
+        TargetLanguage object or None if not found
+    """
+    session = get_db_session()
+    try:
+        return session.query(TargetLanguage).filter_by(id=target_language_id).first()
+    except SQLAlchemyError as e:
+        logger.error(f"Error getting target language by ID {target_language_id}: {e}")
+        return None
+    finally:
+        session.close()
+
+
 def update_user_target_language(telegram_id, target_language_id):
     """
     Update the target language (language to learn) for a user in the user_settings table.
