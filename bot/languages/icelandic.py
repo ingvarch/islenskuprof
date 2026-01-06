@@ -165,25 +165,27 @@ class IcelandicConfig(LanguageConfig):
         female_label = self.speakers["female"].label
         male_label = self.speakers["male"].label
         markers = self.markers
+        constraints = self.get_cefr_constraints(user_language_level)
 
         return f"""
-Create an Icelandic language proficiency test for citizenship purposes focusing on just ONE dialogue scenario.
-IMPORTANT: The topic for this dialogue is: {topic}
+Create an Icelandic dialogue for {user_language_level} level learners.
+Topic: {topic}
 
-STRICTLY follow these guidelines for {user_language_level} level according to CEFR:
-* A1: Only use basic phrases, present tense, simple questions. Vocabulary limited to 500 most common words. Only simple sentences (subject-verb-object).
-* A2: Simple past tense allowed, basic conjunctions, vocabulary up to 1000 most common words. Simple sentences with basic connectors.
-* B1: Some compound sentences, more verb tenses, vocabulary up to 2000 most common words. Avoid idioms and complex structures.
-* B2: Natural flow of conversation, wider range of vocabulary up to 4000 words, some idioms allowed but explained in footnotes.
-* C1-C2: No restrictions on vocabulary or grammar complexity.
+=== CRITICAL {user_language_level} LEVEL REQUIREMENTS ===
+- Vocabulary: ONLY use the {constraints['vocabulary_limit']} most common Icelandic words
+- Sentence length: {constraints['sentence_length']}
+- Grammar: {constraints['grammar']}
+- Structures: {constraints['structures']}
+- Connectors: {constraints['connectors']}
+- FORBIDDEN: {constraints['forbidden']}
 
-Listening Section:
-* Create a realistic dialogue between two people (a man and a woman) about the chosen everyday topic.
-* The dialogue should include 8-10 exchanges and be in Icelandic.
-* Include common phrases that would be useful in such a setting.
-* Clearly identify speakers with labels like "{female_label}:" (Woman) and "{male_label}:" (Man)
-* After the dialogue, add 5 multiple-choice questions about details in the conversation.
-* Double-check that ALL words and structures in the dialogue strictly match the specified CEFR level.
+Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
+
+=== CONTENT REQUIREMENTS ===
+* Create a realistic dialogue between "{female_label}" (woman) and "{male_label}" (man)
+* Include 8-10 exchanges in Icelandic
+* After the dialogue, add 5 multiple-choice questions (also at {user_language_level} level!)
+* VERIFY: Every single word and sentence matches {user_language_level} level before including it
 
 Format the dialogue clearly so I can easily extract it for audio processing.
 
@@ -246,41 +248,36 @@ Avoid including very basic words that a {user_language_level} learner would alre
 
     def get_reading_prompt(self, person_data: dict, user_language: str, user_language_level: str) -> str:
         markers = self.markers
+        constraints = self.get_cefr_constraints(user_language_level)
 
         return f"""
-Write a short Icelandic reading comprehension passage - 20-25 sentences long ({user_language_level} CEFR level)
-about a person's daily life in Iceland.
+Write an Icelandic reading passage (20-25 sentences) for {user_language_level} level learners.
 
-STRICTLY follow these guidelines for {user_language_level} level according to CEFR:
-* A1: Only use basic phrases, present tense, simple questions. Vocabulary limited to 500 most common words. Only simple sentences (subject-verb-object). Sentences should be very short (5-7 words).
-* A2: Simple past tense allowed, basic conjunctions, vocabulary up to 1000 most common words. Simple sentences with basic connectors like "og" (and), "en" (but), "thvi" (because).
-* B1: Some compound sentences, more verb tenses, vocabulary up to 2000 most common words. Avoid idioms and complex structures.
-* B2: Natural flow of text, wider range of vocabulary up to 4000 words, some idioms allowed but explained in footnotes.
-* C1-C2: No restrictions on vocabulary or grammar complexity.
+=== CRITICAL {user_language_level} LEVEL REQUIREMENTS ===
+- Vocabulary: ONLY use the {constraints['vocabulary_limit']} most common Icelandic words
+- Sentence length: {constraints['sentence_length']}
+- Grammar: {constraints['grammar']}
+- Structures: {constraints['structures']}
+- Connectors: {constraints['connectors']}
+- FORBIDDEN: {constraints['forbidden']}
 
-Use the following information to guide the story:
+Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
 
+=== STORY INFORMATION ===
 - Name: {person_data["name"]}
 - Gender: {person_data["gender"]}
 - Age: {person_data["age"]}
 - From: {person_data["origin"]}
 - Job: {person_data["job_title"]} at a {person_data["job_workplace"]}
 - Children: {person_data["number_of_children"]} children (ages {person_data["age_of_children"]})
-- Usual weekend activity: {person_data["weekend_activity"]}
+- Weekend activity: {person_data["weekend_activity"]}
 - Plan for today: {person_data["current_plan"]}
 
-Before writing the passage:
-1. Make sure to use time expressions, daily routine verbs, and family-related vocabulary appropriate for the specified level.
-
-The passage should:
-- Use vocabulary and grammar structures strictly matching the {user_language_level} level
-- Include frequently used Icelandic phrases for the level
-- Have clear paragraph breaks for readability
-- Use sentence length appropriate for the level (shorter for A1-A2, gradually longer for B1-B2)
-
-After the passage, add 5 multiple-choice comprehension questions in Icelandic with three answer choices each.
-The questions should test understanding of where the person is from, what job they do, what time they wake up,
-etc. Ensure that the questions and answer choices also follow the same CEFR level restrictions.
+=== CONTENT REQUIREMENTS ===
+* Write about this person's daily life in Iceland
+* Use time expressions and daily routine verbs appropriate for {user_language_level}
+* After the passage, add 5 multiple-choice questions (also at {user_language_level} level!)
+* VERIFY: Every single word and sentence matches {user_language_level} level before including it
 
 Your output MUST strictly follow this exact template format:
 

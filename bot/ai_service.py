@@ -8,12 +8,13 @@ class AIService(ABC):
     """Base class for AI services."""
 
     @abstractmethod
-    def generate_icelandic_test(self, prompt: Optional[str] = None) -> str:
+    def generate_icelandic_test(self, prompt: Optional[str] = None, language_level: str = "A2") -> str:
         """
-        Generate Icelandic language test content using AI.
+        Generate language test content using AI.
 
         Args:
-            prompt: Custom prompt to use for generation. If None, the default prompt will be used.
+            prompt: Custom prompt to use for generation.
+            language_level: CEFR level (A1, A2, B1, B2, C1, C2) for content difficulty.
 
         Returns:
             str: Generated test content

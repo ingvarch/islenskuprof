@@ -189,7 +189,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         custom_prompt = lang_config.get_dialogue_prompt(topic, user_language, user_language_level)
 
         start_step(get_translation("generating_content", user_language, topic=topic))
-        content = await asyncio.to_thread(ai_service.generate_icelandic_test, custom_prompt)
+        content = await asyncio.to_thread(ai_service.generate_icelandic_test, custom_prompt, user_language_level)
         complete_step()
 
         start_step(get_translation("extracting_dialogue", user_language))
@@ -321,7 +321,7 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         # Get prompt from language configuration
         custom_prompt = lang_config.get_reading_prompt(person_data, user_language, user_language_level)
-        content = await asyncio.to_thread(ai_service.generate_icelandic_test, custom_prompt)
+        content = await asyncio.to_thread(ai_service.generate_icelandic_test, custom_prompt, user_language_level)
         complete_step()
 
         stop_event.set()
