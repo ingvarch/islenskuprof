@@ -209,7 +209,8 @@ Example of appropriate {user_language_level} complexity: {constraints['example_c
 
 === CONTENT REQUIREMENTS ===
 * Create a realistic dialogue between "{female_label}" (woman) and "{male_label}" (man)
-* Include 8-10 exchanges in German
+* CRITICAL: The dialogue MUST alternate between {female_label} and {male_label} - both speakers must be present!
+* Include 8-10 exchanges in German (each speaker speaks 4-5 times)
 * After the dialogue, add 5 multiple-choice questions (also at {user_language_level} level!)
 * VERIFY: Every single word and sentence matches {user_language_level} level before including it
 
@@ -223,7 +224,11 @@ Your output MUST strictly follow this exact template format:
 {markers.listen_instruction}
 
 ```
-[dialogue with speakers clearly identified as "{female_label}:" and "{male_label}:"]
+{female_label}: [first line]
+{male_label}: [response]
+{female_label}: [next line]
+{male_label}: [response]
+... (continue alternating between {female_label} and {male_label})
 ```
 
 {markers.dialogue_questions}
@@ -283,7 +288,15 @@ IMPORTANT: Mark correct answer with (CORRECT) at the end!]
 Important: Ensure all words mentioned in GRAMMAR NOTES are first included in the KEY VOCABULARY section.
 Include 15-20 items total, prioritizing practical expressions and phrases over single words.
 Avoid including very basic words that a {user_language_level} learner would already know.
-```
+
+=== FINAL CHECKLIST ===
+Before submitting, verify you have included ALL these sections:
+1. Dialogue with BOTH {female_label} and {male_label} speakers (alternating)
+2. 5 multiple-choice questions with (CORRECT) markers
+3. KEY VOCABULARY section
+4. USEFUL PHRASES section
+5. WORD COMBINATIONS section
+6. GRAMMAR NOTES section (REQUIRED - do not skip!)
 """
 
     def get_reading_prompt(self, person_data: dict, user_language: str, user_language_level: str) -> str:
@@ -377,9 +390,18 @@ IMPORTANT: Mark correct answer with (CORRECT) at the end!]
 ```
 * [Grammatical construction from the passage] - [Explanation in {user_language}]
 * [Other grammatical notes using words already listed in KEY VOCABULARY]
+```
 
 Important: Ensure all words mentioned in GRAMMAR NOTES are first included in the KEY VOCABULARY section.
 Include 15-20 items total, prioritizing practical expressions and phrases over single words.
 Avoid including very basic words that a {user_language_level} learner would already know.
-```
+
+=== FINAL CHECKLIST ===
+Before submitting, verify you have included ALL these sections:
+1. Reading passage about the person
+2. 5 multiple-choice questions with (CORRECT) markers
+3. KEY VOCABULARY section
+4. USEFUL PHRASES section
+5. WORD COMBINATIONS section
+6. GRAMMAR NOTES section (REQUIRED - do not skip!)
 """
