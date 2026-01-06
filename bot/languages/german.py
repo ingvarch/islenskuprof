@@ -42,10 +42,10 @@ class GermanConfig(LanguageConfig):
     def markers(self) -> PromptMarkers:
         return PromptMarkers(
             story_title="*Geschichte:*",
-            listen_instruction="*Horen Sie sich dieses Gesprach an.*",
-            dialogue_questions="*Fragen zum Gesprach*",
+            listen_instruction="*Hören Sie sich dieses Gespräch an.*",
+            dialogue_questions="*Fragen zum Gespräch*",
             reading_questions="*Fragen*",
-            vocabulary="*Worterbuch*",
+            vocabulary="*Wörterbuch*",
             key_vocabulary="*KEY VOCABULARY:*",
             useful_phrases="*USEFUL PHRASES:*",
             word_combinations="*WORD COMBINATIONS:*",
