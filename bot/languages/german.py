@@ -153,18 +153,32 @@ class GermanConfig(LanguageConfig):
 
     def detect_gender(self, first_name: str) -> str:
         """
-        German female names often end in 'a', 'e', or 'i'.
-        This is a simplified heuristic and may not be accurate for all names.
+        Detect gender from German first name using known names and heuristics.
         """
-        female_endings = ('a', 'e', 'i', 'ie')
-        # Exception list for common male names ending in these letters
-        male_exceptions = {
-            'andre', 'arne', 'ole', 'janne', 'malte', 'sonne',
-            'andreas', 'tobias', 'matthias', 'elias', 'jonas', 'niklas', 'lukas'
-        }
         name_lower = first_name.lower()
-        if name_lower in male_exceptions:
+
+        # Explicit female names (don't follow typical endings)
+        female_names = {
+            'karin', 'birgit', 'ingrid', 'astrid', 'sigrid', 'gudrun',
+            'irmgard', 'hildegard', 'gertrud', 'waltraud', 'elfriede',
+            'lieselotte', 'hannelore', 'anneliese', 'margot', 'edith',
+            'ruth', 'elisabeth', 'doris', 'iris', 'agnes', 'ines',
+        }
+        if name_lower in female_names:
+            return "female"
+
+        # Explicit male names (might match female endings)
+        male_names = {
+            'andre', 'arne', 'ole', 'janne', 'malte', 'sonne',
+            'andreas', 'tobias', 'matthias', 'elias', 'jonas', 'niklas', 'lukas',
+            'uwe', 'jens', 'hans', 'klaus', 'peter', 'thomas', 'michael',
+            'stefan', 'markus', 'jorg', 'frank', 'ralf', 'bernd', 'dieter',
+        }
+        if name_lower in male_names:
             return "male"
+
+        # Heuristic: common female endings
+        female_endings = ('a', 'e', 'i', 'ie', 'in')
         return "female" if name_lower.endswith(female_endings) else "male"
 
     def get_fallback_dialogue(self) -> List[Tuple[str, str]]:
