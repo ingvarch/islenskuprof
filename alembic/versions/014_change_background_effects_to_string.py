@@ -32,7 +32,8 @@ def upgrade():
     op.add_column('user_settings', sa.Column('background_effects_new', sa.String, nullable=False, server_default='off'))
 
     # Copy data: True -> "auto", False -> "off"
-    op.execute("UPDATE user_settings SET background_effects_new = CASE WHEN background_effects = 1 THEN 'auto' ELSE 'off' END")
+    # Use TRUE/FALSE for PostgreSQL boolean comparison
+    op.execute("UPDATE user_settings SET background_effects_new = CASE WHEN background_effects = TRUE THEN 'auto' ELSE 'off' END")
 
     # Drop old column
     op.drop_column('user_settings', 'background_effects')
@@ -47,10 +48,11 @@ def downgrade():
     logger.info("Rolling back migration %s: Changing background_effects from String back to Boolean", revision)
 
     # Add boolean column back
-    op.add_column('user_settings', sa.Column('background_effects_old', sa.Boolean, nullable=False, server_default='0'))
+    op.add_column('user_settings', sa.Column('background_effects_old', sa.Boolean, nullable=False, server_default='false'))
 
     # Copy data: "off" -> False, anything else -> True
-    op.execute("UPDATE user_settings SET background_effects_old = CASE WHEN background_effects = 'off' THEN 0 ELSE 1 END")
+    # Use TRUE/FALSE for PostgreSQL boolean
+    op.execute("UPDATE user_settings SET background_effects_old = CASE WHEN background_effects = 'off' THEN FALSE ELSE TRUE END")
 
     # Drop string column
     op.drop_column('user_settings', 'background_effects')
