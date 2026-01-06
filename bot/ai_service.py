@@ -1,12 +1,8 @@
 """
 Module for handling AI API interactions.
 """
-import os
-import logging
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional
-
-logger = logging.getLogger(__name__)
 
 class AIService(ABC):
     """Base class for AI services."""
@@ -53,23 +49,10 @@ class AIService(ABC):
 
 def get_ai_service():
     """
-    Factory function to get the appropriate AI service based on environment variables.
+    Get the AI service instance.
 
     Returns:
-        AIService: An instance of the appropriate AI service
+        AIService: An instance of OpenRouterService
     """
-    ai_provider = os.environ.get("AI_PROVIDER", "OPENAI").upper()
-
-    if ai_provider == "OPENAI":
-        from bot.openai_service import OpenAIService
-        return OpenAIService()
-    elif ai_provider == "CLAUDE":
-        from bot.claude_service import ClaudeAIService
-        return ClaudeAIService()
-    elif ai_provider == "OPENROUTER":
-        from bot.openrouter_service import OpenRouterService
-        return OpenRouterService()
-    else:
-        logger.warning(f"Unknown AI provider: {ai_provider}. Falling back to OpenAI.")
-        from bot.openai_service import OpenAIService
-        return OpenAIService()
+    from bot.openrouter_service import OpenRouterService
+    return OpenRouterService()

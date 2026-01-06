@@ -1,5 +1,5 @@
 """
-Module for handling OpenRouter API interactions with failover support.
+Module for handling OpenRouter API interactions.
 """
 import os
 import logging
@@ -12,16 +12,9 @@ from bot.languages import get_language_config
 
 logger = logging.getLogger(__name__)
 
-# Default models for failover (in order of preference)
-DEFAULT_FAILOVER_MODELS = [
-    "anthropic/claude-sonnet-4",
-    "openai/gpt-4o",
-    "google/gemini-2.0-flash-001",
-]
-
 
 class OpenRouterService(AIService):
-    """Service for interacting with OpenRouter API with failover support."""
+    """Service for interacting with OpenRouter API."""
 
     def __init__(self):
         """Initialize OpenRouter client using API key from environment variables."""
@@ -29,15 +22,9 @@ class OpenRouterService(AIService):
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable is not set")
 
-        # Get models from env or use defaults
-        models_env = os.environ.get("OPENROUTER_MODELS", "")
-        if models_env:
-            self.models = [m.strip() for m in models_env.split(",") if m.strip()]
-        else:
-            self.models = DEFAULT_FAILOVER_MODELS.copy()
-
-        if not self.models:
-            raise ValueError("No models configured for OpenRouter failover")
+        self.model = os.environ.get("OPENROUTER_MODEL")
+        if not self.model:
+            raise ValueError("OPENROUTER_MODEL environment variable is not set")
 
         # OpenRouter uses OpenAI-compatible API
         self.client = OpenAI(
@@ -49,11 +36,11 @@ class OpenRouterService(AIService):
         self.max_retries = 3
         self.base_delay = 2  # seconds
 
-        logger.info(f"OpenRouter service initialized with {len(self.models)} failover models: {self.models}")
+        logger.info(f"OpenRouter service initialized with model: {self.model}")
 
-    def _call_with_failover(self, messages: List[dict], system_message: str) -> str:
+    def _call_with_retry(self, messages: List[dict], system_message: str) -> str:
         """
-        Make an API call with failover support across multiple models.
+        Make an API call with retry logic.
 
         Args:
             messages: List of message dicts for the API
@@ -63,62 +50,57 @@ class OpenRouterService(AIService):
             str: Generated content
 
         Raises:
-            Exception: If all models fail after retries
+            Exception: If all retries fail
         """
         last_error = None
 
-        for model_index, model in enumerate(self.models):
-            logger.info(f"Trying model {model_index + 1}/{len(self.models)}: {model}")
+        for retry in range(self.max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=4000,
+                    messages=[
+                        {"role": "system", "content": system_message},
+                        *messages
+                    ],
+                    extra_headers={
+                        "HTTP-Referer": os.environ.get("APP_URL", "https://github.com/islenskuprof"),
+                        "X-Title": "Islenskuprof Language Learning Bot"
+                    }
+                )
 
-            for retry in range(self.max_retries):
-                try:
-                    response = self.client.chat.completions.create(
-                        model=model,
-                        max_tokens=4000,
-                        messages=[
-                            {"role": "system", "content": system_message},
-                            *messages
-                        ],
-                        extra_headers={
-                            "HTTP-Referer": os.environ.get("APP_URL", "https://github.com/islenskuprof"),
-                            "X-Title": "Islenskuprof Language Learning Bot"
-                        }
+                content = response.choices[0].message.content
+                logger.info(f"Successfully received {len(content)} characters from {self.model}")
+                return content
+
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+
+                # Check if this is a retryable error
+                is_retryable = any(term in error_str for term in [
+                    "rate limit", "timeout", "503", "502", "504",
+                    "overloaded", "capacity", "temporarily"
+                ])
+
+                if is_retryable and retry < self.max_retries - 1:
+                    delay = self.base_delay * (2 ** retry)  # Exponential backoff
+                    logger.warning(
+                        f"Retryable error (attempt {retry + 1}/{self.max_retries}): {e}. "
+                        f"Retrying in {delay}s..."
                     )
+                    time.sleep(delay)
+                    continue
 
-                    content = response.choices[0].message.content
-                    logger.info(f"Successfully received {len(content)} characters from {model}")
-                    return content
+                # Not retryable or max retries reached
+                logger.error(f"API call failed: {e}")
+                raise
 
-                except Exception as e:
-                    last_error = e
-                    error_str = str(e).lower()
-
-                    # Check if this is a rate limit or temporary error
-                    is_retryable = any(term in error_str for term in [
-                        "rate limit", "timeout", "503", "502", "504",
-                        "overloaded", "capacity", "temporarily"
-                    ])
-
-                    if is_retryable and retry < self.max_retries - 1:
-                        delay = self.base_delay * (2 ** retry)  # Exponential backoff
-                        logger.warning(
-                            f"Retryable error on {model} (attempt {retry + 1}/{self.max_retries}): {e}. "
-                            f"Retrying in {delay}s..."
-                        )
-                        time.sleep(delay)
-                        continue
-
-                    # Not retryable or max retries reached - try next model
-                    logger.warning(f"Model {model} failed: {e}. Trying next model...")
-                    break
-
-        # All models failed
-        logger.error(f"All {len(self.models)} models failed. Last error: {last_error}")
         raise last_error
 
     def generate_icelandic_test(self, prompt: Optional[str] = None) -> str:
         """
-        Generate language test content using OpenRouter with failover.
+        Generate language test content using OpenRouter.
 
         Args:
             prompt: Custom prompt to use for generation.
@@ -136,7 +118,7 @@ class OpenRouterService(AIService):
         logger.info(f"Sending request to OpenRouter to generate {lang_config.name} test content")
 
         messages = [{"role": "user", "content": prompt}]
-        return self._call_with_failover(messages, lang_config.system_message)
+        return self._call_with_retry(messages, lang_config.system_message)
 
     def extract_dialogue(self, test_content: str, lang_config=None) -> List[Tuple[str, str]]:
         """
