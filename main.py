@@ -8,6 +8,7 @@ from pathlib import Path
 from bot.telegram_bot import create_bot
 from bot.db.database import init_db
 from run_migrations import run_migrations
+from bot.languages import get_language_config
 
 # Set up logging
 logging.basicConfig(
@@ -26,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 def main():
     """Main function to start the bot."""
-    logger.info("Starting Icelandic Citizenship Test Bot")
+    lang_config = get_language_config()
+    logger.info(f"Starting {lang_config.name} Language Learning Bot")
 
     # Get the bot token from environment variables
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -103,6 +105,10 @@ def main():
         logger.info("Initializing database")
         init_db()
         logger.info("Database initialized successfully")
+
+        # Seed database with language-specific data if tables are empty
+        from bot.db.seeder import seed_database_if_empty
+        seed_database_if_empty()
 
         # Clear and fill persons table
         from bot.db.person_generator import clear_and_fill_persons_table

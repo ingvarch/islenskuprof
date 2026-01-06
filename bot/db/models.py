@@ -89,6 +89,34 @@ class User(Base):
         return f"<User(telegram_id={self.telegram_id}, username={self.username}, is_premium={self.is_premium})>"
 
 
+class TargetLanguage(Base):
+    """
+    TargetLanguage model for storing available languages for learning.
+    """
+    __tablename__ = "target_languages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(10), nullable=False, unique=True, index=True)
+    name = Column(String(50), nullable=False)
+    native_name = Column(String(50), nullable=False)
+
+    def __init__(self, code, name, native_name):
+        """
+        Initialize a new target language.
+
+        Args:
+            code: ISO language code (e.g., 'de', 'is')
+            name: Language name in English (e.g., 'German', 'Icelandic')
+            native_name: Language name in native language (e.g., 'Deutsch', 'Islenska')
+        """
+        self.code = code
+        self.name = name
+        self.native_name = native_name
+
+    def __repr__(self):
+        return f"<TargetLanguage(code={self.code}, name={self.name})>"
+
+
 class Topic(Base):
     """
     Topic model for storing content generation topics.
@@ -96,22 +124,25 @@ class Topic(Base):
     __tablename__ = "topic"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    language_code = Column(String(10), nullable=True, index=True)
 
-    def __init__(self, name):
+    def __init__(self, name, language_code=None):
         """
         Initialize a new topic.
 
         Args:
             name: Topic name
+            language_code: ISO language code (e.g., 'de', 'is')
         """
         self.name = name
+        self.language_code = language_code
 
     def __repr__(self):
         """
         String representation of the topic.
         """
-        return f"<Topic(id={self.id}, name={self.name})>"
+        return f"<Topic(id={self.id}, name={self.name}, lang={self.language_code})>"
 
 
 class Name(Base):
@@ -123,23 +154,26 @@ class Name(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
+    language_code = Column(String(10), nullable=True, index=True)
 
-    def __init__(self, first_name, last_name):
+    def __init__(self, first_name, last_name, language_code=None):
         """
         Initialize a new name.
 
         Args:
             first_name: Person's first name
             last_name: Person's last name
+            language_code: ISO language code (e.g., 'de', 'is')
         """
         self.first_name = first_name
         self.last_name = last_name
+        self.language_code = language_code
 
     def __repr__(self):
         """
         String representation of the name.
         """
-        return f"<Name(id={self.id}, first_name={self.first_name}, last_name={self.last_name})>"
+        return f"<Name(id={self.id}, first_name={self.first_name}, last_name={self.last_name}, lang={self.language_code})>"
 
 
 class Job(Base):
@@ -151,23 +185,26 @@ class Job(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String, nullable=False)
     workplace = Column(String, nullable=False)
+    language_code = Column(String(10), nullable=True, index=True)
 
-    def __init__(self, title, workplace):
+    def __init__(self, title, workplace, language_code=None):
         """
         Initialize a new job.
 
         Args:
             title: Job title
             workplace: Workplace name
+            language_code: ISO language code (e.g., 'de', 'is')
         """
         self.title = title
         self.workplace = workplace
+        self.language_code = language_code
 
     def __repr__(self):
         """
         String representation of the job.
         """
-        return f"<Job(id={self.id}, title={self.title}, workplace={self.workplace})>"
+        return f"<Job(id={self.id}, title={self.title}, workplace={self.workplace}, lang={self.language_code})>"
 
 
 class City(Base):
@@ -177,22 +214,25 @@ class City(Base):
     __tablename__ = "cities"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
+    language_code = Column(String(10), nullable=True, index=True)
 
-    def __init__(self, name):
+    def __init__(self, name, language_code=None):
         """
         Initialize a new city.
 
         Args:
             name: City name
+            language_code: ISO language code (e.g., 'de', 'is')
         """
         self.name = name
+        self.language_code = language_code
 
     def __repr__(self):
         """
         String representation of the city.
         """
-        return f"<City(id={self.id}, name={self.name})>"
+        return f"<City(id={self.id}, name={self.name}, lang={self.language_code})>"
 
 
 class Activity(Base):
@@ -204,23 +244,26 @@ class Activity(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     activity = Column(String, nullable=False)
     type = Column(String, nullable=False)
+    language_code = Column(String(10), nullable=True, index=True)
 
-    def __init__(self, activity, type):
+    def __init__(self, activity, type, language_code=None):
         """
         Initialize a new activity.
 
         Args:
             activity: Activity description
             type: Activity type
+            language_code: ISO language code (e.g., 'de', 'is')
         """
         self.activity = activity
         self.type = type
+        self.language_code = language_code
 
     def __repr__(self):
         """
         String representation of the activity.
         """
-        return f"<Activity(id={self.id}, activity={self.activity}, type={self.type})>"
+        return f"<Activity(id={self.id}, activity={self.activity}, type={self.type}, lang={self.language_code})>"
 
 
 class Person(Base):
@@ -237,13 +280,14 @@ class Person(Base):
     children = Column(SmallInteger, nullable=True)
     weekend_activity = Column(String, nullable=True)
     plan_activity = Column(String, nullable=True)
+    language_code = Column(String(10), nullable=True, index=True)
 
     # Define relationships
     name = relationship("Name")
     city = relationship("City")
     job = relationship("Job")
 
-    def __init__(self, name_id, age, origin, job_id, children=None, weekend_activity=None, plan_activity=None):
+    def __init__(self, name_id, age, origin, job_id, children=None, weekend_activity=None, plan_activity=None, language_code=None):
         """
         Initialize a new person.
 
@@ -255,6 +299,7 @@ class Person(Base):
             children: Number of children (optional)
             weekend_activity: Weekend activity description (optional)
             plan_activity: Planned activity description (optional)
+            language_code: ISO language code (e.g., 'de', 'is')
         """
         self.name_id = name_id
         self.age = age
@@ -263,12 +308,13 @@ class Person(Base):
         self.children = children
         self.weekend_activity = weekend_activity
         self.plan_activity = plan_activity
+        self.language_code = language_code
 
     def __repr__(self):
         """
         String representation of the person.
         """
-        return f"<Person(id={self.id}, name_id={self.name_id}, age={self.age})>"
+        return f"<Person(id={self.id}, name_id={self.name_id}, age={self.age}, lang={self.language_code})>"
 
 
 class Communication(Base):
@@ -369,6 +415,7 @@ class UserSettings(Base):
     audio_speed_id = Column(Integer, ForeignKey('audio_speeds.id'), nullable=False)
     language_id = Column(Integer, ForeignKey('languages.id'), nullable=True)
     language_level_id = Column(Integer, ForeignKey('language_levels.id'), nullable=True)
+    target_language_id = Column(Integer, ForeignKey('target_languages.id'), nullable=True)
     last_section = Column(String, nullable=True)  # Can be 'listening' or 'reading'
 
     # Define relationships
@@ -376,26 +423,29 @@ class UserSettings(Base):
     audio_speed = relationship("AudioSpeed")
     language = relationship("Language")
     language_level = relationship("LanguageLevel")
+    target_language = relationship("TargetLanguage")
 
-    def __init__(self, user_id, audio_speed_id, language_id=None, language_level_id=None, last_section=None):
+    def __init__(self, user_id, audio_speed_id, language_id=None, language_level_id=None, target_language_id=None, last_section=None):
         """
         Initialize new user settings.
 
         Args:
             user_id: ID of the user (foreign key to users table)
             audio_speed_id: ID of the audio speed (foreign key to audio_speeds table)
-            language_id: ID of the language (foreign key to languages table)
+            language_id: ID of the UI language (foreign key to languages table)
             language_level_id: ID of the language level (foreign key to language_levels table)
+            target_language_id: ID of the target language to learn (foreign key to target_languages table)
             last_section: Last section shown to the user ('listening' or 'reading')
         """
         self.user_id = user_id
         self.audio_speed_id = audio_speed_id
         self.language_id = language_id
         self.language_level_id = language_level_id
+        self.target_language_id = target_language_id
         self.last_section = last_section
 
     def __repr__(self):
         """
         String representation of the user settings.
         """
-        return f"<UserSettings(id={self.id}, user_id={self.user_id}, audio_speed_id={self.audio_speed_id}, language_id={self.language_id})>"
+        return f"<UserSettings(id={self.id}, user_id={self.user_id}, target_lang={self.target_language_id})>"

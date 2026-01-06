@@ -34,6 +34,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "en": "Voice speed",
         "ru": "Скорость голоса"
     },
+    "target_language": {
+        "en": "Target Language",
+        "ru": "Изучаемый язык"
+    },
 
     # Commands
     "available_commands": {
@@ -109,6 +113,20 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "ru": "Уровень языка изменен на {level}"
     },
 
+    # Target language settings
+    "select_target_language": {
+        "en": "Select the language you want to learn:",
+        "ru": "Выберите язык, который хотите изучать:"
+    },
+    "target_language_updated": {
+        "en": "Target language updated to {language}",
+        "ru": "Изучаемый язык изменен на {language}"
+    },
+    "error_no_target_languages": {
+        "en": "Error: No target languages available. Please contact the administrator.",
+        "ru": "Ошибка: Нет доступных языков для изучения. Пожалуйста, свяжитесь с администратором."
+    },
+
     # Section handlers messages
     "starting": {
         "en": "Starting...",
@@ -143,8 +161,8 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "ru": "Получение данных коммуникации..."
     },
     "write_paragraph": {
-        "en": "Write a short paragraph in Icelandic describing this image.",
-        "ru": "Напишите короткий абзац на исландском языке, описывающий это изображение."
+        "en": "Write a short paragraph in {target_language} describing this image.",
+        "ru": "Напишите короткий абзац на {target_language} языке, описывающий это изображение."
     },
 
     # Processing status messages

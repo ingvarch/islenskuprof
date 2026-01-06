@@ -1,18 +1,24 @@
 """
 Module for generating random persons and populating the persons table.
+
+Supports multi-language generation based on TARGET_LANGUAGES environment variable.
 """
 import logging
 import random
 from sqlalchemy import delete, func
 from bot.db.database import get_db_session
 from bot.db.models import Person, Name, Job, City, Activity
+from bot.languages import get_language_config, get_all_language_configs, get_language_config_by_code
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
+PERSONS_PER_LANGUAGE = 30
+
+
 def clear_and_fill_persons_table():
     """
-    Clear the persons table and fill it with 30 random persons.
+    Clear the persons table and fill it with random persons for all configured languages.
     This function should be called at bot startup.
     """
     logger.info("Clearing and filling persons table")
@@ -24,49 +30,66 @@ def clear_and_fill_persons_table():
         session.execute(delete(Person))
         session.commit()
 
-        # Get all names, jobs, cities, and activities from the database
-        names = session.query(Name).all()
-        jobs = session.query(Job).all()
-        cities = session.query(City).all()
-        weekend_activities = session.query(Activity).filter(Activity.type == "weekend").all()
-        plan_activities = session.query(Activity).filter(Activity.type == "plan").all()
+        # Get all configured languages
+        lang_configs = get_all_language_configs()
 
-        # Check if we have enough data to generate persons
-        if not names or not jobs or not cities:
-            logger.error("Not enough data to generate persons")
-            return
+        total_persons = 0
+        for lang_config in lang_configs:
+            code = lang_config.code
+            logger.info(f"Generating persons for {lang_config.name} ({code})")
 
-        # Generate 30 random persons
-        logger.info("Generating 30 random persons")
-        persons = []
-        for _ in range(30):
-            # Select random data
-            name = random.choice(names)
-            job = random.choice(jobs)
-            city = random.choice(cities)
-            age = random.randint(20, 65)  # Random age between 20 and 65
-            children = random.randint(0, 3)  # Random number of children between 0 and 3
+            # Get seed data filtered by language_code
+            names = session.query(Name).filter(Name.language_code == code).all()
+            jobs = session.query(Job).filter(Job.language_code == code).all()
+            cities = session.query(City).filter(City.language_code == code).all()
+            weekend_activities = session.query(Activity).filter(
+                Activity.type == "weekend",
+                Activity.language_code == code
+            ).all()
+            plan_activities = session.query(Activity).filter(
+                Activity.type == "plan",
+                Activity.language_code == code
+            ).all()
 
-            # Select random activities if available
-            weekend_activity = random.choice(weekend_activities).activity if weekend_activities else None
-            plan_activity = random.choice(plan_activities).activity if plan_activities else None
+            # Check if we have enough data to generate persons
+            if not names or not jobs or not cities:
+                logger.warning(f"Not enough data to generate persons for {lang_config.name}")
+                continue
 
-            # Create a new person
-            person = Person(
-                name_id=name.id,
-                age=age,
-                origin=city.id,
-                job_id=job.id,
-                children=children,
-                weekend_activity=weekend_activity,
-                plan_activity=plan_activity
-            )
-            persons.append(person)
+            # Generate random persons for this language
+            persons = []
+            for _ in range(PERSONS_PER_LANGUAGE):
+                # Select random data
+                name = random.choice(names)
+                job = random.choice(jobs)
+                city = random.choice(cities)
+                age = random.randint(20, 65)
+                children = random.randint(0, 3)
 
-        # Add all persons to the database
-        session.add_all(persons)
+                # Select random activities if available
+                weekend_activity = random.choice(weekend_activities).activity if weekend_activities else None
+                plan_activity = random.choice(plan_activities).activity if plan_activities else None
+
+                # Create a new person with language_code
+                person = Person(
+                    name_id=name.id,
+                    age=age,
+                    origin=city.id,
+                    job_id=job.id,
+                    children=children,
+                    weekend_activity=weekend_activity,
+                    plan_activity=plan_activity,
+                    language_code=code
+                )
+                persons.append(person)
+
+            # Add all persons to the database
+            session.add_all(persons)
+            total_persons += len(persons)
+            logger.info(f"Generated {len(persons)} persons for {lang_config.name}")
+
         session.commit()
-        logger.info(f"Successfully added {len(persons)} persons to the database")
+        logger.info(f"Successfully added {total_persons} persons to the database")
 
     except Exception as e:
         session.rollback()
@@ -75,25 +98,42 @@ def clear_and_fill_persons_table():
     finally:
         session.close()
 
-def get_random_person_data():
+def get_random_person_data(language_code: str = None):
     """
     Fetch a random person from the database and format their data for use in a prompt.
+
+    Args:
+        language_code: ISO language code to filter persons (e.g., 'de', 'is').
+                       If None, uses the default TARGET_LANGUAGE.
 
     Returns:
         dict: A dictionary containing formatted person data for use in a prompt
     """
-    logger.info("Fetching random person from database")
+    # Determine which language to use
+    if language_code:
+        lang_config = get_language_config_by_code(language_code)
+        if not lang_config:
+            logger.warning(f"Unknown language code: {language_code}, falling back to default")
+            lang_config = get_language_config()
+            language_code = lang_config.code
+    else:
+        lang_config = get_language_config()
+        language_code = lang_config.code
+
+    logger.info(f"Fetching random person from database for language: {language_code}")
     session = get_db_session()
 
     try:
-        # Get a random person from the database
-        person_count = session.query(func.count(Person.id)).scalar()
+        # Get a random person from the database filtered by language
+        query = session.query(Person).filter(Person.language_code == language_code)
+        person_count = query.count()
+
         if person_count == 0:
-            logger.error("No persons found in database")
+            logger.error(f"No persons found in database for language: {language_code}")
             return None
 
         random_offset = random.randint(0, person_count - 1)
-        person = session.query(Person).offset(random_offset).limit(1).first()
+        person = query.offset(random_offset).limit(1).first()
 
         if not person:
             logger.error("Failed to fetch random person")
@@ -104,11 +144,8 @@ def get_random_person_data():
         city = session.query(City).filter(City.id == person.origin).first()
         job = session.query(Job).filter(Job.id == person.job_id).first()
 
-        # Determine gender based on name (simplified approach)
-        # In a real application, you might want to store gender in the database
-        # or use a more sophisticated approach to determine gender
-        # For now, we'll just assume names ending with 'a' are female, others are male
-        gender = "female" if name.first_name.endswith('a') else "male"
+        # Determine gender based on name using language-specific rules
+        gender = lang_config.detect_gender(name.first_name)
 
         # Generate ages of children if the person has children
         children_ages = []
@@ -128,7 +165,8 @@ def get_random_person_data():
             "number_of_children": person.children or 0,
             "age_of_children": ", ".join(map(str, children_ages)) if children_ages else "N/A",
             "weekend_activity": person.weekend_activity or "staying at home",
-            "current_plan": person.plan_activity or "relaxing"
+            "current_plan": person.plan_activity or "relaxing",
+            "language_code": language_code
         }
 
         logger.info(f"Successfully fetched random person: {name.first_name} {name.last_name}")

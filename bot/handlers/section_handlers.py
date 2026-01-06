@@ -17,9 +17,44 @@ from bot.utils.translations import get_translation
 from bot.db.person_generator import get_random_person_data
 from bot.db.topic_generator import get_random_topic
 from bot.db.user_service import get_user_by_telegram_id
+from bot.languages import get_language_config, get_language_config_by_code
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
+
+
+def get_user_target_language(db_user):
+    """
+    Get the user's target language code from their settings.
+
+    Args:
+        db_user: User object from database
+
+    Returns:
+        str: Language code (e.g., 'is', 'de') or None if not set
+    """
+    if db_user and db_user.settings and db_user.settings.target_language:
+        return db_user.settings.target_language.code
+    return None
+
+
+def get_lang_config_for_user(db_user):
+    """
+    Get the language config for a user based on their target language setting.
+
+    Args:
+        db_user: User object from database
+
+    Returns:
+        LanguageConfig instance for the user's target language
+    """
+    target_lang_code = get_user_target_language(db_user)
+    if target_lang_code:
+        config = get_language_config_by_code(target_lang_code)
+        if config:
+            return config
+    # Fall back to default language
+    return get_language_config()
 
 # Dictionary to track ongoing requests per user and command type
 # Key: (user_id, command_type), Value: True if processing
@@ -109,12 +144,19 @@ async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -
 @track_user_activity
 async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    logger.info(f"User {user.id} requested section_01 (Icelandic language test)")
 
-    # Get user's language preference
+    # Get user from database
     db_user = get_user_by_telegram_id(user.id)
+
+    # Get language config based on user's target language setting
+    lang_config = get_lang_config_for_user(db_user)
+    target_lang_code = lang_config.code
+
+    logger.info(f"User {user.id} requested section_01 ({lang_config.name} language test)")
+
+    # Get user's UI language preference
     user_language = "English"  # Default to English if no language preference is set
-    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+    if db_user and db_user.settings and db_user.settings.language:
         user_language = db_user.settings.language.language
 
     msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
@@ -126,20 +168,14 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         ai_service = get_ai_service()
 
-        # Get user's language preference and language level
-        db_user = get_user_by_telegram_id(user.id)
-        user_language = "English"  # Default to English if no language preference is set
+        # Get user's language level
         user_language_level = "A2"  # Default to A2 if no language level is set
-        if db_user and hasattr(db_user, 'settings') and db_user.settings:
-            if db_user.settings.language:
-                user_language = db_user.settings.language.language
-            if db_user.settings.language_level:
-                user_language_level = db_user.settings.language_level.level
-        # No fallback needed anymore as language is only in settings
+        if db_user and db_user.settings and db_user.settings.language_level:
+            user_language_level = db_user.settings.language_level.level
 
-        # Get a random topic from the database
+        # Get a random topic from the database for the target language
         start_step(get_translation("fetching_topic", user_language))
-        topic = get_random_topic()
+        topic = get_random_topic(target_lang_code)
 
         if not topic:
             logger.error("Failed to fetch random topic, using default")
@@ -147,94 +183,19 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         complete_step()
 
-        custom_prompt = f"""
-            Create an Icelandic language proficiency test for citizenship purposes focusing on just ONE dialogue scenario.
-            IMPORTANT: The topic for this dialogue is: {topic}
-
-            STRICTLY follow these guidelines for {user_language_level} level according to CEFR:
-            * A1: Only use basic phrases, present tense, simple questions. Vocabulary limited to 500 most common words. Only simple sentences (subject-verb-object).
-            * A2: Simple past tense allowed, basic conjunctions, vocabulary up to 1000 most common words. Simple sentences with basic connectors.
-            * B1: Some compound sentences, more verb tenses, vocabulary up to 2000 most common words. Avoid idioms and complex structures.
-            * B2: Natural flow of conversation, wider range of vocabulary up to 4000 words, some idioms allowed but explained in footnotes.
-            * C1-C2: No restrictions on vocabulary or grammar complexity.
-
-            Listening Section:
-            * Create a realistic dialogue between two people (a man and a woman) about the chosen everyday topic.
-            * The dialogue should include 8-10 exchanges and be in Icelandic.
-            * Include common phrases that would be useful in such a setting.
-            * Clearly identify speakers with labels like "Kona:" (Woman) and "Maður:" (Man)
-            * After the dialogue, add 5 multiple-choice questions about details in the conversation.
-            * Double-check that ALL words and structures in the dialogue strictly match the specified CEFR level.
-
-            Format the dialogue clearly so I can easily extract it for audio processing.
-
-            Your output MUST strictly follow this exact template format:
-
-
-            *Saga:* [title of the dialogue]
-
-            *Hlustaðu á þetta samtal.*
-
-            ```
-            [dialogue with speakers clearly identified as "Kona:" and "Maður:"]
-            ```
-
-            *Spurningar um samtal*
-
-            [5 multiple-choice questions about the dialogue in Icelandic]
-
-            *Orðabók*
-
-
-            *KEY VOCABULARY:*
-
-            ```
-            * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}]
-            * [Another key word] (grammatical info) - [Translation] - [Part of speech] in {user_language}]
-            * þurfa - нуждаться, требоваться - глагол
-            * [Include all words that will appear in Grammar Notes section]
-            ```
-
-
-            *USEFUL PHRASES:*
-
-            ```
-            * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
-            * [Greeting/Expression] - [Translation] - [When to use this phrase]
-            ```
-
-            *WORD COMBINATIONS:*
-
-            ```
-            * [Common word combination] - [Translation showing how meaning changes in this context]
-            * [Combination using words from KEY VOCABULARY section] - [Translation and usage example]
-            ```
-
-
-            *GRAMMAR NOTES:*
-
-            ```
-            * [Grammatical construction from dialogue] - [Explanation in {user_language}]
-            * Þurfa + að + инфинитив - выражение необходимости (используя глагол þurfa из словаря)
-            * [Other grammatical notes using words already listed in KEY VOCABULARY]
-            ```
-
-            Important: Ensure all words mentioned in GRAMMAR NOTES are first included in the KEY VOCABULARY section.
-            Include 15-20 items total, prioritizing practical expressions and phrases over single words.
-            Avoid including very basic words that a {user_language_level} learner would already know.
-            ```
-            """
+        # Get prompt from language configuration
+        custom_prompt = lang_config.get_dialogue_prompt(topic, user_language, user_language_level)
 
         start_step(get_translation("generating_content", user_language, topic=topic))
         content = await asyncio.to_thread(ai_service.generate_icelandic_test, custom_prompt)
         complete_step()
 
         start_step(get_translation("extracting_dialogue", user_language))
-        dialogue_lines = await asyncio.to_thread(ai_service.extract_dialogue, content)
+        dialogue_lines = await asyncio.to_thread(ai_service.extract_dialogue, content, lang_config)
         complete_step()
 
         start_step(get_translation("starting_audio", user_language))
-        audio_path = await asyncio.to_thread(ai_service.generate_audio_for_dialogue, dialogue_lines, user.id)
+        audio_path = await asyncio.to_thread(ai_service.generate_audio_for_dialogue, dialogue_lines, user.id, lang_config)
         complete_step()
 
         start_step(get_translation("merging_audio", user_language))
@@ -250,9 +211,9 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # 3. Questions (to be sent as polls)
         # 4. Dictionary/vocabulary sections
 
-        # Find the markers for splitting
-        dialogue_end_marker = "*Spurningar um samtal*"
-        vocabulary_marker = "*Orðabók*"
+        # Get markers from language config
+        dialogue_end_marker = lang_config.markers.dialogue_questions
+        vocabulary_marker = lang_config.markers.vocabulary
 
         # Split the content
         parts = content.split(dialogue_end_marker, 1)
@@ -273,7 +234,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             # Send audio file
             with open(audio_path, "rb") as audio_file:
-                await update.message.reply_audio(audio_file, title="Icelandic Dialogue")
+                await update.message.reply_audio(audio_file, title=f"{lang_config.name} Dialogue")
 
             # Send questions as quiz polls
             await parse_and_send_quiz_polls(update, content, dialogue_end_marker)
@@ -287,7 +248,7 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
 
             with open(audio_path, "rb") as audio_file:
-                await update.message.reply_audio(audio_file, title="Icelandic Dialogue")
+                await update.message.reply_audio(audio_file, title=f"{lang_config.name} Dialogue")
 
         audio_path_obj = Path(audio_path)
         if audio_path_obj.exists():
@@ -311,12 +272,19 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 @track_user_activity
 async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    logger.info(f"User {user.id} requested section_02 (Reading Section)")
 
-    # Get user's language preference
+    # Get user from database
     db_user = get_user_by_telegram_id(user.id)
+
+    # Get language config based on user's target language setting
+    lang_config = get_lang_config_for_user(db_user)
+    target_lang_code = lang_config.code
+
+    logger.info(f"User {user.id} requested section_02 ({lang_config.name} Reading Section)")
+
+    # Get user's UI language preference
     user_language = "English"  # Default to English if no language preference is set
-    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+    if db_user and db_user.settings and db_user.settings.language:
         user_language = db_user.settings.language.language
 
     msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
@@ -328,19 +296,13 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     try:
         ai_service = get_ai_service()
 
-        # Get user's language preference and language level
-        db_user = get_user_by_telegram_id(user.id)
-        user_language = "English"  # Default to English if no language preference is set
+        # Get user's language level
         user_language_level = "A2"  # Default to A2 if no language level is set
-        if db_user and hasattr(db_user, 'settings') and db_user.settings:
-            if db_user.settings.language:
-                user_language = db_user.settings.language.language
-            if db_user.settings.language_level:
-                user_language_level = db_user.settings.language_level.level
-        # No fallback needed anymore as language is only in settings
+        if db_user and db_user.settings and db_user.settings.language_level:
+            user_language_level = db_user.settings.language_level.level
 
         start_step(get_translation("fetching_person", user_language))
-        person_data = get_random_person_data()
+        person_data = get_random_person_data(target_lang_code)
 
         if not person_data:
             logger.error("Failed to fetch random person data")
@@ -349,94 +311,10 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         complete_step()
 
         # Format the prompt with the person data
-
         start_step(get_translation("generating_content", user_language, topic=person_data['name']))
 
-        custom_prompt = f"""
-        Write a short Icelandic reading comprehension passage - 20-25 sentences long ({user_language_level} CEFR level) 
-        about a person's daily life in Iceland.
-
-        STRICTLY follow these guidelines for {user_language_level} level according to CEFR:
-        * A1: Only use basic phrases, present tense, simple questions. Vocabulary limited to 500 most common words. Only simple sentences (subject-verb-object). Sentences should be very short (5-7 words).
-        * A2: Simple past tense allowed, basic conjunctions, vocabulary up to 1000 most common words. Simple sentences with basic connectors like "og" (and), "en" (but), "því" (because).
-        * B1: Some compound sentences, more verb tenses, vocabulary up to 2000 most common words. Avoid idioms and complex structures. 
-        * B2: Natural flow of text, wider range of vocabulary up to 4000 words, some idioms allowed but explained in footnotes.
-        * C1-C2: No restrictions on vocabulary or grammar complexity.
-
-        Use the following information to guide the story:
-
-        - Name: {person_data["name"]}
-        - Gender: {person_data["gender"]}
-        - Age: {person_data["age"]}
-        - From: {person_data["origin"]}
-        - Job: {person_data["job_title"]} at a {person_data["job_workplace"]}
-        - Children: {person_data["number_of_children"]} children (ages {person_data["age_of_children"]})
-        - Usual weekend activity: {person_data["weekend_activity"]}
-        - Plan for today: {person_data["current_plan"]}
-
-        Before writing the passage:
-        1. Make sure to use time expressions, daily routine verbs, and family-related vocabulary appropriate for the specified level.
-
-        The passage should:
-        - Use vocabulary and grammar structures strictly matching the {user_language_level} level
-        - Include frequently used Icelandic phrases for the level
-        - Have clear paragraph breaks for readability
-        - Use sentence length appropriate for the level (shorter for A1-A2, gradually longer for B1-B2)
-
-        After the passage, add 5 multiple-choice comprehension questions in Icelandic with three answer choices each. 
-        The questions should test understanding of where the person is from, what job they do, what time they wake up, 
-        etc. Ensure that the questions and answer choices also follow the same CEFR level restrictions.
-
-        Your output MUST strictly follow this exact template format:
-
-        *Saga um [person]*
-
-        ```
-        [passage]
-        ```
-
-        *Spurningar*
-
-        [5 multiple-choice questions about the passage in Icelandic]
-
-        *Orðabók*
-
-
-        *KEY VOCABULARY:*
-
-        ```
-        * [Word in Icelandic] (grammatical info) - [Translation] - [Part of speech: noun/verb/adjective] in {user_language}
-        * [Include all words that will appear in Grammar Notes section]
-        ```
-
-
-        *USEFUL PHRASES:*
-
-        ```
-        * [Phrase in Icelandic] - [Translation to {user_language}] - [Example of how it's used in a sentence in {user_language}]
-        * [Expression from the passage] - [Translation] - [When to use this phrase]
-        ```
-
-
-        *WORD COMBINATIONS:*
-
-        ```
-        * [Common word combination from the passage] - [Translation showing how meaning changes in this context]
-        * [Combination using words from KEY VOCABULARY section] - [Translation and usage example]
-        ```
-
-
-        *GRAMMAR NOTES:*
-
-        ```
-        * [Grammatical construction from the passage] - [Explanation in {user_language}]
-        * [Other grammatical notes using words already listed in KEY VOCABULARY]
-
-        Important: Ensure all words mentioned in GRAMMAR NOTES are first included in the KEY VOCABULARY section.
-        Include 15-20 items total, prioritizing practical expressions and phrases over single words.
-        Avoid including very basic words that a {user_language_level} learner would already know.
-        ```
-        """
+        # Get prompt from language configuration
+        custom_prompt = lang_config.get_reading_prompt(person_data, user_language, user_language_level)
         content = await asyncio.to_thread(ai_service.generate_icelandic_test, custom_prompt)
         complete_step()
 
@@ -448,9 +326,9 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # 2. Questions (to be sent as polls)
         # 3. Dictionary/vocabulary sections
 
-        # Find the markers for splitting
-        questions_marker = "*Spurningar*"
-        vocabulary_marker = "*Orðabók*"
+        # Get markers from language config
+        questions_marker = lang_config.markers.reading_questions
+        vocabulary_marker = lang_config.markers.vocabulary
 
         # Split to get the passage part
         passage_parts = content.split(questions_marker, 1)
@@ -548,10 +426,16 @@ async def understanding_command(update: Update, context: ContextTypes.DEFAULT_TY
 @track_user_activity
 async def communication_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    logger.info(f"User {user.id} requested communication command")
 
-    # Get user's language preference
+    # Get user from database
     db_user = get_user_by_telegram_id(user.id)
+
+    # Get language config based on user's target language setting
+    lang_config = get_lang_config_for_user(db_user)
+
+    logger.info(f"User {user.id} requested communication command ({lang_config.name})")
+
+    # Get user's UI language preference
     user_language = "English"  # Default to English if no language preference is set
     if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
         user_language = db_user.settings.language.language
@@ -596,7 +480,7 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(description, parse_mode=ParseMode.MARKDOWN)
 
         # Check if the image_url is a local path or a URL
-        caption = get_translation("write_paragraph", user_language)
+        caption = get_translation("write_paragraph", user_language, target_language=lang_config.name)
         if image_url.startswith(('http://', 'https://')):
             # It's a URL, send it directly
             await update.message.reply_photo(image_url, caption=caption)

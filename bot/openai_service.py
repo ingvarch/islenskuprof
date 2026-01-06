@@ -12,6 +12,7 @@ from openai import OpenAI
 from pydub import AudioSegment
 from bot.db.user_service import get_user_audio_speed
 from bot.ai_service import AIService
+from bot.languages import get_language_config
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class OpenAIService(AIService):
 
     def generate_icelandic_test(self, prompt: Optional[str] = None) -> str:
         """
-        Generate Icelandic language test content using OpenAI.
+        Generate language test content using OpenAI.
 
         Args:
             prompt: Custom prompt to use for generation. If None, the default prompt will be used.
@@ -42,17 +43,20 @@ class OpenAIService(AIService):
         Returns:
             str: Generated test content
         """
+        lang_config = get_language_config()
 
         # Add instruction to mark correct answers
-        if prompt and "Spurningar" in prompt:
+        # Check for questions marker in the configured language
+        questions_marker = lang_config.markers.reading_questions
+        if prompt and questions_marker.replace("*", "") in prompt:
             prompt += "\n\nIMPORTANT: For all multiple-choice questions, mark the correct answer with (CORRECT) at the end of the option text. For example: 'a) This is the right answer (CORRECT)'."
 
-        logger.info("Sending request to OpenAI to generate Icelandic test content")
+        logger.info(f"Sending request to OpenAI to generate {lang_config.name} test content")
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant specialized in creating Icelandic language tests. Always mark the correct answer in multiple-choice questions with (CORRECT)."},
+                    {"role": "system", "content": lang_config.system_message},
                     {"role": "user", "content": prompt}
                 ]
             )
@@ -63,58 +67,57 @@ class OpenAIService(AIService):
             logger.error(f"Error generating test content: {e}")
             raise
 
-    def extract_dialogue(self, test_content: str) -> List[Tuple[str, str]]:
+    def extract_dialogue(self, test_content: str, lang_config=None) -> List[Tuple[str, str]]:
         """
         Extract dialogue pairs from the test content.
 
         Args:
             test_content: The generated test content
+            lang_config: Language configuration (optional, defaults to TARGET_LANGUAGE config)
 
         Returns:
             List of tuples containing (speaker, text)
         """
+        if lang_config is None:
+            lang_config = get_language_config()
         logger.info("Extracting dialogue from generated test content")
         dialogue_lines = []
 
-        # Use regex to find lines with "Kona:" or "Maður:" (or variations)
-        pattern = r'(Kona|Maður|KONA|MAÐUR):\s*(.*?)(?=\n(?:Kona|Maður|KONA|MAÐUR):|$)'
-        matches = re.finditer(pattern, test_content, re.DOTALL | re.MULTILINE)
+        # Use regex pattern from language config
+        pattern = lang_config.dialogue_regex_pattern
+        matches = re.finditer(pattern, test_content)
 
         for match in matches:
             speaker = match.group(1).strip()
             text = match.group(2).strip()
-            # Normalize speaker labels
-            if speaker.upper() == "KONA":
-                speaker = "Kona"
-            elif speaker.upper() == "MAÐUR":
-                speaker = "Maður"
-
+            # Normalize speaker labels using language config
+            speaker = lang_config.normalize_speaker(speaker)
             dialogue_lines.append((speaker, text))
 
         logger.info(f"Extracted {len(dialogue_lines)} lines of dialogue")
 
-        # If no dialogue was extracted, return a simple example for testing
+        # If no dialogue was extracted, use fallback from language config
         if not dialogue_lines:
             logger.warning("No dialogue was extracted, using fallback example dialogue")
-            dialogue_lines = [
-                ("Kona", "Heilsugæslan, góðan daginn."),
-                ("Maður", "Góðan dag. Ég þarf að breyta tímanum mínum.")
-            ]
+            dialogue_lines = lang_config.get_fallback_dialogue()
 
         return dialogue_lines
 
 
-    def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None) -> str:
+    def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None, lang_config=None) -> str:
         """
         Generate audio files for each line in the dialogue and merge them into a single file.
 
         Args:
             dialogue_lines: List of (speaker, text) tuples
             user_id: Telegram user ID to get audio speed settings (optional)
+            lang_config: Language configuration (optional, defaults to TARGET_LANGUAGE config)
 
         Returns:
             Path to the generated audio file
         """
+        if lang_config is None:
+            lang_config = get_language_config()
         logger.info(f"Generating audio for {len(dialogue_lines)} dialogue lines")
         temp_dir = tempfile.mkdtemp()
         logger.debug(f"Created temporary directory: {temp_dir}")
@@ -126,23 +129,15 @@ class OpenAIService(AIService):
             user_audio_speed = get_user_audio_speed(user_id)
             logger.info(f"Using audio speed {user_audio_speed} for user {user_id}")
 
-        # Define consistent voice settings for each speaker
-        voice_settings = {
-            "Kona": {
-                "voice": "alloy",
-                "speed": user_audio_speed,  # Use user's audio speed
-            },
-            "Maður": {
-                "voice": "onyx",
-                "speed": user_audio_speed,  # Use user's audio speed
-            }
-        }
+        # Get voice settings from language config
+        voice_settings = lang_config.get_voice_settings(user_audio_speed)
 
         try:
             # Generate individual audio files for each line
+            female_label = lang_config.speakers["female"].label
             for i, (speaker, text) in enumerate(dialogue_lines):
                 # Get voice settings based on speaker
-                settings = voice_settings.get(speaker, voice_settings["Kona"])
+                settings = voice_settings.get(speaker, voice_settings[female_label])
                 voice = settings["voice"]
 
                 logger.info(f"Generating audio for line {i+1}: {speaker} - '{text[:30]}...' using voice '{voice}'")

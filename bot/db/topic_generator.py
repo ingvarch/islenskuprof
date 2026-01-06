@@ -1,34 +1,55 @@
 """
 Module for fetching random topics from the database.
+
+Supports multi-language filtering based on language_code.
 """
 import logging
 import random
 from sqlalchemy import func
 from bot.db.database import get_db_session
 from bot.db.models import Topic
+from bot.languages import get_language_config, get_language_config_by_code
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
-def get_random_topic():
+
+def get_random_topic(language_code: str = None):
     """
     Fetch a random topic from the database.
+
+    Args:
+        language_code: ISO language code to filter topics (e.g., 'de', 'is').
+                       If None, uses the default TARGET_LANGUAGE.
 
     Returns:
         str: A random topic name or None if no topics are found
     """
-    logger.info("Fetching random topic from database")
+    # Determine which language to use
+    if language_code:
+        lang_config = get_language_config_by_code(language_code)
+        if not lang_config:
+            logger.warning(f"Unknown language code: {language_code}, falling back to default")
+            lang_config = get_language_config()
+            language_code = lang_config.code
+    else:
+        lang_config = get_language_config()
+        language_code = lang_config.code
+
+    logger.info(f"Fetching random topic from database for language: {language_code}")
     session = get_db_session()
 
     try:
-        # Get a random topic from the database
-        topic_count = session.query(func.count(Topic.id)).scalar()
+        # Get a random topic from the database filtered by language
+        query = session.query(Topic).filter(Topic.language_code == language_code)
+        topic_count = query.count()
+
         if topic_count == 0:
-            logger.error("No topics found in database")
+            logger.error(f"No topics found in database for language: {language_code}")
             return None
 
         random_offset = random.randint(0, topic_count - 1)
-        topic = session.query(Topic).offset(random_offset).limit(1).first()
+        topic = query.offset(random_offset).limit(1).first()
 
         if not topic:
             logger.error("Failed to fetch random topic")
