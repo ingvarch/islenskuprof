@@ -3,14 +3,10 @@ Module for handling OpenRouter API interactions with failover support.
 """
 import os
 import logging
-import tempfile
 import re
 import time
-from pathlib import Path
 from typing import List, Tuple, Optional
 from openai import OpenAI
-from pydub import AudioSegment
-from bot.db.user_service import get_user_audio_speed
 from bot.ai_service import AIService
 from bot.languages import get_language_config
 
@@ -182,7 +178,7 @@ class OpenRouterService(AIService):
         """
         Generate audio files for each line in the dialogue and merge them into a single file.
 
-        Note: OpenRouter doesn't provide TTS, so we use OpenAI's TTS API for audio generation.
+        Uses VoiceMaker TTS API for audio generation.
 
         Args:
             dialogue_lines: List of (speaker, text) tuples
@@ -192,97 +188,7 @@ class OpenRouterService(AIService):
         Returns:
             Path to the generated audio file
         """
-        if lang_config is None:
-            lang_config = get_language_config()
-        logger.info(f"Generating audio for {len(dialogue_lines)} dialogue lines using OpenAI TTS API")
-        temp_dir = tempfile.mkdtemp()
-        logger.debug(f"Created temporary directory: {temp_dir}")
-        temp_files = []
+        from bot.voicemaker_service import get_voicemaker_service
 
-        # Get user's audio speed if user_id is provided
-        user_audio_speed = 1.0  # Default speed
-        if user_id:
-            user_audio_speed = get_user_audio_speed(user_id)
-            logger.info(f"Using audio speed {user_audio_speed} for user {user_id}")
-
-        # Get voice settings from language config
-        voice_settings = lang_config.get_voice_settings(user_audio_speed)
-
-        try:
-            # Initialize OpenAI client for TTS
-            openai_api_key = os.environ.get("OPENAI_API_KEY")
-            if not openai_api_key:
-                raise ValueError("OPENAI_API_KEY environment variable is not set (required for TTS)")
-
-            openai_client = OpenAI(api_key=openai_api_key)
-
-            # Generate individual audio files for each line
-            female_label = lang_config.speakers["female"].label
-            for i, (speaker, text) in enumerate(dialogue_lines):
-                # Get voice settings based on speaker
-                settings = voice_settings.get(speaker, voice_settings[female_label])
-                voice = settings["voice"]
-
-                logger.info(f"Generating audio for line {i+1}: {speaker} - '{text[:30]}...' using voice '{voice}'")
-
-                instructions = """
-                Voice: Clear, authoritative, and composed, projecting confidence and professionalism.
-                Tone: Neutral and informative, maintaining a balance between formality and approachability.
-                Punctuation: Structured with commas and pauses for clarity, ensuring information is digestible and well-paced.
-                Delivery: Steady and measured, with slight emphasis on key figures and deadlines to highlight critical points.
-                """
-
-                file_path = os.path.join(temp_dir, f"part_{i}.mp3")
-
-                # Generate audio with OpenAI with consistent parameters
-                try:
-                    with openai_client.audio.speech.with_streaming_response.create(
-                            model="gpt-4o-mini-tts",
-                            voice=voice,
-                            speed=settings["speed"],
-                            input=text,
-                            instructions=instructions,
-                            response_format="mp3",
-                    ) as response:
-                        logger.debug(f"Streaming audio response to file: {file_path}")
-                        response.stream_to_file(file_path)
-
-                    logger.debug(f"Audio file created: {file_path}")
-                    temp_files.append(file_path)
-                except Exception as e:
-                    logger.error(f"Error generating audio for line {i+1}: {e}")
-                    raise
-
-            # Merge audio files
-            logger.info("Merging individual audio files")
-            merged_audio = AudioSegment.empty()
-            for i, file_path in enumerate(temp_files):
-                logger.debug(f"Adding audio file {i+1}/{len(temp_files)} to merged audio")
-                audio_segment = AudioSegment.from_file(file_path)
-                merged_audio += audio_segment
-
-                # Add a small pause between lines
-                pause = AudioSegment.silent(duration=500)  # 500ms pause
-                merged_audio += pause
-
-            # Save the merged audio
-            output_path = os.path.join(temp_dir, "dialogue.mp3")
-            logger.info(f"Exporting merged audio to {output_path}")
-            merged_audio.export(output_path, format="mp3")
-
-            # Move to a more permanent location
-            final_path = Path(__file__).parent.parent / "data"
-            final_path.mkdir(exist_ok=True)
-            final_file = final_path / "section_01_dialogue.mp3"
-
-            logger.info(f"Copying audio file to final location: {final_file}")
-            # Copy the file to the final location
-            with open(output_path, "rb") as src, open(final_file, "wb") as dst:
-                dst.write(src.read())
-
-            logger.info(f"Audio generation complete: {final_file}")
-            return str(final_file)
-
-        except Exception as e:
-            logger.error(f"Error in audio generation process: {e}")
-            raise
+        voicemaker = get_voicemaker_service()
+        return voicemaker.generate_audio_for_dialogue(dialogue_lines, user_id, lang_config)

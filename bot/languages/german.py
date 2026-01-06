@@ -27,8 +27,8 @@ class GermanConfig(LanguageConfig):
     @property
     def speakers(self) -> Dict[str, SpeakerConfig]:
         return {
-            "female": SpeakerConfig(label="Frau", voice="alloy"),
-            "male": SpeakerConfig(label="Mann", voice="onyx"),
+            "female": SpeakerConfig(label="Frau", voice="pro1-Helena"),
+            "male": SpeakerConfig(label="Mann", voice="pro1-Thomas"),
         }
 
     @property

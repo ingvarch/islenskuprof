@@ -10,7 +10,7 @@ from typing import List, Dict, Tuple, Pattern
 class SpeakerConfig:
     """Configuration for a dialogue speaker."""
     label: str       # Display label (e.g., "Kona", "Frau")
-    voice: str       # OpenAI TTS voice (e.g., "alloy", "onyx")
+    voice: str       # VoiceMaker voice ID (e.g., "ai3-is-IS-Svana", "pro1-Helena")
 
 
 @dataclass

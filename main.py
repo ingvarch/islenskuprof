@@ -57,21 +57,14 @@ def main():
     elif ai_provider == "CLAUDE":
         claude_api_key = os.environ.get("CLAUDE_API_KEY")
         claude_model = os.environ.get("CLAUDE_MODEL", "claude-3-7-sonnet-latest")  # Default model if not specified
-        openai_api_key = os.environ.get("OPENAI_API_KEY")  # Still needed for TTS
 
         if not claude_api_key:
             logger.error("CLAUDE_API_KEY environment variable is not set. Bot will not function correctly.")
             return
         logger.info(f"Claude API key found, using model: {claude_model}")
-
-        if not openai_api_key:
-            logger.error("OPENAI_API_KEY environment variable is not set (required for TTS). Bot will not function correctly.")
-            return
-        logger.info("OpenAI API key found (required for TTS)")
     elif ai_provider == "OPENROUTER":
         openrouter_api_key = os.environ.get("OPENROUTER_API_KEY")
         openrouter_models = os.environ.get("OPENROUTER_MODELS", "")
-        openai_api_key = os.environ.get("OPENAI_API_KEY")  # Still needed for TTS
 
         if not openrouter_api_key:
             logger.error("OPENROUTER_API_KEY environment variable is not set. Bot will not function correctly.")
@@ -83,11 +76,6 @@ def main():
             logger.info(f"OpenRouter API key found, using models: {models_list}")
         else:
             logger.info("OpenRouter API key found, using default failover models")
-
-        if not openai_api_key:
-            logger.error("OPENAI_API_KEY environment variable is not set (required for TTS). Bot will not function correctly.")
-            return
-        logger.info("OpenAI API key found (required for TTS)")
     else:
         logger.warning(f"Unknown AI provider: {ai_provider}. Falling back to OpenAI.")
         openai_api_key = os.environ.get("OPENAI_API_KEY")
@@ -102,6 +90,13 @@ def main():
             return
 
         logger.info(f"Falling back to OpenAI, using model: {openai_model}")
+
+    # Check for VoiceMaker API key (required for TTS)
+    voicemaker_api_key = os.environ.get("VOICEMAKER_API_KEY")
+    if not voicemaker_api_key:
+        logger.error("VOICEMAKER_API_KEY environment variable is not set (required for TTS). Bot will not function correctly.")
+        return
+    logger.info("VoiceMaker API key found (required for TTS)")
 
     # Create data directory if it doesn't exist
     data_dir = Path(__file__).parent / "data"

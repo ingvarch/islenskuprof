@@ -27,8 +27,8 @@ class IcelandicConfig(LanguageConfig):
     @property
     def speakers(self) -> Dict[str, SpeakerConfig]:
         return {
-            "female": SpeakerConfig(label="Kona", voice="alloy"),
-            "male": SpeakerConfig(label="Madur", voice="onyx"),
+            "female": SpeakerConfig(label="Kona", voice="ai3-is-IS-Svana"),
+            "male": SpeakerConfig(label="Madur", voice="ai3-is-IS-Ulfr"),
         }
 
     @property
