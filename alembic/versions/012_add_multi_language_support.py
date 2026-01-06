@@ -68,6 +68,15 @@ def upgrade():
         ['target_language_id'], ['id']
     )
 
+    # 4. Update existing data to have language_code='is' (all existing data was Icelandic)
+    logger.info("Updating existing data with language_code='is'")
+    op.execute("UPDATE names SET language_code = 'is' WHERE language_code IS NULL")
+    op.execute("UPDATE cities SET language_code = 'is' WHERE language_code IS NULL")
+    op.execute("UPDATE jobs SET language_code = 'is' WHERE language_code IS NULL")
+    op.execute("UPDATE activities SET language_code = 'is' WHERE language_code IS NULL")
+    op.execute("UPDATE topic SET language_code = 'is' WHERE language_code IS NULL")
+    op.execute("UPDATE persons SET language_code = 'is' WHERE language_code IS NULL")
+
     logger.info("Migration %s applied successfully", revision)
 
 

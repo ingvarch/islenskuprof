@@ -7,8 +7,8 @@ based on the TARGET_LANGUAGES environment variable.
 Supports multiple target languages simultaneously. Data is seeded with language_code
 to enable per-user language selection.
 """
-import os
 import logging
+import sqlalchemy as sa
 from sqlalchemy import func
 from bot.db.database import get_db_session
 from bot.db.models import Name, City, Job, Activity, Topic, TargetLanguage
@@ -105,6 +105,23 @@ def seed_topics(session, topics, language_code: str):
     logger.info(f"Added {len(topics)} topics for {language_code} to database")
 
 
+def reset_sequences(session):
+    """
+    Reset PostgreSQL sequences to match the current max IDs in tables.
+    This is needed when data was inserted without using sequences.
+    """
+    tables = ['names', 'cities', 'jobs', 'activities', 'topic', 'persons', 'target_languages']
+    for table in tables:
+        try:
+            session.execute(
+                sa.text(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}")
+            )
+            logger.debug(f"Reset sequence for table {table}")
+        except Exception as e:
+            logger.warning(f"Could not reset sequence for {table}: {e}")
+    session.commit()
+
+
 def seed_target_languages(session, lang_configs):
     """
     Seed the target_languages table with available languages.
@@ -158,6 +175,9 @@ def seed_database_if_empty():
 
     session = get_db_session()
     try:
+        # Reset sequences to avoid primary key conflicts
+        reset_sequences(session)
+
         # Seed target_languages table first
         seed_target_languages(session, lang_configs)
 
