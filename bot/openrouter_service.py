@@ -98,16 +98,16 @@ class OpenRouterService(AIService):
 
         raise last_error
 
-    def generate_icelandic_test(self, prompt: Optional[str] = None, language_level: str = "A2") -> str:
+    def generate_content(self, prompt: Optional[str] = None, language_level: str = "A2") -> str:
         """
-        Generate language test content using OpenRouter.
+        Generate language learning content using OpenRouter.
 
         Args:
             prompt: Custom prompt to use for generation.
             language_level: CEFR level (A1, A2, B1, B2, C1, C2) for content difficulty.
 
         Returns:
-            str: Generated test content
+            str: Generated content
         """
         lang_config = get_language_config()
 
@@ -116,7 +116,7 @@ class OpenRouterService(AIService):
         if prompt and questions_marker.replace("*", "") in prompt:
             prompt += "\n\nIMPORTANT: For all multiple-choice questions, mark the correct answer with (CORRECT) at the end of the option text. For example: 'a) This is the right answer (CORRECT)'."
 
-        logger.info(f"Sending request to OpenRouter to generate {lang_config.name} test content at {language_level} level")
+        logger.info(f"Generating {lang_config.name} content at {language_level} level")
 
         # Use level-aware system message for stricter CEFR compliance
         system_message = lang_config.get_system_message_for_level(language_level)

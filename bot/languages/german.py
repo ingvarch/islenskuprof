@@ -228,7 +228,14 @@ Your output MUST strictly follow this exact template format:
 
 {markers.dialogue_questions}
 
-[5 multiple-choice questions about the dialogue in German]
+[5 TRICKY multiple-choice questions - follow these rules:
+- Question 1: Ask about something NOT explicitly stated but can be inferred
+- Question 2: Include a distractor answer that uses words from the text but is wrong
+- Question 3: Ask about the speaker's intention or emotion, not just facts
+- Question 4: Ask about a detail that requires careful reading (time, number, name)
+- Question 5: Ask what would likely happen next OR what the speakers agree/disagree on
+- All wrong answers should be plausible and use vocabulary from the dialogue
+- Avoid obvious wrong answers that are clearly unrelated]
 
 {markers.vocabulary}
 
@@ -315,7 +322,14 @@ Your output MUST strictly follow this exact template format:
 
 {markers.reading_questions}
 
-[5 multiple-choice questions about the passage in German]
+[5 TRICKY multiple-choice questions - follow these rules:
+- Question 1: Ask about something that requires inference (not directly stated)
+- Question 2: Ask about a specific detail where wrong answers use similar numbers/times/names
+- Question 3: Ask WHY the person does something, not just WHAT they do
+- Question 4: Include distractor answers that paraphrase text incorrectly
+- Question 5: Ask about the person's feelings, preferences, or future plans
+- All wrong answers should be plausible and use vocabulary from the passage
+- Never include obviously wrong answers that contradict the text completely]
 
 {markers.vocabulary}
 
