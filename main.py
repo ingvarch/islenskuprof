@@ -68,6 +68,26 @@ def main():
             logger.error("OPENAI_API_KEY environment variable is not set (required for TTS). Bot will not function correctly.")
             return
         logger.info("OpenAI API key found (required for TTS)")
+    elif ai_provider == "OPENROUTER":
+        openrouter_api_key = os.environ.get("OPENROUTER_API_KEY")
+        openrouter_models = os.environ.get("OPENROUTER_MODELS", "")
+        openai_api_key = os.environ.get("OPENAI_API_KEY")  # Still needed for TTS
+
+        if not openrouter_api_key:
+            logger.error("OPENROUTER_API_KEY environment variable is not set. Bot will not function correctly.")
+            return
+
+        # Log configured models or defaults
+        if openrouter_models:
+            models_list = [m.strip() for m in openrouter_models.split(",") if m.strip()]
+            logger.info(f"OpenRouter API key found, using models: {models_list}")
+        else:
+            logger.info("OpenRouter API key found, using default failover models")
+
+        if not openai_api_key:
+            logger.error("OPENAI_API_KEY environment variable is not set (required for TTS). Bot will not function correctly.")
+            return
+        logger.info("OpenAI API key found (required for TTS)")
     else:
         logger.warning(f"Unknown AI provider: {ai_provider}. Falling back to OpenAI.")
         openai_api_key = os.environ.get("OPENAI_API_KEY")
