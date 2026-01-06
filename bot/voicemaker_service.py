@@ -117,10 +117,13 @@ class VoiceMakerService:
             "MasterPitch": "0",
         }
 
-        # Add VoxFX effects if provided
+        # TODO: VoxFX temporarily disabled - need to verify correct API format
+        # The current format breaks audio generation (produces clicks instead of speech)
+        # if voxfx:
+        #     payload["VoxFx"] = voxfx
+        #     logger.debug(f"Applying VoxFX preset: {voxfx['presetId']} with dryWet: {voxfx['dryWet']}")
         if voxfx:
-            payload["VoxFx"] = voxfx
-            logger.debug(f"Applying VoxFX preset: {voxfx['presetId']} with dryWet: {voxfx['dryWet']}")
+            logger.info(f"VoxFX preset requested but temporarily disabled: {voxfx['presetId']}")
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
