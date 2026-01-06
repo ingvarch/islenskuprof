@@ -526,7 +526,7 @@ async def target_language_select_callback(update: Update, context: ContextTypes.
             language = db_user.settings.language.language
 
         # Confirmation message using translation
-        message = get_translation("target_language_updated", language, language=f"{target_lang_native} ({target_lang_name})") + " ✅"
+        message = get_translation("target_language_updated", language, lang_name=f"{target_lang_native} ({target_lang_name})") + " ✅"
 
         logger.info(f"User {user.id} selected target language: {target_lang_name}")
 

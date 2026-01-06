@@ -119,8 +119,8 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "ru": "Выберите язык, который хотите изучать:"
     },
     "target_language_updated": {
-        "en": "Target language updated to {language}",
-        "ru": "Изучаемый язык изменен на {language}"
+        "en": "Target language updated to {lang_name}",
+        "ru": "Изучаемый язык изменен на {lang_name}"
     },
     "error_no_target_languages": {
         "en": "Error: No target languages available. Please contact the administrator.",

@@ -16,7 +16,7 @@ from bot.utils.message_cleaner import delete_user_command_message
 from bot.utils.translations import get_translation
 from bot.db.person_generator import get_random_person_data
 from bot.db.topic_generator import get_random_topic
-from bot.db.user_service import get_user_by_telegram_id
+from bot.db.user_service import get_user_by_telegram_id, get_target_language_by_id
 from bot.languages import get_language_config, get_language_config_by_code
 
 # Get logger for this module
@@ -33,8 +33,10 @@ def get_user_target_language(db_user):
     Returns:
         str: Language code (e.g., 'is', 'de') or None if not set
     """
-    if db_user and db_user.settings and db_user.settings.target_language:
-        return db_user.settings.target_language.code
+    if db_user and db_user.settings and db_user.settings.target_language_id:
+        target_lang = get_target_language_by_id(db_user.settings.target_language_id)
+        if target_lang:
+            return target_lang.code
     return None
 
 
