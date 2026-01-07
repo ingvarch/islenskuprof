@@ -222,11 +222,10 @@ def save_lesson_to_db(
     audio_path: str = None,
 ):
     """Save generated lesson to database."""
-    from bot.db.database import get_db_session
+    from bot.db.database import db_session
     from bot.db.models import PimsleurLesson
 
-    session = get_db_session()
-    try:
+    with db_session() as session:
         # Check if lesson already exists
         existing = session.query(PimsleurLesson).filter_by(
             language_code=lang_code,
@@ -244,7 +243,7 @@ def save_lesson_to_db(
                 existing.audio_file_path = audio_path
                 existing.is_generated = True
             existing.updated_at = datetime.utcnow()
-            logger.info(f"Updated existing lesson in database")
+            logger.info("Updated existing lesson in database")
         else:
             # Create new
             lesson = PimsleurLesson(
@@ -265,11 +264,7 @@ def save_lesson_to_db(
                 is_generated=audio_path is not None,
             )
             session.add(lesson)
-            logger.info(f"Created new lesson in database")
-
-        session.commit()
-    finally:
-        session.close()
+            logger.info("Created new lesson in database")
 
 
 def main():

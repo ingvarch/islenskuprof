@@ -30,17 +30,10 @@ class PimsleurLessonGenerator:
             language_config: Optional language configuration object
         """
         self.ai_service = OpenRouterService()
-        self.vocab_manager = VocabularyProgressionManager(
-            language_code=language_config.code if language_config else "is"
-        )
         self.lang_config = language_config
-        self._language_name = self._get_language_name()
-
-    def _get_language_name(self) -> str:
-        """Get full language name from config or default."""
-        if self.lang_config:
-            return self.lang_config.name
-        return "Icelandic"
+        self._lang_code = language_config.code if language_config else "is"
+        self._language_name = language_config.name if language_config else "Icelandic"
+        self.vocab_manager = VocabularyProgressionManager(language_code=self._lang_code)
 
     def generate_lesson_script(
         self,
@@ -79,10 +72,9 @@ class PimsleurLessonGenerator:
         logger.info(f"Generating script for {level} Lesson {lesson_number}: {title}")
 
         # Prepare prompts
-        lang_code = self.lang_config.code if self.lang_config else "is"
         system_prompt, user_prompt = get_lesson_generation_prompt(
             target_language=self._language_name,
-            lang_code=lang_code,
+            lang_code=self._lang_code,
             cefr_level=level,
             lesson_number=lesson_number,
             lesson_title=title,
@@ -133,10 +125,9 @@ class PimsleurLessonGenerator:
         """
         logger.info(f"Generating custom lesson from {len(source_text)} chars of text")
 
-        lang_code = self.lang_config.code if self.lang_config else "is"
         system_prompt, user_prompt = get_custom_lesson_prompt(
             target_language=self._language_name,
-            lang_code=lang_code,
+            lang_code=self._lang_code,
             source_text=source_text,
         )
 

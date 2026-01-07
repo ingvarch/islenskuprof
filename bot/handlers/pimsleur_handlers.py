@@ -23,8 +23,10 @@ from bot.db.pimsleur_service import (
     mark_lesson_completed,
     get_progress_summary,
     cache_telegram_file_id,
+    cache_custom_lesson_file_id,
     create_custom_lesson_request,
     get_user_custom_lessons,
+    get_custom_lesson_by_id,
     update_custom_lesson_status,
 )
 
@@ -68,24 +70,8 @@ def _format_progress_text(progress: dict) -> str:
     return text
 
 
-@restricted
-@track_user_activity
-async def pimsleur_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /pimsleur command - show Pimsleur lesson menu."""
-    user = update.effective_user
-    db_user = get_user_by_telegram_id(user.id)
-
-    if not db_user:
-        await update.message.reply_text(
-            "Please use /start first to initialize your account."
-        )
-        return
-
-    target_lang = _get_target_language(db_user)
-    progress = get_progress_summary(db_user.id, target_lang)
-    progress_text = _format_progress_text(progress)
-
-    # Build keyboard
+def _build_main_menu_keyboard(progress: dict, db_user_id: int, target_lang: str) -> InlineKeyboardMarkup:
+    """Build the main Pimsleur menu keyboard."""
     keyboard = []
 
     # Continue button if user has progress
@@ -111,14 +97,33 @@ async def pimsleur_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )])
 
     # My custom lessons (if any exist)
-    custom_lessons = get_user_custom_lessons(db_user.id, target_lang, status="ready")
+    custom_lessons = get_user_custom_lessons(db_user_id, target_lang, status="ready")
     if custom_lessons:
         keyboard.append([InlineKeyboardButton(
             f"My Custom Lessons ({len(custom_lessons)})",
             callback_data=PIMSLEUR_CUSTOM_LIST
         )])
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(keyboard)
+
+
+@restricted
+@track_user_activity
+async def pimsleur_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /pimsleur command - show Pimsleur lesson menu."""
+    user = update.effective_user
+    db_user = get_user_by_telegram_id(user.id)
+
+    if not db_user:
+        await update.message.reply_text(
+            "Please use /start first to initialize your account."
+        )
+        return
+
+    target_lang = _get_target_language(db_user)
+    progress = get_progress_summary(db_user.id, target_lang)
+    progress_text = _format_progress_text(progress)
+    reply_markup = _build_main_menu_keyboard(progress, db_user.id, target_lang)
 
     await update.message.reply_text(
         f"*Pimsleur Icelandic Lessons*\n\n{progress_text}",
@@ -132,35 +137,16 @@ async def pimsleur_menu_callback(update: Update, context: ContextTypes.DEFAULT_T
     query = update.callback_query
     await query.answer()
 
-    # Re-show main menu
     user = update.effective_user
     db_user = get_user_by_telegram_id(user.id)
     target_lang = _get_target_language(db_user)
     progress = get_progress_summary(db_user.id, target_lang)
     progress_text = _format_progress_text(progress)
-
-    keyboard = []
-    if progress.get("started") and progress.get("current_lesson", 1) <= 30:
-        level = progress["level"]
-        lesson_num = progress["current_lesson"]
-        keyboard.append([InlineKeyboardButton(
-            f"Continue: {level} Lesson {lesson_num}",
-            callback_data=f"{PIMSLEUR_LESSON_PREFIX}{level}_{lesson_num}"
-        )])
-
-    keyboard.append([
-        InlineKeyboardButton("A1", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}A1"),
-        InlineKeyboardButton("A2", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}A2"),
-        InlineKeyboardButton("B1", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}B1"),
-    ])
-    keyboard.append([InlineKeyboardButton(
-        "Create Custom Lesson",
-        callback_data=PIMSLEUR_CUSTOM
-    )])
+    reply_markup = _build_main_menu_keyboard(progress, db_user.id, target_lang)
 
     await query.edit_message_text(
         f"*Pimsleur Icelandic Lessons*\n\n{progress_text}",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=reply_markup,
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -232,10 +218,19 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
     query = update.callback_query
     await query.answer("Loading lesson...")
 
-    # Parse level and lesson number
+    # Parse level and lesson number with validation
     data = query.data.replace(PIMSLEUR_LESSON_PREFIX, "")
-    level, lesson_num = data.split("_")
-    lesson_num = int(lesson_num)
+    parts = data.split("_")
+    if len(parts) < 2:
+        await query.answer("Invalid lesson data", show_alert=True)
+        return
+
+    try:
+        level = parts[0]
+        lesson_num = int(parts[1])
+    except (ValueError, IndexError):
+        await query.answer("Invalid lesson data", show_alert=True)
+        return
 
     user = update.effective_user
     db_user = get_user_by_telegram_id(user.id)
@@ -332,10 +327,10 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
         )
 
     except Exception as e:
-        logger.error(f"Error sending lesson audio: {e}")
+        logger.error(f"Error sending lesson audio: {e}", exc_info=True)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=f"Sorry, there was an error sending the lesson audio: {e}",
+            text="Sorry, there was an error sending the lesson audio. Please try again later.",
         )
 
 
@@ -343,12 +338,20 @@ async def pimsleur_complete_callback(update: Update, context: ContextTypes.DEFAU
     """Mark a lesson as completed."""
     query = update.callback_query
 
-    # Parse callback data
+    # Parse callback data with validation
     data = query.data.replace(PIMSLEUR_COMPLETE_PREFIX, "")
     parts = data.split("_")
-    level = parts[0]
-    lesson_num = int(parts[1])
-    lesson_id = int(parts[2])
+    if len(parts) < 3:
+        await query.answer("Invalid callback data", show_alert=True)
+        return
+
+    try:
+        level = parts[0]
+        lesson_num = int(parts[1])
+        lesson_id = int(parts[2])
+    except (ValueError, IndexError):
+        await query.answer("Invalid lesson data", show_alert=True)
+        return
 
     user = update.effective_user
     db_user = get_user_by_telegram_id(user.id)
@@ -615,8 +618,9 @@ async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DE
                     InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU),
                 ]]),
             )
-        except BadRequest:
-            pass
+        except BadRequest as e:
+            if "Message is not modified" not in str(e):
+                raise
         return
 
     # Build lesson list
@@ -652,8 +656,9 @@ async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DE
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode=ParseMode.MARKDOWN,
         )
-    except BadRequest:
-        pass
+    except BadRequest as e:
+        if "Message is not modified" not in str(e):
+            raise
 
 
 async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -661,16 +666,18 @@ async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DE
     query = update.callback_query
     await query.answer("Loading custom lesson...")
 
-    # Parse lesson ID
-    lesson_id = int(query.data.replace("pimsleur_custom_play_", ""))
+    # Parse lesson ID with validation
+    try:
+        lesson_id = int(query.data.replace("pimsleur_custom_play_", ""))
+    except ValueError:
+        await query.answer("Invalid lesson ID", show_alert=True)
+        return
 
     user = update.effective_user
     db_user = get_user_by_telegram_id(user.id)
-    target_lang = _get_target_language(db_user)
 
-    # Get lesson from custom lessons
-    custom_lessons = get_user_custom_lessons(db_user.id, target_lang)
-    lesson = next((l for l in custom_lessons if l.id == lesson_id), None)
+    # Get lesson by ID (verifies ownership)
+    lesson = get_custom_lesson_by_id(lesson_id, db_user.id)
 
     if not lesson:
         await query.edit_message_text(
@@ -711,11 +718,11 @@ async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DE
                     )
                     # Cache file_id for future use
                     if message.audio:
-                        from bot.db.pimsleur_service import cache_custom_lesson_file_id
                         cache_custom_lesson_file_id(lesson_id, message.audio.file_id)
             else:
+                logger.error(f"Audio file not found: {audio_path}")
                 await query.message.reply_text(
-                    f"Audio file not found: {audio_path}"
+                    "Audio file not found. Please try again later."
                 )
                 return
 
@@ -728,9 +735,9 @@ async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DE
         )
 
     except Exception as e:
-        logger.error(f"Error sending custom lesson audio: {e}")
+        logger.error(f"Error sending custom lesson audio: {e}", exc_info=True)
         await query.edit_message_text(
-            f"Error loading lesson: {str(e)[:100]}",
+            "Error loading lesson. Please try again later.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)
             ]]),

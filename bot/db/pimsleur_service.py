@@ -230,13 +230,6 @@ def is_lesson_unlocked(
         if required not in level_completed:
             return False
 
-    # For A2/B1, check if previous level is completed
-    if level == "A2":
-        # Need all 30 A1 lessons (would be tracked differently in real impl)
-        pass  # Simplified for now
-    elif level == "B1":
-        pass  # Simplified for now
-
     return True
 
 
@@ -284,11 +277,13 @@ def mark_lesson_completed(
             progress.level = level
             progress.lesson_number = lesson_number + 1 if lesson_number < 30 else 30
             progress.last_lesson_id = lesson_id
+
+            # Update streak (if completed within 48 hours of last completion)
+            previous_completed_at = progress.last_completed_at
             progress.last_completed_at = datetime.utcnow()
 
-            # Update streak (if completed within 48 hours of last)
-            if progress.last_completed_at:
-                time_since_last = datetime.utcnow() - progress.last_completed_at
+            if previous_completed_at:
+                time_since_last = datetime.utcnow() - previous_completed_at
                 if time_since_last < timedelta(hours=48):
                     progress.streak_count = (progress.streak_count or 0) + 1
                 else:
@@ -454,6 +449,27 @@ def update_custom_lesson_status(
         raise
     except Exception as e:
         logger.error(f"Failed to update custom lesson: {e}")
+
+
+def get_custom_lesson_by_id(
+    lesson_id: int,
+    user_id: int,
+) -> Optional[PimsleurCustomLesson]:
+    """
+    Get a custom lesson by ID, verifying ownership.
+
+    Args:
+        lesson_id: Custom lesson database ID
+        user_id: Database user ID (for ownership verification)
+
+    Returns:
+        PimsleurCustomLesson or None if not found or not owned by user
+    """
+    with db_session(auto_commit=False) as session:
+        lesson = session.get(PimsleurCustomLesson, lesson_id)
+        if lesson and lesson.user_id == user_id:
+            return lesson
+        return None
 
 
 def cache_custom_lesson_file_id(lesson_id: int, file_id: str) -> None:

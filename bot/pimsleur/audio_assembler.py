@@ -65,14 +65,11 @@ class PimsleurAudioAssembler:
             "narrator": VOICES["narrator"],
         }
 
-        if lang_code == "is":
-            voices["native_female"] = VOICES["native_female_is"]
-            voices["native_male"] = VOICES["native_male_is"]
-        elif lang_code == "de":
+        if lang_code == "de":
             voices["native_female"] = VOICES["native_female_de"]
             voices["native_male"] = VOICES["native_male_de"]
         else:
-            # Default to Icelandic
+            # Default to Icelandic (covers "is" and any unknown codes)
             voices["native_female"] = VOICES["native_female_is"]
             voices["native_male"] = VOICES["native_male_is"]
 

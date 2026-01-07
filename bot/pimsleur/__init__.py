@@ -32,10 +32,6 @@ from bot.pimsleur.error_handling import (
     PimsleurError,
     LessonNotFoundError,
     LessonLockedError,
-    GenerationError,
-    AudioAssemblyError,
-    InvalidScriptError,
-    VocabularyError,
 )
 
 __all__ = [
@@ -45,8 +41,4 @@ __all__ = [
     "PimsleurError",
     "LessonNotFoundError",
     "LessonLockedError",
-    "GenerationError",
-    "AudioAssemblyError",
-    "InvalidScriptError",
-    "VocabularyError",
 ]

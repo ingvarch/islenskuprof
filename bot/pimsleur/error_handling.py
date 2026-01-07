@@ -23,23 +23,3 @@ class LessonLockedError(PimsleurError):
             f"Lesson {lesson_number} is locked. "
             f"Complete lesson {required_lesson} first."
         )
-
-
-class GenerationError(PimsleurError):
-    """Error during lesson script generation."""
-    pass
-
-
-class AudioAssemblyError(PimsleurError):
-    """Error during audio file assembly."""
-    pass
-
-
-class InvalidScriptError(PimsleurError):
-    """Lesson script is malformed or invalid."""
-    pass
-
-
-class VocabularyError(PimsleurError):
-    """Error in vocabulary processing."""
-    pass

@@ -33,7 +33,6 @@ class VocabularyProgressionManager:
             language_code: ISO language code (default: "is" for Icelandic)
         """
         self.language_code = language_code
-        self._vocabulary_cache: dict = {}
 
     def get_core_vocabulary(self, level: str) -> list[dict]:
         """
@@ -204,48 +203,6 @@ class VocabularyProgressionManager:
             return themes[lesson_number - 1]
 
         return f"review_and_practice_{lesson_number}"
-
-    def extract_vocabulary_from_text(
-        self,
-        text: str,
-        target_count: int = 20,
-    ) -> list[dict]:
-        """
-        Extract vocabulary items from user-provided text.
-
-        This is a placeholder - actual implementation would use
-        NLP or LLM to extract and translate vocabulary.
-
-        Args:
-            text: Source text in target language
-            target_count: Target number of vocabulary items
-
-        Returns:
-            List of vocabulary dictionaries
-        """
-        # Split text into words and take unique ones
-        words = text.split()
-        unique_words = list(dict.fromkeys(words))  # Preserve order, remove duplicates
-
-        # Filter out very short words and punctuation
-        filtered_words = [
-            w.strip(".,!?;:\"'()[]") for w in unique_words
-            if len(w.strip(".,!?;:\"'()[]")) > 2
-        ]
-
-        # Take top N words
-        selected_words = filtered_words[:target_count]
-
-        # Return as vocabulary items (translations would need LLM)
-        return [
-            {
-                "word_target": word,
-                "word_native": f"[translation needed: {word}]",
-                "word_type": "unknown",
-                "phonetic": "",
-            }
-            for word in selected_words
-        ]
 
     def validate_vocabulary_coverage(
         self,

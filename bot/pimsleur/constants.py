@@ -16,18 +16,6 @@ SPACED_REPETITION_INTERVALS = [5, 25, 120, 600, 1200]  # 5s, 25s, 2min, 10min, 2
 # For lesson N, review vocabulary from lessons N-offset
 CROSS_LESSON_REVIEW_OFFSETS = [1, 2, 5, 10]
 
-# Segment types for lesson script
-SEGMENT_TYPES = {
-    "instruction": "English narrator explanations",
-    "new_word": "Introduce vocabulary (native speaker)",
-    "prompt": "Ask user to produce language",
-    "pause": "Silent period for user response",
-    "model_answer": "Correct answer after pause",
-    "repeat_after": "Instruction to repeat",
-    "native_model": "Native model for repetition",
-    "dialogue_segment": "Short contextual dialogues",
-}
-
 # Voice configuration
 VOICES = {
     "narrator": {

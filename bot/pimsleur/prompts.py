@@ -2,6 +2,8 @@
 LLM prompt templates for Pimsleur lesson generation.
 """
 
+import json
+
 PIMSLEUR_LESSON_SYSTEM_PROMPT = """You are an expert language curriculum designer specializing in the Pimsleur method for audio-based language learning.
 
 Your task is to create lesson scripts that follow Pimsleur's core principles:
@@ -201,6 +203,8 @@ Generate the complete lesson script now. Output ONLY the JSON object."""
 
 CUSTOM_LESSON_PROMPT = """Create a Pimsleur-style lesson from the following user-provided text.
 
+IMPORTANT: Extract vocabulary and create lesson content. Do not reproduce copyrighted material.
+
 SOURCE TEXT ({target_language}):
 {source_text}
 
@@ -275,8 +279,6 @@ def get_lesson_generation_prompt(
     Returns:
         Tuple of (system_prompt, user_prompt)
     """
-    import json
-
     user_prompt = PIMSLEUR_LESSON_USER_PROMPT.format(
         target_language=target_language,
         lang_code=lang_code,
