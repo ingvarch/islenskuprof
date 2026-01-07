@@ -28,13 +28,14 @@ class IcelandicConfig(LanguageConfig):
     def speakers(self) -> Dict[str, SpeakerConfig]:
         return {
             "female": SpeakerConfig(label="Kona", voice="ai3-is-IS-Svana"),
-            "male": SpeakerConfig(label="Madur", voice="ai3-is-IS-Ulfr"),
+            "male": SpeakerConfig(label="Maður", voice="ai3-is-IS-Ulfr"),
         }
 
     @property
     def dialogue_regex_pattern(self) -> Pattern:
+        # Match both ASCII "Madur" and proper Icelandic "Maður" (with ð)
         return re.compile(
-            r'(Kona|Madur|KONA|MADUR):\s*(.*?)(?=\n(?:Kona|Madur|KONA|MADUR):|$)',
+            r'(Kona|Maður|Madur|KONA|MAÐUR|MADUR):\s*(.*?)(?=\n(?:Kona|Maður|Madur|KONA|MAÐUR|MADUR):|$)',
             re.DOTALL | re.MULTILINE
         )
 
@@ -155,10 +156,26 @@ class IcelandicConfig(LanguageConfig):
         """Icelandic names ending in 'a' are typically female."""
         return "female" if first_name.lower().endswith('a') else "male"
 
+    def normalize_speaker(self, speaker: str) -> str:
+        """
+        Normalize speaker label to standard form.
+        Handles both ASCII "Madur" and proper Icelandic "Maður".
+        """
+        speaker_upper = speaker.upper()
+        female_label = self.speakers["female"].label
+        male_label = self.speakers["male"].label
+
+        if speaker_upper == female_label.upper():
+            return female_label
+        # Match both "MAÐUR" and ASCII "MADUR"
+        elif speaker_upper == male_label.upper() or speaker_upper == "MADUR":
+            return male_label
+        return speaker
+
     def get_fallback_dialogue(self) -> List[Tuple[str, str]]:
         return [
             ("Kona", "Heilsugaeslan, godan daginn."),
-            ("Madur", "Godan dag. Eg tharf ad breyta timanum minum."),
+            ("Maður", "Godan dag. Eg tharf ad breyta timanum minum."),
         ]
 
     def get_dialogue_prompt(self, topic: str, user_language: str, user_language_level: str) -> str:
