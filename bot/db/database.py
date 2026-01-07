@@ -3,6 +3,7 @@ Database connection module for the Telegram bot.
 """
 import os
 import logging
+from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -38,17 +39,44 @@ Base = declarative_base()
 def get_db_session():
     """
     Get a database session.
-    
+
     Returns:
         SQLAlchemy session
+
+    Note:
+        Caller is responsible for closing the session.
+        Prefer using db_session() context manager instead.
+    """
+    return Session()
+
+
+@contextmanager
+def db_session(auto_commit: bool = True):
+    """
+    Context manager for database sessions with automatic cleanup.
+
+    Args:
+        auto_commit: If True, commits on successful exit. Default True.
+
+    Yields:
+        SQLAlchemy session
+
+    Example:
+        with db_session() as session:
+            user = session.query(User).filter_by(id=1).first()
+            user.name = "New Name"
+        # Auto-commits and cleans up
     """
     session = Session()
     try:
-        return session
-    except Exception as e:
+        yield session
+        if auto_commit:
+            session.commit()
+    except Exception:
         session.rollback()
-        logger.error(f"Error getting database session: {e}")
         raise
+    finally:
+        Session.remove()  # Proper cleanup for scoped_session
 
 def init_db():
     """
