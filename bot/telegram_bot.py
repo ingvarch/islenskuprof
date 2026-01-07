@@ -23,6 +23,11 @@ from bot.handlers.settings_handlers import (
     settings_command,
     settings_callback_handler
 )
+from bot.handlers.pimsleur_handlers import (
+    pimsleur_command,
+    pimsleur_callback_handler,
+    handle_pimsleur_text_input,
+)
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -47,6 +52,12 @@ def create_bot(token: str) -> Application:
     application.add_handler(CommandHandler("understanding", understanding_command))
     application.add_handler(CommandHandler("communication", communication_command))
     application.add_handler(CommandHandler("settings", settings_command))
+    application.add_handler(CommandHandler("pimsleur", pimsleur_command))
+
+    # Add callback query handler for Pimsleur (before generic handlers)
+    application.add_handler(CallbackQueryHandler(
+        pimsleur_callback_handler, pattern="^pimsleur_"
+    ))
 
     # Add callback query handler for settings with explicit pattern
     # This will only handle callback queries that start with 'lang_'
@@ -57,6 +68,19 @@ def create_bot(token: str) -> Application:
 
     # Add a generic callback handler for any other patterns
     application.add_handler(CallbackQueryHandler(settings_callback_handler))
+
+    # Add text handler for Pimsleur custom lesson input (with group for priority)
+    async def pimsleur_text_wrapper(update, context):
+        """Wrapper to handle Pimsleur text input, pass through if not handled."""
+        handled = await handle_pimsleur_text_input(update, context)
+        if not handled:
+            # Not a Pimsleur text input, let other handlers process it
+            pass
+
+    application.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        pimsleur_text_wrapper
+    ), group=1)
 
     # Add handler for unknown commands - should be added last
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))

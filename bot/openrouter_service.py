@@ -38,7 +38,7 @@ class OpenRouterService(AIService):
 
         logger.info(f"OpenRouter service initialized with model: {self.model}")
 
-    def _call_with_retry(self, messages: List[dict], system_message: str) -> str:
+    def _call_with_retry(self, messages: List[dict], system_message: str, max_tokens: int = 4000) -> str:
         """
         Make an API call with retry logic.
 
@@ -58,7 +58,7 @@ class OpenRouterService(AIService):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
-                    max_tokens=4000,
+                    max_tokens=max_tokens,
                     messages=[
                         {"role": "system", "content": system_message},
                         *messages
@@ -196,3 +196,27 @@ class OpenRouterService(AIService):
 
         voicemaker = get_voicemaker_service()
         return voicemaker.generate_audio_for_dialogue(dialogue_lines, user_id, lang_config, language_level)
+
+    def generate_with_custom_prompt(
+        self,
+        system_message: str,
+        user_message: str,
+        max_tokens: int = 4000,
+    ) -> str:
+        """
+        Generate content with custom system and user prompts.
+
+        This method allows full control over the prompts, useful for
+        specialized generation tasks like Pimsleur lesson scripts.
+
+        Args:
+            system_message: Custom system prompt
+            user_message: User prompt/request
+            max_tokens: Maximum tokens in response (default: 4000)
+
+        Returns:
+            str: Generated content
+        """
+        logger.info(f"Generating content with custom prompt (max_tokens={max_tokens})")
+        messages = [{"role": "user", "content": user_message}]
+        return self._call_with_retry(messages, system_message, max_tokens)

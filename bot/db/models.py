@@ -453,3 +453,187 @@ class UserSettings(Base):
         String representation of the user settings.
         """
         return f"<UserSettings(id={self.id}, user_id={self.user_id}, target_lang={self.target_language_id})>"
+
+
+# ============================================================================
+# Pimsleur Method Models
+# ============================================================================
+
+
+class PimsleurLesson(Base):
+    """
+    PimsleurLesson model for storing Pimsleur-style audio lessons.
+    """
+    __tablename__ = "pimsleur_lessons"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    language_code = Column(String(10), nullable=False, index=True)
+    level = Column(String(5), nullable=False)  # A1, A2, B1
+    lesson_number = Column(Integer, nullable=False)  # 1-30
+    title = Column(String(255), nullable=False)
+    description = Column(String, nullable=True)
+    duration_seconds = Column(Integer, nullable=False, default=1800)  # 30 min
+    audio_file_path = Column(String(500), nullable=True)
+    telegram_file_id = Column(String(255), nullable=True)  # Cached for fast delivery
+    script_json = Column(String, nullable=False)  # JSON with segment structure
+    vocabulary_json = Column(String, nullable=False)  # JSON with vocabulary list
+    review_from_lessons = Column(String, nullable=True)  # JSON array of lesson IDs
+    is_generated = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    vocabulary_items = relationship("PimsleurLessonVocabulary", back_populates="lesson")
+
+    def __init__(self, language_code, level, lesson_number, title, script_json, vocabulary_json,
+                 description=None, duration_seconds=1800, audio_file_path=None,
+                 review_from_lessons=None, is_generated=False):
+        self.language_code = language_code
+        self.level = level
+        self.lesson_number = lesson_number
+        self.title = title
+        self.description = description
+        self.duration_seconds = duration_seconds
+        self.audio_file_path = audio_file_path
+        self.script_json = script_json
+        self.vocabulary_json = vocabulary_json
+        self.review_from_lessons = review_from_lessons
+        self.is_generated = is_generated
+
+    def __repr__(self):
+        return f"<PimsleurLesson(id={self.id}, {self.level} L{self.lesson_number}: {self.title})>"
+
+
+class PimsleurVocabulary(Base):
+    """
+    PimsleurVocabulary model for tracking vocabulary across lessons.
+    """
+    __tablename__ = "pimsleur_vocabulary"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    language_code = Column(String(10), nullable=False, index=True)
+    word_target = Column(String(255), nullable=False)  # Word in target language
+    word_native = Column(String(255), nullable=False)  # Translation (e.g., English)
+    phonetic = Column(String(255), nullable=True)  # Pronunciation guide
+    word_type = Column(String(50), nullable=True)  # noun, verb, phrase, etc.
+    cefr_level = Column(String(5), nullable=False)  # Level where introduced
+    introduced_lesson_id = Column(Integer, ForeignKey('pimsleur_lessons.id', ondelete='SET NULL'), nullable=True)
+    frequency_rank = Column(Integer, nullable=True)  # Common word ranking
+    audio_file_path = Column(String(500), nullable=True)  # Individual word audio
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    introduced_lesson = relationship("PimsleurLesson")
+    lesson_usages = relationship("PimsleurLessonVocabulary", back_populates="vocabulary")
+
+    def __init__(self, language_code, word_target, word_native, cefr_level,
+                 phonetic=None, word_type=None, introduced_lesson_id=None,
+                 frequency_rank=None, audio_file_path=None):
+        self.language_code = language_code
+        self.word_target = word_target
+        self.word_native = word_native
+        self.cefr_level = cefr_level
+        self.phonetic = phonetic
+        self.word_type = word_type
+        self.introduced_lesson_id = introduced_lesson_id
+        self.frequency_rank = frequency_rank
+        self.audio_file_path = audio_file_path
+
+    def __repr__(self):
+        return f"<PimsleurVocabulary({self.word_target} = {self.word_native})>"
+
+
+class PimsleurLessonVocabulary(Base):
+    """
+    Junction table linking vocabulary to lessons with repetition schedules.
+    """
+    __tablename__ = "pimsleur_lesson_vocabulary"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    lesson_id = Column(Integer, ForeignKey('pimsleur_lessons.id', ondelete='CASCADE'), nullable=False)
+    vocabulary_id = Column(Integer, ForeignKey('pimsleur_vocabulary.id', ondelete='CASCADE'), nullable=False)
+    is_new = Column(Boolean, nullable=False, default=False)  # Introduced in this lesson
+    repetition_count = Column(Integer, nullable=False, default=0)  # Times repeated
+    intervals_json = Column(String, nullable=True)  # JSON array of second marks
+
+    # Relationships
+    lesson = relationship("PimsleurLesson", back_populates="vocabulary_items")
+    vocabulary = relationship("PimsleurVocabulary", back_populates="lesson_usages")
+
+    def __init__(self, lesson_id, vocabulary_id, is_new=False, repetition_count=0, intervals_json=None):
+        self.lesson_id = lesson_id
+        self.vocabulary_id = vocabulary_id
+        self.is_new = is_new
+        self.repetition_count = repetition_count
+        self.intervals_json = intervals_json
+
+    def __repr__(self):
+        return f"<PimsleurLessonVocabulary(lesson={self.lesson_id}, vocab={self.vocabulary_id}, new={self.is_new})>"
+
+
+class UserPimsleurProgress(Base):
+    """
+    Tracks user progress through Pimsleur lessons.
+    """
+    __tablename__ = "user_pimsleur_progress"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    language_code = Column(String(10), nullable=False)
+    level = Column(String(5), nullable=False, default='A1')
+    lesson_number = Column(Integer, nullable=False, default=1)  # Current/next lesson
+    completed_lessons = Column(String, nullable=True)  # JSON array of lesson IDs
+    last_lesson_id = Column(Integer, ForeignKey('pimsleur_lessons.id', ondelete='SET NULL'), nullable=True)
+    last_completed_at = Column(DateTime, nullable=True)
+    streak_count = Column(Integer, nullable=False, default=0)
+    total_time_seconds = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User")
+    last_lesson = relationship("PimsleurLesson")
+
+    def __init__(self, user_id, language_code, level='A1', lesson_number=1):
+        self.user_id = user_id
+        self.language_code = language_code
+        self.level = level
+        self.lesson_number = lesson_number
+        self.completed_lessons = '[]'  # Empty JSON array
+
+    def __repr__(self):
+        return f"<UserPimsleurProgress(user={self.user_id}, {self.level} L{self.lesson_number})>"
+
+
+class PimsleurCustomLesson(Base):
+    """
+    User-generated custom Pimsleur lessons from provided text.
+    """
+    __tablename__ = "pimsleur_custom_lessons"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    language_code = Column(String(10), nullable=False)
+    title = Column(String(255), nullable=False)
+    source_text = Column(String, nullable=False)  # User's original text
+    script_json = Column(String, nullable=True)  # Generated script
+    audio_file_path = Column(String(500), nullable=True)
+    telegram_file_id = Column(String(255), nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    vocabulary_json = Column(String, nullable=True)
+    status = Column(String(50), nullable=False, default='pending')  # pending, generating, ready, failed
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User")
+
+    def __init__(self, user_id, language_code, title, source_text):
+        self.user_id = user_id
+        self.language_code = language_code
+        self.title = title
+        self.source_text = source_text
+        self.status = 'pending'
+
+    def __repr__(self):
+        return f"<PimsleurCustomLesson(id={self.id}, user={self.user_id}, status={self.status})>"
