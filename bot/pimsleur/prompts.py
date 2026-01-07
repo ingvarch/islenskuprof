@@ -181,11 +181,11 @@ Every time you introduce a new word, you MUST use this EXACT sequence:
 4. native_model: Native speaker says the word again
 5. pause: 3 seconds for user repetition
 
-Example for introducing "hello" (hallo):
+Example for introducing "hello" (hæ):
 {{"type": "instruction", "speaker": "narrator", "language": "en", "text": "The word for 'hello' is:", "duration_estimate": 2}}
-{{"type": "new_word", "speaker": "native_female", "language": "{lang_code}", "text": "hallo", "translation": "hello", "duration_estimate": 2}}
+{{"type": "new_word", "speaker": "native_female", "language": "{lang_code}", "text": "hæ", "translation": "hello", "duration_estimate": 2}}
 {{"type": "repeat_after", "speaker": "narrator", "language": "en", "text": "Listen and repeat.", "duration_estimate": 2}}
-{{"type": "native_model", "speaker": "native_female", "language": "{lang_code}", "text": "hallo", "duration_estimate": 2}}
+{{"type": "native_model", "speaker": "native_female", "language": "{lang_code}", "text": "hæ", "duration_estimate": 2}}
 {{"type": "pause", "duration": 3, "purpose": "user_repetition"}}
 
 NEVER introduce a new word without first having the narrator explain what it means in English!
@@ -231,19 +231,19 @@ SEGMENT TYPES (use these EXACTLY):
 
 2. New Word Introduction - ALWAYS use this sequence:
 {{"type": "instruction", "speaker": "narrator", "language": "en", "text": "The word for 'hello' is:", "duration_estimate": 2}}
-{{"type": "new_word", "speaker": "native_female", "language": "{lang_code}", "text": "hallo", "translation": "hello", "duration_estimate": 2}}
+{{"type": "new_word", "speaker": "native_female", "language": "{lang_code}", "text": "hæ", "translation": "hello", "duration_estimate": 2}}
 {{"type": "repeat_after", "speaker": "narrator", "language": "en", "text": "Listen and repeat.", "duration_estimate": 2}}
-{{"type": "native_model", "speaker": "native_female", "language": "{lang_code}", "text": "hallo", "duration_estimate": 2}}
+{{"type": "native_model", "speaker": "native_female", "language": "{lang_code}", "text": "hæ", "duration_estimate": 2}}
 {{"type": "pause", "duration": 3, "purpose": "user_repetition"}}
 
 3. Prompt (ask user to produce):
-{{"type": "prompt", "speaker": "narrator", "language": "en", "text": "How do you say 'hello'?", "expected_response": "hallo", "duration_estimate": 3}}
+{{"type": "prompt", "speaker": "narrator", "language": "en", "text": "How do you say 'hello'?", "expected_response": "hæ", "duration_estimate": 3}}
 
 4. Pause:
 {{"type": "pause", "duration": 4, "purpose": "user_response"}}
 
 5. Model Answer:
-{{"type": "model_answer", "speaker": "native_male", "language": "{lang_code}", "text": "hallo", "duration_estimate": 2}}
+{{"type": "model_answer", "speaker": "native_male", "language": "{lang_code}", "text": "hæ", "duration_estimate": 2}}
 
 IMPORTANT:
 - Alternate between "native_female" and "native_male" speakers

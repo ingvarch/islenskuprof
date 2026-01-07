@@ -11,37 +11,37 @@ from typing import Optional
 # Icelandic stopwords (common words to exclude from vocabulary extraction)
 ICELANDIC_STOPWORDS = {
     # Articles and determiners
-    "a", "i", "til", "fra", "af", "um", "vid", "med", "yfir", "undir",
-    "fyrir", "eftir", "gegnum", "an", "hja",
+    "á", "í", "til", "frá", "af", "um", "við", "með", "yfir", "undir",
+    "fyrir", "eftir", "gegnum", "án", "hjá",
     # Pronouns
-    "eg", "thu", "hann", "hun", "thad", "vid", "thid", "their", "thau",
-    "mig", "thig", "hana", "honum", "henni", "okkur", "ykkur", "theim",
-    "mer", "ther", "ser", "min", "thinn", "sinn", "vor", "okkar", "ykkar",
-    "theirra", "thetta", "thessi", "thessu", "thessum",
+    "ég", "þú", "hann", "hún", "það", "við", "þið", "þeir", "þau",
+    "mig", "þig", "hana", "honum", "henni", "okkur", "ykkur", "þeim",
+    "mér", "þér", "sér", "mín", "þinn", "sinn", "vor", "okkar", "ykkar",
+    "þeirra", "þetta", "þessi", "þessu", "þessum",
     # Common verbs (conjugated forms)
-    "er", "var", "veri", "eru", "voru", "vera", "verid", "hefur", "hef",
-    "hafa", "hafdi", "hofdu", "gera", "gerir", "gerdi", "fara", "fer",
-    "for", "koma", "kemur", "kom", "segja", "segir", "sagdi", "vita",
+    "er", "var", "verið", "eru", "voru", "vera", "verið", "hefur", "hef",
+    "hafa", "hafði", "höfðu", "gera", "gerir", "gerði", "fara", "fer",
+    "fór", "koma", "kemur", "kom", "segja", "segir", "sagði", "vita",
     "veit", "vissi", "vilja", "vill", "vildi", "geta", "get", "gat",
-    "tharf", "thurfa", "thurfti", "ma", "mega", "matti", "skal", "skulu",
-    "skyldi", "mun", "munu", "myndi", "ae", "aetti",
+    "þarf", "þurfa", "þurfti", "má", "mega", "mátti", "skal", "skulu",
+    "skyldi", "mun", "munu", "myndi", "æ", "ætti",
     # Conjunctions and connectors
-    "og", "eda", "en", "sem", "ad", "ef", "thegar", "thvi", "svo",
-    "hvort", "baedi", "annadhvort", "hvorki", "ne", "held", "heldur",
+    "og", "eða", "en", "sem", "að", "ef", "þegar", "því", "svo",
+    "hvort", "bæði", "annaðhvort", "hvorki", "né", "held", "heldur",
     # Adverbs
-    "ekki", "aldrei", "alltaf", "oft", "sjaldan", "stundum", "nu",
-    "tha", "her", "thar", "hvar", "hvert", "hvadan", "hvenær",
-    "hvernig", "af hverju", "hvers vegna", "mjog", "vel", "illa",
-    "bara", "einungis", "nærri", "naerri", "fjærri", "fyrst", "sidast",
-    "samt", "tho", "reyndar", "eiginlega", "samt sem adur",
+    "ekki", "aldrei", "alltaf", "oft", "sjaldan", "stundum", "nú",
+    "þá", "hér", "þar", "hvar", "hvert", "hvaðan", "hvenær",
+    "hvernig", "af hverju", "hvers vegna", "mjög", "vel", "illa",
+    "bara", "einungis", "nærri", "fjærri", "fyrst", "síðast",
+    "samt", "þó", "reyndar", "eiginlega", "samt sem áður",
     # Numbers (written)
-    "einn", "tveir", "thrir", "fjorir", "fimm", "sex", "sjo", "atta",
-    "niu", "tiu", "ellefu", "tolf", "tuttugu", "thratiu", "fjortiu",
-    "fimmtiu", "sextiu", "sjotiu", "attatiu", "niutiu", "hundrad", "thusund",
+    "einn", "tveir", "þrír", "fjórir", "fimm", "sex", "sjö", "átta",
+    "níu", "tíu", "ellefu", "tólf", "tuttugu", "þrjátíu", "fjörutíu",
+    "fimmtíu", "sextíu", "sjötíu", "áttatíu", "níutíu", "hundrað", "þúsund",
     # Question words (exclude from vocabulary)
-    "hvad", "hver", "hvar", "hvert", "hvadan",
+    "hvað", "hver", "hvar", "hvert", "hvaðan",
     # Other common words
-    "ja", "nei", "kannski", "takk", "bless", "hallo",
+    "já", "nei", "kannski", "takk", "bless", "hæ",
 }
 
 # German stopwords
