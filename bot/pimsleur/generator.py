@@ -133,8 +133,10 @@ class PimsleurLessonGenerator:
         """
         logger.info(f"Generating custom lesson from {len(source_text)} chars of text")
 
+        lang_code = self.lang_config.code if self.lang_config else "is"
         system_prompt, user_prompt = get_custom_lesson_prompt(
             target_language=self._language_name,
+            lang_code=lang_code,
             source_text=source_text,
         )
 

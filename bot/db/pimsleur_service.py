@@ -472,3 +472,25 @@ def update_custom_lesson_status(
         session.rollback()
     finally:
         session.close()
+
+
+def cache_custom_lesson_file_id(lesson_id: int, file_id: str) -> None:
+    """
+    Cache Telegram file_id for a custom lesson.
+
+    Args:
+        lesson_id: Custom lesson database ID
+        file_id: Telegram file ID
+    """
+    session = get_db_session()
+    try:
+        lesson = session.query(PimsleurCustomLesson).get(lesson_id)
+        if lesson:
+            lesson.telegram_file_id = file_id
+            session.commit()
+            logger.info(f"Cached file_id for custom lesson {lesson_id}")
+    except Exception as e:
+        logger.error(f"Failed to cache custom lesson file_id: {e}")
+        session.rollback()
+    finally:
+        session.close()

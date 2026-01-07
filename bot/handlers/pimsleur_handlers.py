@@ -2,9 +2,11 @@
 Telegram handlers for Pimsleur lessons.
 """
 
+import asyncio
 import json
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from pathlib import Path
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
@@ -23,6 +25,7 @@ from bot.db.pimsleur_service import (
     cache_telegram_file_id,
     create_custom_lesson_request,
     get_user_custom_lessons,
+    update_custom_lesson_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -421,6 +424,98 @@ async def pimsleur_custom_callback(update: Update, context: ContextTypes.DEFAULT
     context.user_data["awaiting_pimsleur_text"] = True
 
 
+async def _generate_custom_lesson_background(
+    bot: Bot,
+    telegram_user_id: int,
+    lesson_id: int,
+    language_code: str,
+    source_text: str,
+    title: str,
+) -> None:
+    """
+    Background task to generate a custom Pimsleur lesson.
+
+    Args:
+        bot: Telegram bot instance for sending notifications
+        telegram_user_id: Telegram user ID for notifications
+        lesson_id: Custom lesson database ID
+        language_code: Language code
+        source_text: User-provided text
+        title: Lesson title
+    """
+    from bot.languages import get_language_config_by_code
+    from bot.pimsleur.generator import PimsleurLessonGenerator
+    from bot.pimsleur.audio_assembler import PimsleurAudioAssembler
+
+    logger.info(f"Starting background generation for custom lesson {lesson_id}")
+
+    try:
+        # Update status to generating
+        update_custom_lesson_status(lesson_id, status="generating")
+
+        # Get language config
+        lang_config = get_language_config_by_code(language_code)
+
+        # Generate script (run in thread pool to avoid blocking)
+        logger.info(f"Generating script for custom lesson {lesson_id}")
+        generator = PimsleurLessonGenerator(lang_config)
+        script = await asyncio.to_thread(
+            generator.generate_custom_lesson_script, source_text
+        )
+
+        # Save script
+        script_json = json.dumps(script, ensure_ascii=False)
+
+        # Generate audio (run in thread pool)
+        logger.info(f"Generating audio for custom lesson {lesson_id}")
+        output_dir = Path("data/pimsleur") / language_code / "custom"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        audio_path = output_dir / f"custom_{lesson_id}.mp3"
+
+        assembler = PimsleurAudioAssembler(language_code)
+        await asyncio.to_thread(
+            assembler.generate_lesson_audio,
+            script,
+            str(audio_path),
+        )
+
+        # Calculate duration
+        duration = script.get("calculated_duration", 900)
+
+        # Update database with results
+        update_custom_lesson_status(
+            lesson_id=lesson_id,
+            status="ready",
+            script_json=script_json,
+            audio_path=str(audio_path),
+            duration_seconds=duration,
+            vocabulary_json=json.dumps(script.get("vocabulary_summary", []), ensure_ascii=False),
+        )
+
+        logger.info(f"Custom lesson {lesson_id} generated successfully")
+
+        # Notify user
+        await bot.send_message(
+            chat_id=telegram_user_id,
+            text=f"Your custom lesson *{title}* is ready!\n\n"
+                 f"Use /pimsleur and go to 'My Custom Lessons' to access it.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to generate custom lesson {lesson_id}: {e}")
+
+        # Update status to failed
+        update_custom_lesson_status(lesson_id, status="failed")
+
+        # Notify user
+        await bot.send_message(
+            chat_id=telegram_user_id,
+            text=f"Sorry, failed to generate your custom lesson.\n"
+                 f"Error: {str(e)[:100]}",
+        )
+
+
 async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """
     Handle text input for custom lesson creation.
@@ -482,11 +577,164 @@ async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAU
         parse_mode=ParseMode.MARKDOWN,
     )
 
-    # TODO: Trigger background generation task
-    # For now, just log it
+    # Trigger background generation task
     logger.info(f"Custom lesson request {lesson_request.id} created for user {user.id}")
+    asyncio.create_task(
+        _generate_custom_lesson_background(
+            bot=context.bot,
+            telegram_user_id=user.id,
+            lesson_id=lesson_request.id,
+            language_code=target_lang,
+            source_text=text,
+            title=title,
+        )
+    )
 
     return True
+
+
+async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show list of user's custom lessons."""
+    query = update.callback_query
+    await query.answer()
+
+    user = update.effective_user
+    db_user = get_user_by_telegram_id(user.id)
+    target_lang = _get_target_language(db_user)
+
+    # Get all custom lessons
+    custom_lessons = get_user_custom_lessons(db_user.id, target_lang)
+
+    if not custom_lessons:
+        try:
+            await query.edit_message_text(
+                "You don't have any custom lessons yet.\n\n"
+                "Use 'Create Custom Lesson' to generate one from your text!",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("Create Custom Lesson", callback_data=PIMSLEUR_CUSTOM),
+                    InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU),
+                ]]),
+            )
+        except BadRequest:
+            pass
+        return
+
+    # Build lesson list
+    keyboard = []
+    for lesson in custom_lessons:
+        status_emoji = {
+            "pending": "⏳",
+            "generating": "🔄",
+            "ready": "✅",
+            "failed": "❌",
+        }.get(lesson.status, "❓")
+
+        if lesson.status == "ready":
+            callback = f"pimsleur_custom_play_{lesson.id}"
+        else:
+            callback = PIMSLEUR_CUSTOM_LIST  # Just refresh
+
+        keyboard.append([InlineKeyboardButton(
+            f"{status_emoji} {lesson.title[:30]}",
+            callback_data=callback,
+        )])
+
+    keyboard.append([
+        InlineKeyboardButton("Create New", callback_data=PIMSLEUR_CUSTOM),
+        InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU),
+    ])
+
+    try:
+        await query.edit_message_text(
+            "*My Custom Lessons*\n\n"
+            "✅ = ready, ⏳ = pending, 🔄 = generating, ❌ = failed\n\n"
+            "Tap a ready lesson to play:",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+    except BadRequest:
+        pass
+
+
+async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Play a custom lesson."""
+    query = update.callback_query
+    await query.answer("Loading custom lesson...")
+
+    # Parse lesson ID
+    lesson_id = int(query.data.replace("pimsleur_custom_play_", ""))
+
+    user = update.effective_user
+    db_user = get_user_by_telegram_id(user.id)
+    target_lang = _get_target_language(db_user)
+
+    # Get lesson from custom lessons
+    custom_lessons = get_user_custom_lessons(db_user.id, target_lang)
+    lesson = next((l for l in custom_lessons if l.id == lesson_id), None)
+
+    if not lesson:
+        await query.edit_message_text(
+            "Lesson not found.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)
+            ]]),
+        )
+        return
+
+    if lesson.status != "ready":
+        await query.edit_message_text(
+            f"Lesson is not ready yet (status: {lesson.status}).",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)
+            ]]),
+        )
+        return
+
+    # Send audio
+    try:
+        if lesson.telegram_file_id:
+            await query.message.reply_audio(
+                audio=lesson.telegram_file_id,
+                title=lesson.title,
+                caption=f"*{lesson.title}*\nCustom Pimsleur Lesson",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        else:
+            audio_path = Path(lesson.audio_file_path)
+            if audio_path.exists():
+                with open(audio_path, "rb") as audio_file:
+                    message = await query.message.reply_audio(
+                        audio=audio_file,
+                        title=lesson.title,
+                        caption=f"*{lesson.title}*\nCustom Pimsleur Lesson",
+                        parse_mode=ParseMode.MARKDOWN,
+                    )
+                    # Cache file_id for future use
+                    if message.audio:
+                        from bot.db.pimsleur_service import cache_custom_lesson_file_id
+                        cache_custom_lesson_file_id(lesson_id, message.audio.file_id)
+            else:
+                await query.message.reply_text(
+                    f"Audio file not found: {audio_path}"
+                )
+                return
+
+        await query.edit_message_text(
+            f"*{lesson.title}*\n\nEnjoy your custom lesson!",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Back to Custom Lessons", callback_data=PIMSLEUR_CUSTOM_LIST)
+            ]]),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    except Exception as e:
+        logger.error(f"Error sending custom lesson audio: {e}")
+        await query.edit_message_text(
+            f"Error loading lesson: {str(e)[:100]}",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)
+            ]]),
+        )
 
 
 # Handler dispatcher for all pimsleur callbacks
@@ -507,5 +755,9 @@ async def pimsleur_callback_handler(update: Update, context: ContextTypes.DEFAUL
         await pimsleur_locked_callback(update, context)
     elif data == PIMSLEUR_CUSTOM:
         await pimsleur_custom_callback(update, context)
+    elif data == PIMSLEUR_CUSTOM_LIST:
+        await pimsleur_custom_list_callback(update, context)
+    elif data.startswith("pimsleur_custom_play_"):
+        await pimsleur_custom_play_callback(update, context)
     else:
         await query.answer("Unknown action")

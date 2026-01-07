@@ -205,13 +205,48 @@ SOURCE TEXT ({target_language}):
 {source_text}
 
 TASK:
-1. Extract key vocabulary and phrases from the text (15-25 items)
+1. Extract 10-15 key vocabulary words and phrases from the text
 2. Create a 15-20 minute Pimsleur-style lesson teaching this vocabulary
-3. Follow the same Pimsleur principles (spaced repetition, anticipation, repetition)
+3. Follow Pimsleur principles (spaced repetition, anticipation, repetition)
 
-OUTPUT: Same JSON structure as standard lessons, but with duration target of 900-1200 seconds.
+OUTPUT FORMAT - JSON with this EXACT structure:
+{{
+  "lesson_id": "custom",
+  "title": "Custom Lesson",
+  "total_duration_target": 900,
+  "segments": [
+    // Array of segment objects
+  ],
+  "vocabulary_summary": []
+}}
 
-Generate the lesson script now. Output ONLY the JSON object."""
+SEGMENT TYPES (use these EXACTLY):
+
+1. Instruction (narrator in English):
+{{"type": "instruction", "speaker": "narrator", "language": "en", "text": "Welcome to your custom lesson.", "duration_estimate": 5}}
+
+2. New Word Introduction - ALWAYS use this sequence:
+{{"type": "instruction", "speaker": "narrator", "language": "en", "text": "The word for 'hello' is:", "duration_estimate": 2}}
+{{"type": "new_word", "speaker": "native_female", "language": "{lang_code}", "text": "hallo", "translation": "hello", "duration_estimate": 2}}
+{{"type": "repeat_after", "speaker": "narrator", "language": "en", "text": "Listen and repeat.", "duration_estimate": 2}}
+{{"type": "native_model", "speaker": "native_female", "language": "{lang_code}", "text": "hallo", "duration_estimate": 2}}
+{{"type": "pause", "duration": 3, "purpose": "user_repetition"}}
+
+3. Prompt (ask user to produce):
+{{"type": "prompt", "speaker": "narrator", "language": "en", "text": "How do you say 'hello'?", "expected_response": "hallo", "duration_estimate": 3}}
+
+4. Pause:
+{{"type": "pause", "duration": 4, "purpose": "user_response"}}
+
+5. Model Answer:
+{{"type": "model_answer", "speaker": "native_male", "language": "{lang_code}", "text": "hallo", "duration_estimate": 2}}
+
+IMPORTANT:
+- Alternate between "native_female" and "native_male" speakers
+- Every segment MUST have a "text" field (except pause)
+- Include 7+ repetitions of each new word throughout the lesson
+
+Generate the complete lesson script now. Output ONLY the JSON object."""
 
 
 def get_lesson_generation_prompt(
@@ -256,12 +291,13 @@ def get_lesson_generation_prompt(
     return PIMSLEUR_LESSON_SYSTEM_PROMPT, user_prompt
 
 
-def get_custom_lesson_prompt(target_language: str, source_text: str) -> tuple[str, str]:
+def get_custom_lesson_prompt(target_language: str, lang_code: str, source_text: str) -> tuple[str, str]:
     """
     Generate prompts for custom lesson from user text.
 
     Args:
         target_language: Full language name
+        lang_code: ISO language code (e.g., "is")
         source_text: User-provided text in target language
 
     Returns:
@@ -269,6 +305,7 @@ def get_custom_lesson_prompt(target_language: str, source_text: str) -> tuple[st
     """
     user_prompt = CUSTOM_LESSON_PROMPT.format(
         target_language=target_language,
+        lang_code=lang_code,
         source_text=source_text,
     )
 
