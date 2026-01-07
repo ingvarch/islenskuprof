@@ -27,8 +27,8 @@ class IcelandicConfig(LanguageConfig):
     @property
     def speakers(self) -> Dict[str, SpeakerConfig]:
         return {
-            "female": SpeakerConfig(label="Kona", voice="alloy"),
-            "male": SpeakerConfig(label="Madur", voice="onyx"),
+            "female": SpeakerConfig(label="Kona", voice="ai3-is-IS-Svana"),
+            "male": SpeakerConfig(label="Madur", voice="ai3-is-IS-Ulfr"),
         }
 
     @property
@@ -165,29 +165,43 @@ class IcelandicConfig(LanguageConfig):
         female_label = self.speakers["female"].label
         male_label = self.speakers["male"].label
         markers = self.markers
+        constraints = self.get_cefr_constraints(user_language_level)
 
         return f"""
-Create an Icelandic language proficiency test for citizenship purposes focusing on just ONE dialogue scenario.
-IMPORTANT: The topic for this dialogue is: {topic}
+Create an Icelandic dialogue for {user_language_level} level learners.
+Topic: {topic}
 
-STRICTLY follow these guidelines for {user_language_level} level according to CEFR:
-* A1: Only use basic phrases, present tense, simple questions. Vocabulary limited to 500 most common words. Only simple sentences (subject-verb-object).
-* A2: Simple past tense allowed, basic conjunctions, vocabulary up to 1000 most common words. Simple sentences with basic connectors.
-* B1: Some compound sentences, more verb tenses, vocabulary up to 2000 most common words. Avoid idioms and complex structures.
-* B2: Natural flow of conversation, wider range of vocabulary up to 4000 words, some idioms allowed but explained in footnotes.
-* C1-C2: No restrictions on vocabulary or grammar complexity.
+=== CRITICAL {user_language_level} LEVEL REQUIREMENTS ===
+- Vocabulary: ONLY use the {constraints['vocabulary_limit']} most common Icelandic words
+- Sentence length: {constraints['sentence_length']}
+- Grammar: {constraints['grammar']}
+- Structures: {constraints['structures']}
+- Connectors: {constraints['connectors']}
+- FORBIDDEN: {constraints['forbidden']}
 
-Listening Section:
-* Create a realistic dialogue between two people (a man and a woman) about the chosen everyday topic.
-* The dialogue should include 8-10 exchanges and be in Icelandic.
-* Include common phrases that would be useful in such a setting.
-* Clearly identify speakers with labels like "{female_label}:" (Woman) and "{male_label}:" (Man)
-* After the dialogue, add 5 multiple-choice questions about details in the conversation.
-* Double-check that ALL words and structures in the dialogue strictly match the specified CEFR level.
+Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
 
-Format the dialogue clearly so I can easily extract it for audio processing.
+=== CONTENT REQUIREMENTS ===
+* Create a realistic CONVERSATION between TWO people: "{female_label}" (woman) and "{male_label}" (man)
+* CRITICAL STRUCTURE:
+  - BOTH speakers MUST appear in the dialogue
+  - Lines MUST alternate: {female_label} speaks, then {male_label} responds, then {female_label}, etc.
+  - Each speaker speaks 4-5 times (total 8-10 lines)
+  - The dialogue MUST end with a STATEMENT (agreement, thanks, goodbye), NOT a question!
+* After the dialogue, add 5 multiple-choice questions (also at {user_language_level} level!)
+* VERIFY: Every word matches {user_language_level} level
 
-Your output MUST strictly follow this exact template format:
+=== DIALOGUE STRUCTURE EXAMPLE ===
+{female_label}: [Greeting or opening question]
+{male_label}: [Response to her]
+{female_label}: [Follow-up or new question]
+{male_label}: [His response]
+{female_label}: [Continues conversation]
+{male_label}: [Responds]
+... continues alternating ...
+{female_label} or {male_label}: [Final statement - agreement, thanks, or goodbye]
+
+Your output MUST follow this exact template format:
 
 
 {markers.story_title} [title of the dialogue]
@@ -195,12 +209,35 @@ Your output MUST strictly follow this exact template format:
 {markers.listen_instruction}
 
 ```
-[dialogue with speakers clearly identified as "{female_label}:" and "{male_label}:"]
+{female_label}: [starts the conversation]
+{male_label}: [responds to her]
+{female_label}: [continues]
+{male_label}: [responds]
+{female_label}: [continues]
+{male_label}: [responds]
+{female_label}: [continues]
+{male_label}: [responds]
+{female_label}: [continues]
+{male_label}: [FINAL LINE - closing statement, NOT a question]
 ```
 
 {markers.dialogue_questions}
 
-[5 multiple-choice questions about the dialogue in Icelandic]
+[Generate 5 TRICKY multiple-choice questions in this EXACT format:
+
+1. [Question text in Icelandic]
+a) [Wrong answer - plausible distractor]
+b) [Correct answer] (CORRECT)
+c) [Wrong answer - uses words from text but wrong meaning]
+
+Rules for tricky questions:
+- Q1: Inference question (answer not directly stated)
+- Q2: Distractor with words from dialogue but wrong meaning
+- Q3: About speaker's intention or emotion
+- Q4: Specific detail (time, number, name)
+- Q5: What happens next / what they agree on
+
+IMPORTANT: Mark correct answer with (CORRECT) at the end!]
 
 {markers.vocabulary}
 
@@ -241,46 +278,49 @@ Your output MUST strictly follow this exact template format:
 Important: Ensure all words mentioned in GRAMMAR NOTES are first included in the KEY VOCABULARY section.
 Include 15-20 items total, prioritizing practical expressions and phrases over single words.
 Avoid including very basic words that a {user_language_level} learner would already know.
-```
+
+=== FINAL CHECKLIST ===
+Before submitting, verify you have included ALL these sections:
+1. Dialogue with BOTH {female_label} and {male_label} speakers (alternating)
+2. 5 multiple-choice questions with (CORRECT) markers
+3. KEY VOCABULARY section
+4. USEFUL PHRASES section
+5. WORD COMBINATIONS section
+6. GRAMMAR NOTES section (REQUIRED - do not skip!)
 """
 
     def get_reading_prompt(self, person_data: dict, user_language: str, user_language_level: str) -> str:
         markers = self.markers
+        constraints = self.get_cefr_constraints(user_language_level)
 
         return f"""
-Write a short Icelandic reading comprehension passage - 20-25 sentences long ({user_language_level} CEFR level)
-about a person's daily life in Iceland.
+Write an Icelandic reading passage (20-25 sentences) for {user_language_level} level learners.
 
-STRICTLY follow these guidelines for {user_language_level} level according to CEFR:
-* A1: Only use basic phrases, present tense, simple questions. Vocabulary limited to 500 most common words. Only simple sentences (subject-verb-object). Sentences should be very short (5-7 words).
-* A2: Simple past tense allowed, basic conjunctions, vocabulary up to 1000 most common words. Simple sentences with basic connectors like "og" (and), "en" (but), "thvi" (because).
-* B1: Some compound sentences, more verb tenses, vocabulary up to 2000 most common words. Avoid idioms and complex structures.
-* B2: Natural flow of text, wider range of vocabulary up to 4000 words, some idioms allowed but explained in footnotes.
-* C1-C2: No restrictions on vocabulary or grammar complexity.
+=== CRITICAL {user_language_level} LEVEL REQUIREMENTS ===
+- Vocabulary: ONLY use the {constraints['vocabulary_limit']} most common Icelandic words
+- Sentence length: {constraints['sentence_length']}
+- Grammar: {constraints['grammar']}
+- Structures: {constraints['structures']}
+- Connectors: {constraints['connectors']}
+- FORBIDDEN: {constraints['forbidden']}
 
-Use the following information to guide the story:
+Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
 
+=== STORY INFORMATION ===
 - Name: {person_data["name"]}
 - Gender: {person_data["gender"]}
 - Age: {person_data["age"]}
 - From: {person_data["origin"]}
 - Job: {person_data["job_title"]} at a {person_data["job_workplace"]}
 - Children: {person_data["number_of_children"]} children (ages {person_data["age_of_children"]})
-- Usual weekend activity: {person_data["weekend_activity"]}
+- Weekend activity: {person_data["weekend_activity"]}
 - Plan for today: {person_data["current_plan"]}
 
-Before writing the passage:
-1. Make sure to use time expressions, daily routine verbs, and family-related vocabulary appropriate for the specified level.
-
-The passage should:
-- Use vocabulary and grammar structures strictly matching the {user_language_level} level
-- Include frequently used Icelandic phrases for the level
-- Have clear paragraph breaks for readability
-- Use sentence length appropriate for the level (shorter for A1-A2, gradually longer for B1-B2)
-
-After the passage, add 5 multiple-choice comprehension questions in Icelandic with three answer choices each.
-The questions should test understanding of where the person is from, what job they do, what time they wake up,
-etc. Ensure that the questions and answer choices also follow the same CEFR level restrictions.
+=== CONTENT REQUIREMENTS ===
+* Write about this person's daily life in Iceland
+* Use time expressions and daily routine verbs appropriate for {user_language_level}
+* After the passage, add 5 multiple-choice questions (also at {user_language_level} level!)
+* VERIFY: Every single word and sentence matches {user_language_level} level before including it
 
 Your output MUST strictly follow this exact template format:
 
@@ -292,7 +332,21 @@ Your output MUST strictly follow this exact template format:
 
 {markers.reading_questions}
 
-[5 multiple-choice questions about the passage in Icelandic]
+[Generate 5 TRICKY multiple-choice questions in this EXACT format:
+
+1. [Question text in Icelandic]
+a) [Wrong answer - plausible distractor]
+b) [Wrong answer - similar numbers/times/names]
+c) [Correct answer] (CORRECT)
+
+Rules for tricky questions:
+- Q1: Inference question (not directly stated)
+- Q2: Detail with similar numbers/times as distractors
+- Q3: WHY question (motivation, not just facts)
+- Q4: Paraphrase trap (sounds right but wrong)
+- Q5: Feelings, preferences, or future plans
+
+IMPORTANT: Mark correct answer with (CORRECT) at the end!]
 
 {markers.vocabulary}
 
@@ -326,9 +380,18 @@ Your output MUST strictly follow this exact template format:
 ```
 * [Grammatical construction from the passage] - [Explanation in {user_language}]
 * [Other grammatical notes using words already listed in KEY VOCABULARY]
+```
 
 Important: Ensure all words mentioned in GRAMMAR NOTES are first included in the KEY VOCABULARY section.
 Include 15-20 items total, prioritizing practical expressions and phrases over single words.
 Avoid including very basic words that a {user_language_level} learner would already know.
-```
+
+=== FINAL CHECKLIST ===
+Before submitting, verify you have included ALL these sections:
+1. Reading passage about the person
+2. 5 multiple-choice questions with (CORRECT) markers
+3. KEY VOCABULARY section
+4. USEFUL PHRASES section
+5. WORD COMBINATIONS section
+6. GRAMMAR NOTES section (REQUIRED - do not skip!)
 """

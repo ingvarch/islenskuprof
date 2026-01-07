@@ -169,6 +169,60 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "already_processing": {
         "en": "I'm already processing your request. Please wait until it's completed.",
         "ru": "Я уже обрабатываю ваш запрос. Пожалуйста, подождите до его завершения."
+    },
+
+    # Background effects settings
+    "background_effects": {
+        "en": "Background Effects",
+        "ru": "Фоновые эффекты"
+    },
+    "select_background_effect": {
+        "en": "Select background effect:",
+        "ru": "Выберите фоновый эффект:"
+    },
+    "background_effects_updated": {
+        "en": "Background effect: {status}",
+        "ru": "Фоновый эффект: {status}"
+    },
+    "bg_effects_auto": {
+        "en": "Auto (by CEFR level)",
+        "ru": "Авто (по уровню CEFR)"
+    },
+    "bg_effects_off": {
+        "en": "Off",
+        "ru": "Выключено"
+    },
+    "bg_preset_train_station": {
+        "en": "Train Station",
+        "ru": "Вокзал"
+    },
+    "bg_preset_airport": {
+        "en": "Airport Announcement",
+        "ru": "Аэропорт"
+    },
+    "bg_preset_subway": {
+        "en": "Subway Train Inside",
+        "ru": "В метро"
+    },
+    "bg_preset_poor_signal": {
+        "en": "Poor Signal",
+        "ru": "Плохой сигнал"
+    },
+    "bg_preset_coffee_shop": {
+        "en": "Coffee Shop",
+        "ru": "Кофейня"
+    },
+    "bg_preset_shopping_mall": {
+        "en": "Shopping Mall",
+        "ru": "Торговый центр"
+    },
+    "enabled": {
+        "en": "enabled",
+        "ru": "включены"
+    },
+    "disabled": {
+        "en": "disabled",
+        "ru": "выключены"
     }
 }
 
