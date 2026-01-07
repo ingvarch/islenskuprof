@@ -208,16 +208,26 @@ Topic: {topic}
 Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
 
 === CONTENT REQUIREMENTS ===
-* Create a realistic dialogue between "{female_label}" (woman) and "{male_label}" (man)
-* CRITICAL: The dialogue MUST alternate between {female_label} and {male_label} - both speakers must be present!
-* Include 8-10 exchanges in German (each speaker speaks 4-5 times)
-* The dialogue MUST have a natural conclusion - end with a statement (agreement, confirmation, goodbye), NOT a question!
+* Create a realistic CONVERSATION between TWO people: "{female_label}" (woman) and "{male_label}" (man)
+* CRITICAL STRUCTURE:
+  - BOTH speakers MUST appear in the dialogue
+  - Lines MUST alternate: {female_label} speaks, then {male_label} responds, then {female_label}, etc.
+  - Each speaker speaks 4-5 times (total 8-10 lines)
+  - The dialogue MUST end with a STATEMENT (agreement, thanks, goodbye), NOT a question!
 * After the dialogue, add 5 multiple-choice questions (also at {user_language_level} level!)
-* VERIFY: Every single word and sentence matches {user_language_level} level before including it
+* VERIFY: Every word matches {user_language_level} level
 
-Format the dialogue clearly so I can easily extract it for audio processing.
+=== DIALOGUE STRUCTURE EXAMPLE ===
+{female_label}: [Greeting or opening question]
+{male_label}: [Response to her]
+{female_label}: [Follow-up or new question]
+{male_label}: [His response]
+{female_label}: [Continues conversation]
+{male_label}: [Responds]
+... continues alternating ...
+{female_label} or {male_label}: [Final statement - agreement, thanks, or goodbye]
 
-Your output MUST strictly follow this exact template format:
+Your output MUST follow this exact template format:
 
 
 {markers.story_title} [title of the dialogue]
@@ -225,12 +235,16 @@ Your output MUST strictly follow this exact template format:
 {markers.listen_instruction}
 
 ```
-{female_label}: [first line - starts the conversation]
-{male_label}: [response]
+{female_label}: [starts the conversation]
+{male_label}: [responds to her]
 {female_label}: [continues]
-{male_label}: [response]
-... (continue alternating)
-{female_label} or {male_label}: [FINAL LINE - must be a closing statement like agreement, thanks, or goodbye - NOT a question!]
+{male_label}: [responds]
+{female_label}: [continues]
+{male_label}: [responds]
+{female_label}: [continues]
+{male_label}: [responds]
+{female_label}: [continues]
+{male_label}: [FINAL LINE - closing statement, NOT a question]
 ```
 
 {markers.dialogue_questions}

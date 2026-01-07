@@ -98,18 +98,20 @@ class OpenRouterService(AIService):
 
         raise last_error
 
-    def generate_content(self, prompt: Optional[str] = None, language_level: str = "A2") -> str:
+    def generate_content(self, prompt: Optional[str] = None, language_level: str = "A2", lang_config=None) -> str:
         """
         Generate language learning content using OpenRouter.
 
         Args:
             prompt: Custom prompt to use for generation.
             language_level: CEFR level (A1, A2, B1, B2, C1, C2) for content difficulty.
+            lang_config: Language configuration to use (defaults to TARGET_LANGUAGE config)
 
         Returns:
             str: Generated content
         """
-        lang_config = get_language_config()
+        if lang_config is None:
+            lang_config = get_language_config()
 
         # Add instruction to mark correct answers
         questions_marker = lang_config.markers.reading_questions
@@ -157,6 +159,21 @@ class OpenRouterService(AIService):
         if not dialogue_lines:
             logger.warning("No dialogue was extracted, using fallback example dialogue")
             dialogue_lines = lang_config.get_fallback_dialogue()
+        else:
+            # Check if both speakers are present
+            speakers = set(line[0] for line in dialogue_lines)
+            female_label = lang_config.speakers["female"].label
+            male_label = lang_config.speakers["male"].label
+
+            if len(speakers) == 1:
+                logger.warning(f"Only one speaker detected ({list(speakers)[0]}). AI may have generated a monologue instead of dialogue!")
+                logger.warning(f"Expected both {female_label} and {male_label} to be present")
+            elif female_label not in speakers:
+                logger.warning(f"Female speaker ({female_label}) not found in dialogue")
+            elif male_label not in speakers:
+                logger.warning(f"Male speaker ({male_label}) not found in dialogue")
+            else:
+                logger.info(f"Both speakers detected: {female_label} and {male_label}")
 
         return dialogue_lines
 
