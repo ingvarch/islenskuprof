@@ -302,7 +302,7 @@ def mark_lesson_completed(
         if progress.last_completed_at:
             time_since_last = datetime.utcnow() - progress.last_completed_at
             if time_since_last < timedelta(hours=48):
-                progress.streak_count += 1
+                progress.streak_count = (progress.streak_count or 0) + 1
             else:
                 progress.streak_count = 1
         else:
@@ -311,7 +311,7 @@ def mark_lesson_completed(
         # Add lesson duration to total time
         lesson = session.query(PimsleurLesson).get(lesson_id)
         if lesson:
-            progress.total_time_seconds += lesson.duration_seconds
+            progress.total_time_seconds = (progress.total_time_seconds or 0) + lesson.duration_seconds
 
         progress.updated_at = datetime.utcnow()
         session.commit()

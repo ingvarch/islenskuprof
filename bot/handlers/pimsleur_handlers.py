@@ -7,6 +7,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
+from telegram.error import BadRequest
 
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
@@ -210,13 +211,17 @@ async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_
     keyboard.append([InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU)])
 
     level_names = {"A1": "Beginner", "A2": "Elementary", "B1": "Intermediate"}
-    await query.edit_message_text(
-        f"*{level} - {level_names.get(level, '')}*\n\n"
-        f"V = completed, X = locked\n"
-        f"Select a lesson to start:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode=ParseMode.MARKDOWN,
-    )
+    try:
+        await query.edit_message_text(
+            f"*{level} - {level_names.get(level, '')}*\n\n"
+            f"V = completed, X = locked\n"
+            f"Select a lesson to start:",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+    except BadRequest as e:
+        if "Message is not modified" not in str(e):
+            raise
 
 
 async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

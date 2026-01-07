@@ -142,11 +142,12 @@ def get_user_by_telegram_id(telegram_id):
     """
     session = get_db_session()
     try:
-        # Eagerly load the settings relationship and its language, audio_speed, and language_level to avoid DetachedInstanceError
+        # Eagerly load the settings relationship and its relations to avoid DetachedInstanceError
         user = session.query(User).options(
             sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language),
             sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.audio_speed),
-            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language_level)
+            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language_level),
+            sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.target_language)
         ).filter(User.telegram_id == telegram_id).first()
 
         # User settings, language, and audio_speed are already loaded through the joinedload above
