@@ -11,6 +11,77 @@ from bot.db.models import User, Language, UserSettings, AudioSpeed, LanguageLeve
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
+# Constants
+DEFAULT_AUDIO_SPEED_ID = 3  # Fallback ID for "Normal" speed
+
+
+def _get_default_audio_speed_id(session):
+    """Get the default audio speed ID, with fallback to constant."""
+    audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
+    return audio_speed.id if audio_speed else DEFAULT_AUDIO_SPEED_ID
+
+
+def _get_or_create_user_settings(session, user_id, **kwargs):
+    """
+    Get existing user settings or create new ones.
+
+    Args:
+        session: Database session
+        user_id: User ID
+        **kwargs: Additional fields to set on new settings
+
+    Returns:
+        UserSettings: The user settings object
+    """
+    settings = session.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    if settings:
+        return settings
+
+    # Create new settings with defaults
+    default_audio_speed_id = _get_default_audio_speed_id(session)
+    new_settings = UserSettings(
+        user_id=user_id,
+        audio_speed_id=default_audio_speed_id,
+        language_id=None,
+        **kwargs
+    )
+    session.add(new_settings)
+    return new_settings
+
+
+def _update_user_setting(telegram_id, field_name, value, log_name=None):
+    """
+    Generic function to update a single user setting field.
+
+    Args:
+        telegram_id: Telegram user ID
+        field_name: Name of the UserSettings field to update
+        value: Value to set
+        log_name: Human-readable name for logging (defaults to field_name)
+
+    Returns:
+        bool: True if updated successfully, False otherwise
+    """
+    log_name = log_name or field_name
+    session = get_db_session()
+    try:
+        user = session.query(User).filter(User.telegram_id == telegram_id).first()
+        if not user:
+            logger.warning(f"User {telegram_id} not found for updating {log_name}")
+            return False
+
+        settings = _get_or_create_user_settings(session, user.id)
+        setattr(settings, field_name, value)
+        session.commit()
+        logger.info(f"Updated {log_name} for user {telegram_id} to {value}")
+        return True
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(f"Error updating {log_name} for user {telegram_id}: {e}")
+        return False
+    finally:
+        session.close()
+
 def get_or_create_user(telegram_id, username=None, first_name=None, last_name=None, is_premium=False):
     """
     Get an existing user or create a new one if not exists.
@@ -67,30 +138,18 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
             session.commit()
             logger.info(f"Created new user with telegram_id {telegram_id}")
 
-            # Get the default audio speed (Normal)
-            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
-            if not default_audio_speed:
-                default_audio_speed_id = 3  # Fallback to ID 3 if not found
-            else:
-                default_audio_speed_id = default_audio_speed.id
-
             # Get the default language level (A2)
             default_language_level = session.query(LanguageLevel).filter(LanguageLevel.level == "A2").first()
+            default_language_level_id = default_language_level.id if default_language_level else None
             if not default_language_level:
-                logger.warning("A2 language level not found in the database, this should not happen")
-                # If A2 language level is not found, we'll use None
-                default_language_level_id = None
-            else:
-                default_language_level_id = default_language_level.id
+                logger.warning("A2 language level not found in the database")
 
-            # Create user settings with default language and language level
-            user_settings = UserSettings(
-                user_id=user.id,
-                audio_speed_id=default_audio_speed_id,
+            # Create user settings with defaults
+            _get_or_create_user_settings(
+                session, user.id,
                 language_id=english_language.id,
                 language_level_id=default_language_level_id
             )
-            session.add(user_settings)
             session.commit()
             logger.info(f"Created user settings for new user {telegram_id} with default language")
 
@@ -160,58 +219,8 @@ def get_user_by_telegram_id(telegram_id):
         session.close()
 
 def update_user_language(telegram_id, language_id):
-    """
-    Update the language preference for a user in the user_settings table.
-
-    Args:
-        telegram_id: Telegram user ID
-        language_id: ID of the language to set
-
-    Returns:
-        bool: True if the user settings were updated, False otherwise
-    """
-    session = get_db_session()
-    try:
-        # Get the user by telegram_id
-        user = session.query(User).filter(User.telegram_id == telegram_id).first()
-        if not user:
-            logger.warning(f"User {telegram_id} not found for updating language preference")
-            return False
-
-        # Check if user has settings
-        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
-
-        if user_settings:
-            # Update existing settings
-            user_settings.language_id = language_id
-            session.commit()
-            logger.info(f"Updated language preference for user {telegram_id} to language_id {language_id}")
-            return True
-        else:
-            # Create new settings with default audio_speed_id=3 (Normal)
-            # Get the default audio speed (Normal)
-            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
-            if not default_audio_speed:
-                default_audio_speed_id = 3  # Fallback to ID 3 if not found
-            else:
-                default_audio_speed_id = default_audio_speed.id
-
-            # Create new user settings
-            new_settings = UserSettings(
-                user_id=user.id,
-                audio_speed_id=default_audio_speed_id,
-                language_id=language_id
-            )
-            session.add(new_settings)
-            session.commit()
-            logger.info(f"Created new settings with language preference for user {telegram_id} to language_id {language_id}")
-            return True
-    except SQLAlchemyError as e:
-        session.rollback()
-        logger.error(f"Error updating language preference for user {telegram_id}: {e}")
-        return False
-    finally:
-        session.close()
+    """Update the language preference for a user."""
+    return _update_user_setting(telegram_id, "language_id", language_id, "language preference")
 
 def get_all_languages():
     """
@@ -266,50 +275,8 @@ def get_all_language_levels():
         session.close()
 
 def update_user_audio_speed(telegram_id, audio_speed_id):
-    """
-    Update the audio speed setting for a user in the user_settings table.
-
-    Args:
-        telegram_id: Telegram user ID
-        audio_speed_id: ID of the audio speed to set
-
-    Returns:
-        bool: True if the user settings were updated, False otherwise
-    """
-    session = get_db_session()
-    try:
-        # Get the user by telegram_id
-        user = session.query(User).filter(User.telegram_id == telegram_id).first()
-        if not user:
-            logger.warning(f"User {telegram_id} not found for updating audio speed")
-            return False
-
-        # Check if user has settings
-        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
-
-        if user_settings:
-            # Update existing settings
-            user_settings.audio_speed_id = audio_speed_id
-            session.commit()
-            logger.info(f"Updated audio speed for user {telegram_id} to audio_speed_id {audio_speed_id}")
-            return True
-        else:
-            # Create new settings with default language_id=None
-            new_settings = UserSettings(
-                user_id=user.id,
-                audio_speed_id=audio_speed_id,
-                language_id=None
-            )
-            session.add(new_settings)
-            session.commit()
-            logger.info(f"Created new settings with audio speed for user {telegram_id} to audio_speed_id {audio_speed_id}")
-            return True
-    except SQLAlchemyError as e:
-        session.rollback()
-        logger.error(f"Error updating audio speed for user {telegram_id}: {e}")
-        return False
-    finally:
-        session.close()
+    """Update the audio speed setting for a user."""
+    return _update_user_setting(telegram_id, "audio_speed_id", audio_speed_id, "audio speed")
 
 def get_user_audio_speed(telegram_id):
     """
@@ -350,115 +317,13 @@ def get_user_audio_speed(telegram_id):
 
 
 def update_user_language_level(telegram_id, language_level_id):
-    """
-    Update the language level setting for a user in the user_settings table.
-
-    Args:
-        telegram_id: Telegram user ID
-        language_level_id: ID of the language level to set
-
-    Returns:
-        bool: True if the user settings were updated, False otherwise
-    """
-    session = get_db_session()
-    try:
-        # Get the user by telegram_id
-        user = session.query(User).filter(User.telegram_id == telegram_id).first()
-        if not user:
-            logger.warning(f"User {telegram_id} not found for updating language level")
-            return False
-
-        # Check if user has settings
-        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
-
-        if user_settings:
-            # Update existing settings
-            user_settings.language_level_id = language_level_id
-            session.commit()
-            logger.info(f"Updated language level for user {telegram_id} to language_level_id {language_level_id}")
-            return True
-        else:
-            # Create new settings with default audio_speed_id and language_id=None
-            # Get the default audio speed (Normal)
-            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
-            if not default_audio_speed:
-                default_audio_speed_id = 3  # Fallback to ID 3 if not found
-            else:
-                default_audio_speed_id = default_audio_speed.id
-
-            # Create new user settings
-            new_settings = UserSettings(
-                user_id=user.id,
-                audio_speed_id=default_audio_speed_id,
-                language_id=None,
-                language_level_id=language_level_id
-            )
-            session.add(new_settings)
-            session.commit()
-            logger.info(f"Created new settings with language level for user {telegram_id} to language_level_id {language_level_id}")
-            return True
-    except SQLAlchemyError as e:
-        session.rollback()
-        logger.error(f"Error updating language level for user {telegram_id}: {e}")
-        return False
-    finally:
-        session.close()
+    """Update the language level setting for a user."""
+    return _update_user_setting(telegram_id, "language_level_id", language_level_id, "language level")
 
 
 def update_user_last_section(telegram_id, section):
-    """
-    Update the last section shown to a user in the user_settings table.
-
-    Args:
-        telegram_id: Telegram user ID
-        section: Section name ('listening' or 'reading')
-
-    Returns:
-        bool: True if the user settings were updated, False otherwise
-    """
-    session = get_db_session()
-    try:
-        # Get the user by telegram_id
-        user = session.query(User).filter(User.telegram_id == telegram_id).first()
-        if not user:
-            logger.warning(f"User {telegram_id} not found for updating last section")
-            return False
-
-        # Check if user has settings
-        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
-
-        if user_settings:
-            # Update existing settings
-            user_settings.last_section = section
-            session.commit()
-            logger.info(f"Updated last section for user {telegram_id} to {section}")
-            return True
-        else:
-            # Create new settings with default audio_speed_id and language_id=None
-            # Get the default audio speed (Normal)
-            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
-            if not default_audio_speed:
-                default_audio_speed_id = 3  # Fallback to ID 3 if not found
-            else:
-                default_audio_speed_id = default_audio_speed.id
-
-            # Create new user settings
-            new_settings = UserSettings(
-                user_id=user.id,
-                audio_speed_id=default_audio_speed_id,
-                language_id=None,
-                last_section=section
-            )
-            session.add(new_settings)
-            session.commit()
-            logger.info(f"Created new settings with last section for user {telegram_id} to {section}")
-            return True
-    except SQLAlchemyError as e:
-        session.rollback()
-        logger.error(f"Error updating last section for user {telegram_id}: {e}")
-        return False
-    finally:
-        session.close()
+    """Update the last section shown to a user."""
+    return _update_user_setting(telegram_id, "last_section", section, "last section")
 
 
 def get_all_target_languages():
@@ -500,59 +365,8 @@ def get_target_language_by_id(target_language_id):
 
 
 def update_user_target_language(telegram_id, target_language_id):
-    """
-    Update the target language (language to learn) for a user in the user_settings table.
-
-    Args:
-        telegram_id: Telegram user ID
-        target_language_id: ID of the target language to set
-
-    Returns:
-        bool: True if the user settings were updated, False otherwise
-    """
-    session = get_db_session()
-    try:
-        # Get the user by telegram_id
-        user = session.query(User).filter(User.telegram_id == telegram_id).first()
-        if not user:
-            logger.warning(f"User {telegram_id} not found for updating target language")
-            return False
-
-        # Check if user has settings
-        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
-
-        if user_settings:
-            # Update existing settings
-            user_settings.target_language_id = target_language_id
-            session.commit()
-            logger.info(f"Updated target language for user {telegram_id} to target_language_id {target_language_id}")
-            return True
-        else:
-            # Create new settings with default audio_speed_id and language_id=None
-            # Get the default audio speed (Normal)
-            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
-            if not default_audio_speed:
-                default_audio_speed_id = 3  # Fallback to ID 3 if not found
-            else:
-                default_audio_speed_id = default_audio_speed.id
-
-            # Create new user settings
-            new_settings = UserSettings(
-                user_id=user.id,
-                audio_speed_id=default_audio_speed_id,
-                language_id=None,
-                target_language_id=target_language_id
-            )
-            session.add(new_settings)
-            session.commit()
-            logger.info(f"Created new settings with target language for user {telegram_id} to target_language_id {target_language_id}")
-            return True
-    except SQLAlchemyError as e:
-        session.rollback()
-        logger.error(f"Error updating target language for user {telegram_id}: {e}")
-        return False
-    finally:
-        session.close()
+    """Update the target language for a user."""
+    return _update_user_setting(telegram_id, "target_language_id", target_language_id, "target language")
 
 
 def get_user_background_effects(telegram_id):
@@ -588,55 +402,5 @@ def get_user_background_effects(telegram_id):
 
 
 def update_user_background_effects(telegram_id, preset_value):
-    """
-    Update the background effects setting for a user in the user_settings table.
-
-    Args:
-        telegram_id: Telegram user ID
-        preset_value: Background effects preset ("off", "auto", or preset ID)
-
-    Returns:
-        bool: True if the user settings were updated, False otherwise
-    """
-    session = get_db_session()
-    try:
-        # Get the user by telegram_id
-        user = session.query(User).filter(User.telegram_id == telegram_id).first()
-        if not user:
-            logger.warning(f"User {telegram_id} not found for updating background effects")
-            return False
-
-        # Check if user has settings
-        user_settings = session.query(UserSettings).filter(UserSettings.user_id == user.id).first()
-
-        if user_settings:
-            # Update existing settings
-            user_settings.background_effects = preset_value
-            session.commit()
-            logger.info(f"Updated background effects for user {telegram_id} to {preset_value}")
-            return True
-        else:
-            # Create new settings with default audio_speed_id
-            default_audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
-            if not default_audio_speed:
-                default_audio_speed_id = 3  # Fallback to ID 3 if not found
-            else:
-                default_audio_speed_id = default_audio_speed.id
-
-            # Create new user settings
-            new_settings = UserSettings(
-                user_id=user.id,
-                audio_speed_id=default_audio_speed_id,
-                language_id=None,
-                background_effects=preset_value
-            )
-            session.add(new_settings)
-            session.commit()
-            logger.info(f"Created new settings with background effects for user {telegram_id} to {preset_value}")
-            return True
-    except SQLAlchemyError as e:
-        session.rollback()
-        logger.error(f"Error updating background effects for user {telegram_id}: {e}")
-        return False
-    finally:
-        session.close()
+    """Update the background effects setting for a user."""
+    return _update_user_setting(telegram_id, "background_effects", preset_value, "background effects")

@@ -2,13 +2,14 @@
 Module for fetching random communication entries from the database.
 """
 import logging
-import random
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 from bot.db.database import get_db_session
 from bot.db.models import Communication
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
+
 
 def get_random_communication():
     """
@@ -21,21 +22,17 @@ def get_random_communication():
     session = get_db_session()
 
     try:
-        # Get a random communication entry from the database
-        entry_count = session.query(func.count(Communication.id)).scalar()
-        if entry_count == 0:
+        # Get a random communication entry with topic eagerly loaded (single query)
+        entry = session.query(Communication).options(
+            joinedload(Communication.topic)
+        ).order_by(func.random()).limit(1).first()
+
+        if not entry:
             logger.error("No communication entries found in database")
             return None
 
-        random_offset = random.randint(0, entry_count - 1)
-        entry = session.query(Communication).offset(random_offset).limit(1).first()
-
-        if not entry:
-            logger.error("Failed to fetch random communication entry")
-            return None
-
         logger.info(f"Successfully fetched random communication entry: {entry.id}")
-        
+
         # Return the entry data as a dictionary
         return {
             "id": entry.id,

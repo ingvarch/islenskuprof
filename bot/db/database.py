@@ -16,9 +16,15 @@ if not DB_DSN:
     logger.error("DB_DSN environment variable is not set")
     raise ValueError("DB_DSN environment variable is not set")
 
-# Create SQLAlchemy engine
+# Create SQLAlchemy engine with connection pool settings
 logger.info("Creating database engine")
-engine = create_engine(DB_DSN)
+engine = create_engine(
+    DB_DSN,
+    pool_size=5,           # Number of connections to keep in pool
+    max_overflow=10,       # Additional connections allowed when pool is exhausted
+    pool_recycle=3600,     # Recycle connections after 1 hour (prevents stale connections)
+    pool_pre_ping=True     # Test connection health before using
+)
 
 # Create session factory
 SessionFactory = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -6,6 +6,7 @@ Supports multi-language generation based on TARGET_LANGUAGES environment variabl
 import logging
 import random
 from sqlalchemy import delete, func
+from sqlalchemy.orm import joinedload
 from bot.db.database import get_db_session
 from bot.db.models import Person, Name, Job, City, Activity
 from bot.languages import get_language_config, get_all_language_configs, get_language_config_by_code
@@ -124,25 +125,23 @@ def get_random_person_data(language_code: str = None):
     session = get_db_session()
 
     try:
-        # Get a random person from the database filtered by language
-        query = session.query(Person).filter(Person.language_code == language_code)
-        person_count = query.count()
+        # Get a random person with related data using eager loading (avoids N+1 queries)
+        person = session.query(Person).options(
+            joinedload(Person.name),
+            joinedload(Person.city),
+            joinedload(Person.job)
+        ).filter(
+            Person.language_code == language_code
+        ).order_by(func.random()).limit(1).first()
 
-        if person_count == 0:
+        if not person:
             logger.error(f"No persons found in database for language: {language_code}")
             return None
 
-        random_offset = random.randint(0, person_count - 1)
-        person = query.offset(random_offset).limit(1).first()
-
-        if not person:
-            logger.error("Failed to fetch random person")
-            return None
-
-        # Get related data
-        name = session.query(Name).filter(Name.id == person.name_id).first()
-        city = session.query(City).filter(City.id == person.origin).first()
-        job = session.query(Job).filter(Job.id == person.job_id).first()
+        # Access eagerly loaded relationships
+        name = person.name
+        city = person.city
+        job = person.job
 
         # Determine gender based on name using language-specific rules
         gender = lang_config.detect_gender(name.first_name)
