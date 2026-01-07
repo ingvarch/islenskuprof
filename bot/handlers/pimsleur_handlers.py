@@ -1,11 +1,21 @@
 """
 Telegram handlers for Pimsleur lessons.
+
+Includes a multi-step wizard for custom lesson creation with:
+- Text analysis and vocabulary preview
+- Title customization
+- Lesson settings (focus, voice, difficulty)
+- Real-time progress tracking during generation
 """
 
 import asyncio
 import json
 import logging
+import time
+from enum import Enum
 from pathlib import Path
+from typing import Optional
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
@@ -28,11 +38,102 @@ from bot.db.pimsleur_service import (
     get_user_custom_lessons,
     get_custom_lesson_by_id,
     update_custom_lesson_status,
+    # New wizard functions
+    create_custom_lesson_with_settings,
+    update_custom_lesson_generation_status,
+    delete_custom_lesson,
+    retry_custom_lesson,
 )
+from bot.pimsleur.text_analyzer import TextAnalyzer
 
 logger = logging.getLogger(__name__)
 
-# Callback data prefixes
+
+# ============================================================================
+# Wizard State Management
+# ============================================================================
+
+
+class WizardState(str, Enum):
+    """States for the custom lesson creation wizard."""
+    IDLE = "idle"
+    AWAITING_TEXT = "awaiting_text"
+    TEXT_ANALYSIS = "text_analysis"
+    VOCABULARY_PREVIEW = "vocabulary_preview"
+    TITLE_INPUT = "title_input"
+    SETTINGS = "settings"
+    GENERATING = "generating"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+# Progress tracking stages
+PROGRESS_STAGES = {
+    "initializing": {"label": "Initializing...", "percent": 5},
+    "analyzing": {"label": "Analyzing text...", "percent": 10},
+    "generating_script": {"label": "Creating lesson script...", "percent": 25},
+    "vocabulary": {"label": "Processing vocabulary...", "percent": 40},
+    "generating_audio": {"label": "Generating audio...", "percent": 50},
+    "audio_segments": {"label": "Recording segments...", "percent": 70},
+    "finalizing": {"label": "Finalizing lesson...", "percent": 95},
+    "complete": {"label": "Complete!", "percent": 100},
+}
+
+PROGRESS_UPDATE_INTERVAL = 12  # seconds
+
+
+def _get_wizard_data(context: ContextTypes.DEFAULT_TYPE) -> dict:
+    """Get wizard data from context, initializing if needed."""
+    if "custom_wizard" not in context.user_data:
+        context.user_data["custom_wizard"] = {
+            "state": WizardState.IDLE,
+            "source_text": None,
+            "analysis": None,
+            "title": None,
+            "settings": {
+                "focus": "vocabulary",
+                "voice": "both",
+                "difficulty": "auto",
+            },
+            "lesson_id": None,
+            "message_id": None,
+            "progress": {"stage": "initializing", "percent": 0},
+        }
+    return context.user_data["custom_wizard"]
+
+
+def _clear_wizard_data(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Clear wizard data from context."""
+    context.user_data.pop("custom_wizard", None)
+    context.user_data.pop("awaiting_pimsleur_text", None)
+    context.user_data.pop("awaiting_title_input", None)
+
+
+def _format_progress_bar(percent: int, width: int = 10) -> str:
+    """Create a text-based progress bar."""
+    filled = int(width * percent / 100)
+    empty = width - filled
+    return "[" + "\u2588" * filled + "\u2591" * empty + f"] {percent}%"
+
+
+def _format_vocabulary_preview(vocabulary: list[dict], limit: int = 15) -> str:
+    """Format vocabulary list for display."""
+    if not vocabulary:
+        return "_No vocabulary extracted_"
+
+    lines = []
+    for item in vocabulary[:limit]:
+        word = item.get("word", "")
+        count = item.get("count", 1)
+        freq_marker = " *" if item.get("is_frequent") else ""
+        lines.append(f"- {word} ({count}x){freq_marker}")
+
+    if len(vocabulary) > limit:
+        lines.append(f"_...and {len(vocabulary) - limit} more_")
+
+    return "\n".join(lines)
+
+# Callback data prefixes - Standard lesson flow
 PIMSLEUR_MENU = "pimsleur_menu"
 PIMSLEUR_LEVEL_PREFIX = "pimsleur_level_"
 PIMSLEUR_LESSON_PREFIX = "pimsleur_lesson_"
@@ -40,6 +141,21 @@ PIMSLEUR_COMPLETE_PREFIX = "pimsleur_complete_"
 PIMSLEUR_CUSTOM = "pimsleur_custom"
 PIMSLEUR_CUSTOM_LIST = "pimsleur_custom_list"
 PIMSLEUR_LOCKED = "pimsleur_locked"
+
+# Callback data prefixes - Custom lesson wizard
+WIZARD_CANCEL = "pimsleur_wiz_cancel"
+WIZARD_BACK = "pimsleur_wiz_back"
+WIZARD_CONTINUE = "pimsleur_wiz_continue"
+WIZARD_VIEW_VOCAB = "pimsleur_wiz_vocab"
+WIZARD_EDIT_TITLE = "pimsleur_wiz_edit_title"
+WIZARD_USE_TITLE = "pimsleur_wiz_use_title"
+WIZARD_FOCUS_PREFIX = "pimsleur_wiz_focus_"
+WIZARD_VOICE_PREFIX = "pimsleur_wiz_voice_"
+WIZARD_DIFF_PREFIX = "pimsleur_wiz_diff_"
+WIZARD_CONFIRM = "pimsleur_wiz_confirm"
+WIZARD_RETRY_PREFIX = "pimsleur_wiz_retry_"
+WIZARD_DELETE_PREFIX = "pimsleur_wiz_delete_"
+WIZARD_PLAY_PREFIX = "pimsleur_wiz_play_"
 
 
 def _get_target_language(db_user) -> str:
@@ -406,24 +522,40 @@ async def pimsleur_locked_callback(update: Update, context: ContextTypes.DEFAULT
 
 
 async def pimsleur_custom_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Start custom lesson creation process."""
+    """Start custom lesson creation wizard - Step 1: Request text input."""
     query = update.callback_query
     await query.answer()
 
+    # Check for existing wizard in progress
+    wizard = _get_wizard_data(context)
+    if wizard["state"] not in (WizardState.IDLE, WizardState.COMPLETED, WizardState.FAILED):
+        await query.answer(
+            "You already have a lesson creation in progress. Cancel it first.",
+            show_alert=True
+        )
+        return
+
+    # Initialize wizard state
+    _clear_wizard_data(context)
+    wizard = _get_wizard_data(context)
+    wizard["state"] = WizardState.AWAITING_TEXT
+
     await query.edit_message_text(
         "*Create Custom Pimsleur Lesson*\n\n"
-        "Send me a text in Icelandic (50-500 words) that you want to learn.\n"
-        "I will create a Pimsleur-style lesson from it.\n\n"
-        "Good sources:\n"
-        "- News article paragraphs\n"
+        "Send me a text in your target language (50-1000 words).\n\n"
+        "*Good sources:*\n"
+        "- News articles\n"
         "- Story excerpts\n"
         "- Song lyrics\n"
-        "- Dialogue transcripts\n\n"
-        "Reply with your text (or /cancel to go back):",
+        "- Dialogues or conversations\n\n"
+        "_Reply with your text or tap Cancel._",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)
+        ]]),
         parse_mode=ParseMode.MARKDOWN,
     )
 
-    # Set conversation state
+    # Set text input flag
     context.user_data["awaiting_pimsleur_text"] = True
 
 
@@ -521,11 +653,15 @@ async def _generate_custom_lesson_background(
 
 async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """
-    Handle text input for custom lesson creation.
+    Handle text input for custom lesson wizard - Step 2: Analyze text.
 
     Returns True if the message was handled, False otherwise.
     """
+    # Check for text input mode (wizard Step 1)
     if not context.user_data.get("awaiting_pimsleur_text"):
+        # Check for title input mode (wizard title step)
+        if context.user_data.get("awaiting_title_input"):
+            return await _handle_title_input(update, context)
         return False
 
     user = update.effective_user
@@ -533,7 +669,7 @@ async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAU
 
     # Check for cancel
     if text.lower() == "/cancel":
-        context.user_data["awaiting_pimsleur_text"] = False
+        _clear_wizard_data(context)
         await update.message.reply_text(
             "Custom lesson creation cancelled.",
             reply_markup=InlineKeyboardMarkup([[
@@ -546,58 +682,116 @@ async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAU
     word_count = len(text.split())
     if word_count < 50:
         await update.message.reply_text(
-            f"Text is too short ({word_count} words). Please provide at least 50 words."
+            f"Text is too short ({word_count} words). Please provide at least 50 words.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)
+            ]]),
         )
         return True
 
     if word_count > 1000:
         await update.message.reply_text(
-            f"Text is too long ({word_count} words). Please keep it under 1000 words."
+            f"Text is too long ({word_count} words). Please keep it under 1000 words.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)
+            ]]),
         )
         return True
 
     context.user_data["awaiting_pimsleur_text"] = False
 
-    # Create custom lesson request
+    # Get user's target language
     db_user = get_user_by_telegram_id(user.id)
     target_lang = _get_target_language(db_user)
 
-    # Generate title from first few words
-    title = " ".join(text.split()[:5]) + "..."
+    # Analyze text
+    analyzer = TextAnalyzer(target_lang)
+    analysis = analyzer.analyze(text)
+    suggested_title = analyzer.generate_title(text)
 
-    lesson_request = create_custom_lesson_request(
-        user_id=db_user.id,
-        language_code=target_lang,
-        title=title,
-        source_text=text,
+    # Update wizard state
+    wizard = _get_wizard_data(context)
+    wizard["state"] = WizardState.TEXT_ANALYSIS
+    wizard["source_text"] = text
+    wizard["analysis"] = analysis
+    wizard["title"] = suggested_title
+
+    # Show analysis results (Step 2)
+    stats_text = (
+        f"*Text Analysis*\n\n"
+        f"*Statistics:*\n"
+        f"- {analysis['word_count']} words total\n"
+        f"- {analysis['unique_words']} unique words\n"
+        f"- ~{analysis['estimated_lesson_words']} words for lesson\n"
+        f"- Detected level: {analysis['detected_difficulty']}\n\n"
+        f"*Suggested title:*\n"
+        f"_{suggested_title}_"
     )
 
+    keyboard = [
+        [InlineKeyboardButton("View Vocabulary", callback_data=WIZARD_VIEW_VOCAB)],
+        [InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)],
+        [InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)],
+    ]
+
     await update.message.reply_text(
-        "*Custom lesson request created!*\n\n"
-        "Your lesson is being generated. This may take 5-10 minutes.\n"
-        "I'll notify you when it's ready.\n\n"
-        f"Request ID: {lesson_request.id}",
+        stats_text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode=ParseMode.MARKDOWN,
     )
 
-    # Trigger background generation task
-    logger.info(f"Custom lesson request {lesson_request.id} created for user {user.id}")
-    asyncio.create_task(
-        _generate_custom_lesson_background(
-            bot=context.bot,
-            telegram_user_id=user.id,
-            lesson_id=lesson_request.id,
-            language_code=target_lang,
-            source_text=text,
-            title=title,
+    return True
+
+
+async def _handle_title_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Handle custom title input from user."""
+    text = update.message.text.strip()
+
+    if text.lower() == "/cancel":
+        context.user_data["awaiting_title_input"] = False
+        # Return to settings step
+        wizard = _get_wizard_data(context)
+        wizard["state"] = WizardState.TEXT_ANALYSIS
+        await update.message.reply_text(
+            "Title change cancelled.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)
+            ]]),
         )
+        return True
+
+    # Validate title length
+    if len(text) > 200:
+        await update.message.reply_text(
+            "Title is too long. Please keep it under 200 characters."
+        )
+        return True
+
+    if len(text) < 3:
+        await update.message.reply_text(
+            "Title is too short. Please provide at least 3 characters."
+        )
+        return True
+
+    # Update wizard with new title
+    wizard = _get_wizard_data(context)
+    wizard["title"] = text
+    context.user_data["awaiting_title_input"] = False
+
+    await update.message.reply_text(
+        f"*Title updated:* {text}\n\n"
+        "Tap Continue to proceed to settings.",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)
+        ]]),
+        parse_mode=ParseMode.MARKDOWN,
     )
 
     return True
 
 
 async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show list of user's custom lessons."""
+    """Show list of user's custom lessons with status-appropriate actions."""
     query = update.callback_query
     await query.answer()
 
@@ -623,25 +817,42 @@ async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DE
                 raise
         return
 
-    # Build lesson list
+    # Build lesson list with status-appropriate actions
     keyboard = []
     for lesson in custom_lessons:
         status_emoji = {
-            "pending": "⏳",
-            "generating": "🔄",
-            "ready": "✅",
-            "failed": "❌",
-        }.get(lesson.status, "❓")
+            "pending": "\u23f3",  # hourglass
+            "generating": "\U0001f504",  # arrows
+            "ready": "\u2705",  # checkmark
+            "failed": "\u274c",  # x
+        }.get(lesson.status, "\u2753")  # question
+
+        title_display = lesson.title[:25] + "..." if len(lesson.title) > 25 else lesson.title
 
         if lesson.status == "ready":
-            callback = f"pimsleur_custom_play_{lesson.id}"
+            # Play button for ready lessons
+            keyboard.append([InlineKeyboardButton(
+                f"{status_emoji} {title_display}",
+                callback_data=f"pimsleur_custom_play_{lesson.id}",
+            )])
+        elif lesson.status == "failed":
+            # Retry and Delete for failed lessons
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"{status_emoji} {title_display}",
+                    callback_data=f"{WIZARD_RETRY_PREFIX}{lesson.id}",
+                ),
+                InlineKeyboardButton(
+                    "\U0001f5d1",  # wastebasket
+                    callback_data=f"{WIZARD_DELETE_PREFIX}{lesson.id}",
+                ),
+            ])
         else:
-            callback = PIMSLEUR_CUSTOM_LIST  # Just refresh
-
-        keyboard.append([InlineKeyboardButton(
-            f"{status_emoji} {lesson.title[:30]}",
-            callback_data=callback,
-        )])
+            # Pending/generating - just show status
+            keyboard.append([InlineKeyboardButton(
+                f"{status_emoji} {title_display}",
+                callback_data=PIMSLEUR_CUSTOM_LIST,  # Refresh
+            )])
 
     keyboard.append([
         InlineKeyboardButton("Create New", callback_data=PIMSLEUR_CUSTOM),
@@ -651,8 +862,9 @@ async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DE
     try:
         await query.edit_message_text(
             "*My Custom Lessons*\n\n"
-            "✅ = ready, ⏳ = pending, 🔄 = generating, ❌ = failed\n\n"
-            "Tap a ready lesson to play:",
+            "\u2705 = ready (tap to play)\n"
+            "\u23f3 = pending, \U0001f504 = generating\n"
+            "\u274c = failed (tap to retry, \U0001f5d1 to delete)",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode=ParseMode.MARKDOWN,
         )
@@ -744,12 +956,581 @@ async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DE
         )
 
 
+# ============================================================================
+# Wizard Callback Handlers
+# ============================================================================
+
+
+async def wizard_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Cancel the custom lesson wizard."""
+    query = update.callback_query
+    await query.answer()
+
+    _clear_wizard_data(context)
+
+    await query.edit_message_text(
+        "Custom lesson creation cancelled.",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)
+        ]]),
+    )
+
+
+async def wizard_view_vocab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show vocabulary preview - Step 3."""
+    query = update.callback_query
+    await query.answer()
+
+    wizard = _get_wizard_data(context)
+    analysis = wizard.get("analysis", {})
+    vocabulary = analysis.get("vocabulary_preview", [])
+
+    vocab_text = _format_vocabulary_preview(vocabulary, limit=20)
+
+    await query.edit_message_text(
+        f"*Vocabulary Preview*\n\n"
+        f"Words to be included in the lesson:\n\n"
+        f"{vocab_text}\n\n"
+        f"_* = appears frequently_",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Back", callback_data=WIZARD_BACK)],
+            [InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)],
+        ]),
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+    wizard["state"] = WizardState.VOCABULARY_PREVIEW
+
+
+async def wizard_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Go back to previous wizard step."""
+    query = update.callback_query
+    await query.answer()
+
+    wizard = _get_wizard_data(context)
+    state = wizard["state"]
+
+    # Navigate back based on current state
+    if state == WizardState.VOCABULARY_PREVIEW:
+        # Back to analysis
+        wizard["state"] = WizardState.TEXT_ANALYSIS
+        analysis = wizard.get("analysis", {})
+
+        stats_text = (
+            f"*Text Analysis*\n\n"
+            f"*Statistics:*\n"
+            f"- {analysis.get('word_count', 0)} words total\n"
+            f"- {analysis.get('unique_words', 0)} unique words\n"
+            f"- ~{analysis.get('estimated_lesson_words', 15)} words for lesson\n"
+            f"- Detected level: {analysis.get('detected_difficulty', 'A2')}\n\n"
+            f"*Suggested title:*\n"
+            f"_{wizard.get('title', 'Untitled')}_"
+        )
+
+        keyboard = [
+            [InlineKeyboardButton("View Vocabulary", callback_data=WIZARD_VIEW_VOCAB)],
+            [InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)],
+            [InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)],
+        ]
+
+        await query.edit_message_text(
+            stats_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    elif state == WizardState.SETTINGS:
+        # Back to title selection
+        wizard["state"] = WizardState.TEXT_ANALYSIS
+        await _show_title_step(query, wizard)
+
+    else:
+        # Default: go to menu
+        await query.edit_message_text(
+            "Returning to menu...",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)
+            ]]),
+        )
+
+
+async def _show_title_step(query, wizard: dict) -> None:
+    """Show title editing step."""
+    title = wizard.get("title", "Untitled")
+
+    await query.edit_message_text(
+        f"*Lesson Title*\n\n"
+        f"Suggested: _{title}_\n\n"
+        f"Would you like to use this title or enter your own?",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Use This Title", callback_data=WIZARD_USE_TITLE)],
+            [InlineKeyboardButton("Edit Title", callback_data=WIZARD_EDIT_TITLE)],
+            [InlineKeyboardButton("Back", callback_data=WIZARD_BACK)],
+        ]),
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+async def wizard_continue_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Continue to next wizard step."""
+    query = update.callback_query
+    await query.answer()
+
+    wizard = _get_wizard_data(context)
+    state = wizard["state"]
+
+    if state in (WizardState.TEXT_ANALYSIS, WizardState.VOCABULARY_PREVIEW):
+        # Continue to title step
+        await _show_title_step(query, wizard)
+
+    elif state == WizardState.TITLE_INPUT:
+        # Continue to settings step
+        await _show_settings_step(query, wizard)
+
+    else:
+        # Unknown state, show error
+        await query.answer("Please start again.", show_alert=True)
+
+
+async def wizard_use_title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Use the suggested title and continue to settings."""
+    query = update.callback_query
+    await query.answer()
+
+    wizard = _get_wizard_data(context)
+    await _show_settings_step(query, wizard)
+
+
+async def wizard_edit_title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Switch to title input mode."""
+    query = update.callback_query
+    await query.answer()
+
+    wizard = _get_wizard_data(context)
+    wizard["state"] = WizardState.TITLE_INPUT
+    context.user_data["awaiting_title_input"] = True
+
+    await query.edit_message_text(
+        "*Edit Title*\n\n"
+        "Type your custom title (3-200 characters).\n"
+        "Or type /cancel to keep the suggested title.",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+async def _show_settings_step(query, wizard: dict) -> None:
+    """Show the settings step."""
+    wizard["state"] = WizardState.SETTINGS
+    settings = wizard.get("settings", {})
+    analysis = wizard.get("analysis", {})
+
+    # Current settings display
+    focus = settings.get("focus", "vocabulary")
+    voice = settings.get("voice", "both")
+    difficulty = settings.get("difficulty", "auto")
+    detected_diff = analysis.get("detected_difficulty", "A2")
+
+    # Focus options
+    focus_display = {
+        "vocabulary": "Vocabulary",
+        "pronunciation": "Pronunciation",
+        "dialogue": "Dialogue",
+    }
+
+    # Voice options
+    voice_display = {
+        "female": "Female",
+        "male": "Male",
+        "both": "Both",
+    }
+
+    # Build keyboard
+    keyboard = []
+
+    # Focus row
+    focus_row = []
+    for f in ["vocabulary", "pronunciation", "dialogue"]:
+        label = focus_display[f]
+        if f == focus:
+            label = f"\u2713 {label}"  # checkmark
+        focus_row.append(InlineKeyboardButton(
+            label, callback_data=f"{WIZARD_FOCUS_PREFIX}{f}"
+        ))
+    keyboard.append(focus_row)
+
+    # Voice row
+    voice_row = []
+    for v in ["female", "male", "both"]:
+        label = voice_display[v]
+        if v == voice:
+            label = f"\u2713 {label}"
+        voice_row.append(InlineKeyboardButton(
+            label, callback_data=f"{WIZARD_VOICE_PREFIX}{v}"
+        ))
+    keyboard.append(voice_row)
+
+    # Difficulty row
+    diff_row = []
+    for d in ["A1", "A2", "B1", "auto"]:
+        label = d if d != "auto" else f"Auto ({detected_diff})"
+        if d == difficulty:
+            label = f"\u2713 {label}"
+        diff_row.append(InlineKeyboardButton(
+            label, callback_data=f"{WIZARD_DIFF_PREFIX}{d}"
+        ))
+    keyboard.append(diff_row)
+
+    # Action buttons
+    keyboard.append([
+        InlineKeyboardButton("\u2705 Create Lesson", callback_data=WIZARD_CONFIRM)
+    ])
+    keyboard.append([
+        InlineKeyboardButton("Back", callback_data=WIZARD_BACK),
+        InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL),
+    ])
+
+    await query.edit_message_text(
+        f"*Lesson Settings*\n\n"
+        f"*Title:* {wizard.get('title', 'Untitled')}\n\n"
+        f"Select your preferences:\n\n"
+        f"*Focus:*\n"
+        f"*Voice:*\n"
+        f"*Difficulty:*",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+async def wizard_focus_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Update focus setting."""
+    query = update.callback_query
+    focus = query.data.replace(WIZARD_FOCUS_PREFIX, "")
+
+    wizard = _get_wizard_data(context)
+    wizard["settings"]["focus"] = focus
+    await query.answer(f"Focus: {focus.title()}")
+    await _show_settings_step(query, wizard)
+
+
+async def wizard_voice_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Update voice setting."""
+    query = update.callback_query
+    voice = query.data.replace(WIZARD_VOICE_PREFIX, "")
+
+    wizard = _get_wizard_data(context)
+    wizard["settings"]["voice"] = voice
+    await query.answer(f"Voice: {voice.title()}")
+    await _show_settings_step(query, wizard)
+
+
+async def wizard_difficulty_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Update difficulty setting."""
+    query = update.callback_query
+    difficulty = query.data.replace(WIZARD_DIFF_PREFIX, "")
+
+    wizard = _get_wizard_data(context)
+    wizard["settings"]["difficulty"] = difficulty
+    await query.answer(f"Difficulty: {difficulty}")
+    await _show_settings_step(query, wizard)
+
+
+async def wizard_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Confirm and start lesson generation."""
+    query = update.callback_query
+    await query.answer("Starting generation...")
+
+    user = update.effective_user
+    db_user = get_user_by_telegram_id(user.id)
+    target_lang = _get_target_language(db_user)
+
+    wizard = _get_wizard_data(context)
+    settings = wizard.get("settings", {})
+    analysis = wizard.get("analysis", {})
+
+    # Determine effective difficulty
+    difficulty = settings.get("difficulty", "auto")
+    if difficulty == "auto":
+        difficulty = analysis.get("detected_difficulty", "A2")
+
+    # Create lesson in database with settings
+    lesson = create_custom_lesson_with_settings(
+        user_id=db_user.id,
+        language_code=target_lang,
+        title=wizard.get("title", "Custom Lesson"),
+        source_text=wizard.get("source_text", ""),
+        focus=settings.get("focus", "vocabulary"),
+        voice_preference=settings.get("voice", "both"),
+        difficulty_level=difficulty,
+        text_analysis_json=json.dumps(analysis),
+    )
+
+    wizard["lesson_id"] = lesson.id
+    wizard["state"] = WizardState.GENERATING
+
+    # Show initial progress
+    progress_text = (
+        f"*Generating Your Custom Lesson*\n\n"
+        f"{_format_progress_bar(5)}\n\n"
+        f"Initializing...\n\n"
+        f"_This may take 5-10 minutes. You'll be notified when ready._"
+    )
+
+    msg = await query.edit_message_text(
+        progress_text,
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+    wizard["message_id"] = msg.message_id
+
+    # Start background generation with progress tracking
+    asyncio.create_task(
+        _generate_custom_lesson_with_progress(
+            bot=context.bot,
+            chat_id=update.effective_chat.id,
+            message_id=msg.message_id,
+            telegram_user_id=user.id,
+            lesson_id=lesson.id,
+            language_code=target_lang,
+            source_text=wizard.get("source_text", ""),
+            title=wizard.get("title", "Custom Lesson"),
+            settings=settings,
+            user_data=context.user_data,
+        )
+    )
+
+
+async def _generate_custom_lesson_with_progress(
+    bot: Bot,
+    chat_id: int,
+    message_id: int,
+    telegram_user_id: int,
+    lesson_id: int,
+    language_code: str,
+    source_text: str,
+    title: str,
+    settings: dict,
+    user_data: dict,
+) -> None:
+    """Background task with progress updates."""
+    from bot.languages import get_language_config_by_code
+    from bot.pimsleur.generator import PimsleurLessonGenerator
+    from bot.pimsleur.audio_assembler import PimsleurAudioAssembler
+
+    async def update_progress(stage: str, extra_text: str = "") -> None:
+        """Update progress message."""
+        stage_info = PROGRESS_STAGES.get(stage, {"label": stage, "percent": 50})
+        progress_bar = _format_progress_bar(stage_info["percent"])
+
+        text = (
+            f"*Generating Your Custom Lesson*\n\n"
+            f"{progress_bar}\n\n"
+            f"{stage_info['label']}\n"
+            f"{extra_text}\n\n"
+            f"_This may take 5-10 minutes._"
+        )
+
+        try:
+            await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=text,
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        except BadRequest as e:
+            if "Message is not modified" not in str(e):
+                logger.warning(f"Progress update failed: {e}")
+
+    try:
+        await update_progress("initializing")
+        update_custom_lesson_generation_status(lesson_id, status="generating")
+
+        await update_progress("analyzing")
+        lang_config = get_language_config_by_code(language_code)
+
+        await update_progress("generating_script")
+        generator = PimsleurLessonGenerator(lang_config)
+        script = await asyncio.to_thread(
+            generator.generate_custom_lesson_script, source_text
+        )
+
+        await update_progress("vocabulary")
+        script_json = json.dumps(script, ensure_ascii=False)
+
+        await update_progress("generating_audio")
+        output_dir = Path("data/pimsleur") / language_code / "custom"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        audio_path = output_dir / f"custom_{lesson_id}.mp3"
+
+        assembler = PimsleurAudioAssembler(language_code)
+
+        await update_progress("audio_segments", "_This step takes the longest..._")
+        await asyncio.to_thread(
+            assembler.generate_lesson_audio,
+            script,
+            str(audio_path),
+        )
+
+        await update_progress("finalizing")
+        duration = script.get("calculated_duration", 900)
+
+        update_custom_lesson_generation_status(
+            lesson_id=lesson_id,
+            status="ready",
+            script_json=script_json,
+            audio_path=str(audio_path),
+            duration_seconds=duration,
+            vocabulary_json=json.dumps(script.get("vocabulary_summary", []), ensure_ascii=False),
+        )
+
+        await update_progress("complete")
+
+        # Update wizard state
+        if "custom_wizard" in user_data:
+            user_data["custom_wizard"]["state"] = WizardState.COMPLETED
+
+        # Final success message with play button
+        duration_min = duration // 60
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=(
+                f"\u2705 *Lesson Ready!*\n\n"
+                f"*{title}*\n"
+                f"\u23f1 {duration_min} minutes\n\n"
+                f"Tap below to listen:"
+            ),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    "\u25b6\ufe0f Play Now",
+                    callback_data=f"pimsleur_custom_play_{lesson_id}"
+                )],
+                [InlineKeyboardButton(
+                    "My Custom Lessons",
+                    callback_data=PIMSLEUR_CUSTOM_LIST
+                )],
+            ]),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to generate custom lesson {lesson_id}: {e}", exc_info=True)
+
+        # Update wizard state
+        if "custom_wizard" in user_data:
+            user_data["custom_wizard"]["state"] = WizardState.FAILED
+            user_data["custom_wizard"]["error"] = str(e)
+
+        update_custom_lesson_generation_status(
+            lesson_id,
+            status="failed",
+            error_message=str(e)[:500]
+        )
+
+        # Error message with retry option
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=message_id,
+            text=(
+                f"\u274c *Generation Failed*\n\n"
+                f"Error: {str(e)[:200]}\n\n"
+                f"You can retry or delete this lesson from 'My Custom Lessons'."
+            ),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(
+                    "\U0001f504 Retry",
+                    callback_data=f"{WIZARD_RETRY_PREFIX}{lesson_id}"
+                )],
+                [InlineKeyboardButton(
+                    "My Custom Lessons",
+                    callback_data=PIMSLEUR_CUSTOM_LIST
+                )],
+            ]),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+
+async def wizard_retry_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Retry a failed lesson generation."""
+    query = update.callback_query
+
+    try:
+        lesson_id = int(query.data.replace(WIZARD_RETRY_PREFIX, ""))
+    except ValueError:
+        await query.answer("Invalid lesson ID", show_alert=True)
+        return
+
+    user = update.effective_user
+    db_user = get_user_by_telegram_id(user.id)
+
+    # Reset the lesson for retry
+    lesson = retry_custom_lesson(lesson_id, db_user.id)
+    if not lesson:
+        await query.answer("Lesson not found or cannot be retried", show_alert=True)
+        return
+
+    await query.answer("Retrying generation...")
+
+    # Show progress
+    msg = await query.edit_message_text(
+        f"*Retrying Generation*\n\n"
+        f"{_format_progress_bar(5)}\n\n"
+        f"Initializing...\n\n"
+        f"_This may take 5-10 minutes._",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+    target_lang = _get_target_language(db_user)
+
+    # Start generation
+    asyncio.create_task(
+        _generate_custom_lesson_with_progress(
+            bot=context.bot,
+            chat_id=update.effective_chat.id,
+            message_id=msg.message_id,
+            telegram_user_id=user.id,
+            lesson_id=lesson_id,
+            language_code=target_lang,
+            source_text=lesson.source_text,
+            title=lesson.title,
+            settings={
+                "focus": lesson.focus,
+                "voice": lesson.voice_preference,
+                "difficulty": lesson.difficulty_level,
+            },
+            user_data=context.user_data,
+        )
+    )
+
+
+async def wizard_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Delete a custom lesson."""
+    query = update.callback_query
+
+    try:
+        lesson_id = int(query.data.replace(WIZARD_DELETE_PREFIX, ""))
+    except ValueError:
+        await query.answer("Invalid lesson ID", show_alert=True)
+        return
+
+    user = update.effective_user
+    db_user = get_user_by_telegram_id(user.id)
+
+    success = delete_custom_lesson(lesson_id, db_user.id)
+    if success:
+        await query.answer("Lesson deleted")
+        # Refresh the list
+        await pimsleur_custom_list_callback(update, context)
+    else:
+        await query.answer("Failed to delete lesson", show_alert=True)
+
+
 # Handler dispatcher for all pimsleur callbacks
 async def pimsleur_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Route pimsleur callbacks to appropriate handlers."""
     query = update.callback_query
     data = query.data
 
+    # Standard lesson flow
     if data == PIMSLEUR_MENU:
         await pimsleur_menu_callback(update, context)
     elif data.startswith(PIMSLEUR_LEVEL_PREFIX):
@@ -766,5 +1547,32 @@ async def pimsleur_callback_handler(update: Update, context: ContextTypes.DEFAUL
         await pimsleur_custom_list_callback(update, context)
     elif data.startswith("pimsleur_custom_play_"):
         await pimsleur_custom_play_callback(update, context)
+
+    # Wizard callbacks
+    elif data == WIZARD_CANCEL:
+        await wizard_cancel_callback(update, context)
+    elif data == WIZARD_BACK:
+        await wizard_back_callback(update, context)
+    elif data == WIZARD_CONTINUE:
+        await wizard_continue_callback(update, context)
+    elif data == WIZARD_VIEW_VOCAB:
+        await wizard_view_vocab_callback(update, context)
+    elif data == WIZARD_EDIT_TITLE:
+        await wizard_edit_title_callback(update, context)
+    elif data == WIZARD_USE_TITLE:
+        await wizard_use_title_callback(update, context)
+    elif data.startswith(WIZARD_FOCUS_PREFIX):
+        await wizard_focus_callback(update, context)
+    elif data.startswith(WIZARD_VOICE_PREFIX):
+        await wizard_voice_callback(update, context)
+    elif data.startswith(WIZARD_DIFF_PREFIX):
+        await wizard_difficulty_callback(update, context)
+    elif data == WIZARD_CONFIRM:
+        await wizard_confirm_callback(update, context)
+    elif data.startswith(WIZARD_RETRY_PREFIX):
+        await wizard_retry_callback(update, context)
+    elif data.startswith(WIZARD_DELETE_PREFIX):
+        await wizard_delete_callback(update, context)
+
     else:
         await query.answer("Unknown action")

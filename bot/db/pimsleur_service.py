@@ -376,6 +376,8 @@ def create_custom_lesson_request(
         session.flush()
         session.refresh(lesson)
         logger.info(f"Created custom lesson request {lesson.id} for user {user_id}")
+        # Expunge to allow access outside session
+        session.expunge(lesson)
         return lesson
 
 
@@ -488,3 +490,214 @@ def cache_custom_lesson_file_id(lesson_id: int, file_id: str) -> None:
                 logger.info(f"Cached file_id for custom lesson {lesson_id}")
     except Exception as e:
         logger.error(f"Failed to cache custom lesson file_id: {e}")
+
+
+# ============================================================================
+# Custom lesson wizard functions (added for UX improvement)
+# ============================================================================
+
+
+def create_custom_lesson_with_settings(
+    user_id: int,
+    language_code: str,
+    title: str,
+    source_text: str,
+    focus: str = "vocabulary",
+    voice_preference: str = "both",
+    difficulty_level: str = "auto",
+    text_analysis_json: Optional[str] = None,
+) -> PimsleurCustomLesson:
+    """
+    Create a new custom lesson with wizard settings.
+
+    Args:
+        user_id: Database user ID
+        language_code: Language code (e.g., "is")
+        title: Lesson title
+        source_text: User-provided text
+        focus: Lesson focus ("vocabulary", "pronunciation", "dialogue")
+        voice_preference: Voice preference ("female", "male", "both")
+        difficulty_level: Difficulty level ("A1", "A2", "B1", "auto")
+        text_analysis_json: Cached text analysis results
+
+    Returns:
+        PimsleurCustomLesson object (detached from session)
+    """
+    with db_session() as session:
+        lesson = PimsleurCustomLesson(
+            user_id=user_id,
+            language_code=language_code,
+            title=title,
+            source_text=source_text,
+            focus=focus,
+            voice_preference=voice_preference,
+            difficulty_level=difficulty_level,
+            text_analysis_json=text_analysis_json,
+        )
+        session.add(lesson)
+        session.flush()
+        session.refresh(lesson)
+        lesson_id = lesson.id  # Capture ID before expunge
+        logger.info(
+            f"Created custom lesson {lesson_id} for user {user_id} "
+            f"(focus={focus}, voice={voice_preference}, level={difficulty_level})"
+        )
+        # Expunge to allow access outside session
+        session.expunge(lesson)
+        return lesson
+
+
+def update_custom_lesson_generation_status(
+    lesson_id: int,
+    status: str,
+    error_message: Optional[str] = None,
+    script_json: Optional[str] = None,
+    audio_path: Optional[str] = None,
+    duration_seconds: Optional[int] = None,
+    vocabulary_json: Optional[str] = None,
+) -> None:
+    """
+    Update custom lesson generation status with timing and error tracking.
+
+    Args:
+        lesson_id: Custom lesson database ID
+        status: New status (pending, generating, ready, failed)
+        error_message: Error message for failed status
+        script_json: Generated script JSON
+        audio_path: Path to generated audio
+        duration_seconds: Audio duration
+        vocabulary_json: Vocabulary JSON
+    """
+    if status not in VALID_CUSTOM_LESSON_STATUSES:
+        raise ValueError(f"Invalid status '{status}'")
+
+    try:
+        with db_session() as session:
+            lesson = session.get(PimsleurCustomLesson, lesson_id)
+            if not lesson:
+                logger.warning(f"Custom lesson {lesson_id} not found for status update")
+                return
+
+            lesson.status = status
+            lesson.updated_at = datetime.utcnow()
+
+            # Track generation timing
+            if status == "generating" and not lesson.generation_started_at:
+                lesson.generation_started_at = datetime.utcnow()
+            elif status in ("ready", "failed"):
+                lesson.generation_completed_at = datetime.utcnow()
+
+            # Update content fields
+            if error_message is not None:
+                lesson.error_message = error_message[:500] if error_message else None
+            if script_json is not None:
+                lesson.script_json = script_json
+            if audio_path is not None:
+                lesson.audio_file_path = audio_path
+            if duration_seconds is not None:
+                lesson.duration_seconds = duration_seconds
+            if vocabulary_json is not None:
+                lesson.vocabulary_json = vocabulary_json
+
+            logger.info(f"Updated custom lesson {lesson_id} status to {status}")
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update custom lesson status: {e}")
+        raise
+
+
+def delete_custom_lesson(lesson_id: int, user_id: int) -> bool:
+    """
+    Delete a custom lesson (only if owned by user).
+
+    Args:
+        lesson_id: Custom lesson database ID
+        user_id: Database user ID (for ownership verification)
+
+    Returns:
+        True if deleted, False if not found or not owned
+    """
+    try:
+        with db_session() as session:
+            lesson = session.get(PimsleurCustomLesson, lesson_id)
+            if lesson and lesson.user_id == user_id:
+                session.delete(lesson)
+                logger.info(f"Deleted custom lesson {lesson_id} for user {user_id}")
+                return True
+            logger.warning(f"Custom lesson {lesson_id} not found or not owned by user {user_id}")
+            return False
+    except Exception as e:
+        logger.error(f"Failed to delete custom lesson: {e}")
+        return False
+
+
+def retry_custom_lesson(lesson_id: int, user_id: int) -> Optional[PimsleurCustomLesson]:
+    """
+    Reset a failed custom lesson for retry.
+
+    Args:
+        lesson_id: Custom lesson database ID
+        user_id: Database user ID (for ownership verification)
+
+    Returns:
+        Updated PimsleurCustomLesson or None if not found/not owned
+    """
+    try:
+        with db_session() as session:
+            lesson = session.get(PimsleurCustomLesson, lesson_id)
+            if not lesson or lesson.user_id != user_id:
+                logger.warning(f"Custom lesson {lesson_id} not found or not owned by user {user_id}")
+                return None
+
+            if lesson.status != "failed":
+                logger.warning(f"Cannot retry lesson {lesson_id} with status {lesson.status}")
+                return None
+
+            # Reset to pending state
+            lesson.status = "pending"
+            lesson.error_message = None
+            lesson.generation_started_at = None
+            lesson.generation_completed_at = None
+            lesson.script_json = None
+            lesson.audio_file_path = None
+            lesson.telegram_file_id = None
+            lesson.duration_seconds = None
+            lesson.vocabulary_json = None
+            lesson.updated_at = datetime.utcnow()
+
+            session.flush()
+            session.refresh(lesson)
+            logger.info(f"Reset custom lesson {lesson_id} for retry")
+            # Expunge to allow access outside session
+            session.expunge(lesson)
+            return lesson
+    except Exception as e:
+        logger.error(f"Failed to retry custom lesson: {e}")
+        return None
+
+
+def get_custom_lesson_count(user_id: int, language_code: str) -> dict:
+    """
+    Get count of custom lessons by status for a user.
+
+    Args:
+        user_id: Database user ID
+        language_code: Language code
+
+    Returns:
+        Dictionary with counts by status
+    """
+    with db_session(auto_commit=False) as session:
+        lessons = session.query(PimsleurCustomLesson).filter_by(
+            user_id=user_id,
+            language_code=language_code,
+        ).all()
+
+        counts = {"total": 0, "pending": 0, "generating": 0, "ready": 0, "failed": 0}
+        for lesson in lessons:
+            counts["total"] += 1
+            if lesson.status in counts:
+                counts[lesson.status] += 1
+
+        return counts

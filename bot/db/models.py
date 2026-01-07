@@ -625,15 +625,30 @@ class PimsleurCustomLesson(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Wizard settings (added in migration 016)
+    focus = Column(String(20), nullable=False, default='vocabulary')  # vocabulary, pronunciation, dialogue
+    voice_preference = Column(String(10), nullable=False, default='both')  # female, male, both
+    difficulty_level = Column(String(5), nullable=False, default='auto')  # A1, A2, B1, auto
+    text_analysis_json = Column(String, nullable=True)  # Cached text analysis results
+    error_message = Column(String(500), nullable=True)  # Error details for failed lessons
+    generation_started_at = Column(DateTime, nullable=True)
+    generation_completed_at = Column(DateTime, nullable=True)
+
     # Relationships
     user = relationship("User")
 
-    def __init__(self, user_id, language_code, title, source_text):
+    def __init__(self, user_id, language_code, title, source_text,
+                 focus='vocabulary', voice_preference='both', difficulty_level='auto',
+                 text_analysis_json=None):
         self.user_id = user_id
         self.language_code = language_code
         self.title = title
         self.source_text = source_text
         self.status = 'pending'
+        self.focus = focus
+        self.voice_preference = voice_preference
+        self.difficulty_level = difficulty_level
+        self.text_analysis_json = text_analysis_json
 
     def __repr__(self):
         return f"<PimsleurCustomLesson(id={self.id}, user={self.user_id}, status={self.status})>"
