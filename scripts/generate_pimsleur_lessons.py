@@ -3,27 +3,30 @@
 CLI tool to pre-generate Pimsleur lessons.
 
 This script generates lesson scripts and audio files for the Pimsleur
-language learning method. It can generate individual lessons, ranges,
-or all 90 lessons across 3 CEFR levels (A1, A2, B1).
+language learning method. It can generate individual units, ranges,
+or all units across levels.
 
 Usage:
-    # Generate a single lesson
-    python scripts/generate_pimsleur_lessons.py --level A1 --lesson 1
+    # Generate a single unit
+    python scripts/generate_pimsleur_lessons.py --level 1 --unit 1
 
-    # Generate a range of lessons
-    python scripts/generate_pimsleur_lessons.py --level A1 --start 1 --end 10
+    # Generate a range of units
+    python scripts/generate_pimsleur_lessons.py --level 1 --start 1 --end 10
 
-    # Generate all lessons for a level
-    python scripts/generate_pimsleur_lessons.py --level A1
+    # Generate all units for a level
+    python scripts/generate_pimsleur_lessons.py --level 1
 
-    # Generate all 90 lessons
+    # Generate all available units (with vocabulary data)
     python scripts/generate_pimsleur_lessons.py --all
 
     # Script-only mode (no audio generation)
-    python scripts/generate_pimsleur_lessons.py --level A1 --lesson 1 --script-only
+    python scripts/generate_pimsleur_lessons.py --level 1 --unit 1 --script-only
 
     # Force overwrite existing files
-    python scripts/generate_pimsleur_lessons.py --level A1 --lesson 1 --force
+    python scripts/generate_pimsleur_lessons.py --level 1 --unit 1 --force
+
+    # Show available units
+    python scripts/generate_pimsleur_lessons.py --list
 
 Environment Variables:
     OPENROUTER_API_KEY - Required for LLM script generation
@@ -63,9 +66,9 @@ def setup_environment():
         sys.exit(1)
 
 
-def get_output_dir(base_dir: str, lang: str, level: str) -> Path:
+def get_output_dir(base_dir: str, lang: str, level: int) -> Path:
     """Get output directory for a specific language and level."""
-    output_dir = Path(base_dir) / lang / level
+    output_dir = Path(base_dir) / lang / f"level_{level:02d}"
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
@@ -76,22 +79,45 @@ def ask_overwrite(filepath: Path, file_type: str) -> bool:
     return response.lower() in ("y", "yes")
 
 
-def generate_lesson(
+def list_available_units(lang_code: str):
+    """List all available units with vocabulary data."""
+    from bot.pimsleur.languages import get_vocabulary, SUPPORTED_LANGUAGES
+
+    lang_info = SUPPORTED_LANGUAGES.get(lang_code.replace("is", "icelandic"))
+    if not lang_info:
+        logger.error(f"Unknown language: {lang_code}")
+        return
+
+    logger.info(f"Available units for {lang_info['name']}:")
+
+    for level in lang_info.get("levels", []):
+        if lang_code == "is":
+            from bot.pimsleur.languages.icelandic import get_available_units, get_unit
+
+            available = get_available_units(level)
+            logger.info(f"\n  Level {level}: {len(available)} units with content")
+            for unit_num in available:
+                unit = get_unit(level, unit_num)
+                logger.info(f"    Unit {unit_num:02d}: {unit['title']}")
+                logger.info(f"             Vocabulary: {len(unit['vocabulary'])} words")
+
+
+def generate_unit(
     lang_code: str,
-    level: str,
-    lesson_num: int,
+    level: int,
+    unit_num: int,
     output_dir: Path,
     script_only: bool = False,
     save_to_db: bool = True,
     force: bool = False,
 ) -> dict:
     """
-    Generate a single Pimsleur lesson.
+    Generate a single Pimsleur unit.
 
     Args:
         lang_code: Language code (e.g., "is")
-        level: CEFR level (A1, A2, B1)
-        lesson_num: Lesson number (1-30)
+        level: Pimsleur level (1, 2, 3)
+        unit_num: Unit number (1-30)
         output_dir: Directory to save output files
         script_only: If True, skip audio generation
         save_to_db: If True, save to database
@@ -103,12 +129,23 @@ def generate_lesson(
     from bot.languages import get_language_config_by_code
     from bot.pimsleur.generator import PimsleurLessonGenerator
     from bot.pimsleur.audio_assembler import PimsleurAudioAssembler
-    from bot.pimsleur.constants import LESSON_TITLES
+
+    # Get unit data from new vocabulary structure
+    if lang_code == "is":
+        from bot.pimsleur.languages.icelandic import get_unit
+
+        unit_data = get_unit(level, unit_num)
+    else:
+        unit_data = None
+
+    if not unit_data or not unit_data.get("vocabulary"):
+        logger.warning(f"No vocabulary data for Level {level} Unit {unit_num}")
+        logger.info("Unit will be generated with LLM-only content")
 
     # Check for existing files
-    script_filename = f"{lang_code}_{level}_L{lesson_num:02d}_script.json"
+    script_filename = f"{lang_code}_L{level:02d}_U{unit_num:02d}_script.json"
     script_path = output_dir / script_filename
-    audio_filename = f"{lang_code}_{level}_L{lesson_num:02d}.mp3"
+    audio_filename = f"{lang_code}_L{level:02d}_U{unit_num:02d}.mp3"
     audio_path = output_dir / audio_filename
 
     # Check script file
@@ -121,12 +158,12 @@ def generate_lesson(
     if not script_only and audio_path.exists() and not force:
         if not ask_overwrite(audio_path, "Audio file"):
             logger.info("Skipping audio generation (file exists)")
-            # Still might want to generate script only
             script_only = True
 
-    logger.info(f"=" * 60)
-    logger.info(f"Generating {level} Lesson {lesson_num}")
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
+    title = unit_data["title"] if unit_data else f"Unit {unit_num}"
+    logger.info(f"Generating Level {level} Unit {unit_num}: {title}")
+    logger.info("=" * 60)
 
     # Get language config
     lang_config = get_language_config_by_code(lang_code)
@@ -137,18 +174,64 @@ def generate_lesson(
     # Initialize generator
     generator = PimsleurLessonGenerator(lang_config)
 
+    # Prepare vocabulary for generation
+    vocab_new = []
+    vocab_review = []
+
+    if unit_data and unit_data.get("vocabulary"):
+        vocab_new = [
+            {
+                "word_target": w[0],
+                "word_native": w[1],
+                "word_type": w[2],
+                "phonetic": w[3] if len(w) > 3 else "",
+            }
+            for w in unit_data["vocabulary"]
+        ]
+
+        # Get review vocabulary from previous units
+        for prev_unit in unit_data.get("review_from_units", []):
+            if lang_code == "is":
+                prev_data = get_unit(level, prev_unit)
+                if prev_data and prev_data.get("vocabulary"):
+                    for w in prev_data["vocabulary"][:3]:  # Take 3 words from each
+                        vocab_review.append({
+                            "word_target": w[0],
+                            "word_native": w[1],
+                            "word_type": w[2],
+                            "phonetic": w[3] if len(w) > 3 else "",
+                        })
+
     # Generate lesson script
     logger.info("Generating lesson script via LLM...")
+    logger.info(f"  New vocabulary: {len(vocab_new)} words")
+    logger.info(f"  Review vocabulary: {len(vocab_review)} words")
+
     try:
+        # Map level to CEFR for backwards compatibility with generator
+        cefr_map = {1: "A1", 2: "A2", 3: "B1"}
+        cefr_level = cefr_map.get(level, "A1")
+
         script = generator.generate_lesson_script(
-            level=level,
-            lesson_number=lesson_num,
+            level=cefr_level,
+            lesson_number=unit_num,
+            title=title,
+            theme=unit_data.get("categories", ["general"])[0] if unit_data else None,
         )
+
+        # Enhance script with unit data
+        if unit_data:
+            script["pimsleur_level"] = level
+            script["pimsleur_unit"] = unit_num
+            script["opening_dialogue"] = unit_data.get("opening_dialogue", [])
+            script["grammar_notes"] = unit_data.get("grammar_notes", [])
+            script["phrases"] = unit_data.get("phrases", [])
+
     except Exception as e:
         logger.error(f"Failed to generate script: {e}")
         return {"success": False, "error": str(e)}
 
-    # Save script JSON (script_path already defined above)
+    # Save script JSON
     with open(script_path, "w", encoding="utf-8") as f:
         json.dump(script, f, ensure_ascii=False, indent=2)
     logger.info(f"Script saved to: {script_path}")
@@ -160,7 +243,7 @@ def generate_lesson(
     result = {
         "success": True,
         "level": level,
-        "lesson_number": lesson_num,
+        "unit_number": unit_num,
         "script_path": str(script_path),
         "stats": stats,
     }
@@ -176,8 +259,6 @@ def generate_lesson(
             # Estimate cost first
             cost = assembler.estimate_cost(script)
             logger.info(f"Estimated TTS cost: ${cost['estimated_cost_usd']:.2f}")
-
-            # audio_path already defined above
 
             def progress_callback(current, total):
                 logger.info(f"Audio progress: {current}/{total} segments")
@@ -197,10 +278,10 @@ def generate_lesson(
     # Save to database if requested
     if save_to_db and os.environ.get("DB_DSN"):
         try:
-            save_lesson_to_db(
+            save_unit_to_db(
                 lang_code=lang_code,
                 level=level,
-                lesson_num=lesson_num,
+                unit_num=unit_num,
                 script=script,
                 script_path=str(script_path),
                 audio_path=result.get("audio_path"),
@@ -213,24 +294,27 @@ def generate_lesson(
     return result
 
 
-def save_lesson_to_db(
+def save_unit_to_db(
     lang_code: str,
-    level: str,
-    lesson_num: int,
+    level: int,
+    unit_num: int,
     script: dict,
     script_path: str,
     audio_path: str = None,
 ):
-    """Save generated lesson to database."""
+    """Save generated unit to database."""
     from bot.db.database import db_session
     from bot.db.models import PimsleurLesson
+
+    # Map level to string for DB compatibility
+    level_str = f"L{level}"
 
     with db_session() as session:
         # Check if lesson already exists
         existing = session.query(PimsleurLesson).filter_by(
             language_code=lang_code,
-            level=level,
-            lesson_number=lesson_num,
+            level=level_str,
+            lesson_number=unit_num,
         ).first()
 
         if existing:
@@ -243,14 +327,14 @@ def save_lesson_to_db(
                 existing.audio_file_path = audio_path
                 existing.is_generated = True
             existing.updated_at = datetime.utcnow()
-            logger.info("Updated existing lesson in database")
+            logger.info("Updated existing unit in database")
         else:
             # Create new
             lesson = PimsleurLesson(
                 language_code=lang_code,
-                level=level,
-                lesson_number=lesson_num,
-                title=script.get("title", f"{level} Lesson {lesson_num}"),
+                level=level_str,
+                lesson_number=unit_num,
+                title=script.get("title", f"Level {level} Unit {unit_num}"),
                 description=script.get("theme", ""),
                 duration_seconds=script.get("calculated_duration", 1800),
                 audio_file_path=audio_path,
@@ -264,7 +348,7 @@ def save_lesson_to_db(
                 is_generated=audio_path is not None,
             )
             session.add(lesson)
-            logger.info("Created new lesson in database")
+            logger.info("Created new unit in database")
 
 
 def main():
@@ -281,30 +365,36 @@ def main():
     )
     parser.add_argument(
         "--level",
-        choices=["A1", "A2", "B1"],
-        help="CEFR level to generate",
+        type=int,
+        choices=[1, 2, 3],
+        help="Pimsleur level to generate (1, 2, or 3)",
     )
     parser.add_argument(
-        "--lesson",
+        "--unit",
         type=int,
-        help="Single lesson number to generate (1-30)",
+        help="Single unit number to generate (1-30)",
     )
     parser.add_argument(
         "--start",
         type=int,
         default=1,
-        help="Start lesson number (default: 1)",
+        help="Start unit number (default: 1)",
     )
     parser.add_argument(
         "--end",
         type=int,
         default=30,
-        help="End lesson number (default: 30)",
+        help="End unit number (default: 30)",
     )
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Generate all 90 lessons (A1, A2, B1)",
+        help="Generate all available units (with vocabulary data)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List available units with vocabulary data",
     )
     parser.add_argument(
         "--output",
@@ -335,45 +425,55 @@ def main():
 
     args = parser.parse_args()
 
+    # Handle --list
+    if args.list:
+        list_available_units(args.lang)
+        return
+
     # Validate arguments
     if not args.all and not args.level:
-        parser.error("Either --level or --all is required")
+        parser.error("Either --level or --all is required (or use --list)")
 
-    if args.lesson and (args.lesson < 1 or args.lesson > 30):
-        parser.error("Lesson number must be between 1 and 30")
+    if args.unit and (args.unit < 1 or args.unit > 30):
+        parser.error("Unit number must be between 1 and 30")
 
     # Setup environment
     setup_environment()
 
-    # Determine which lessons to generate
-    lessons_to_generate = []
+    # Determine which units to generate
+    units_to_generate = []
 
     if args.all:
-        for level in ["A1", "A2", "B1"]:
-            for lesson_num in range(1, 31):
-                lessons_to_generate.append((level, lesson_num))
-    elif args.lesson:
-        lessons_to_generate.append((args.level, args.lesson))
-    else:
-        for lesson_num in range(args.start, args.end + 1):
-            lessons_to_generate.append((args.level, lesson_num))
+        # Generate only units with vocabulary data
+        if args.lang == "is":
+            from bot.pimsleur.languages.icelandic import get_available_units
 
-    logger.info(f"Will generate {len(lessons_to_generate)} lessons")
+            for level in [1]:  # Currently only level 1
+                available = get_available_units(level)
+                for unit_num in available:
+                    units_to_generate.append((level, unit_num))
+    elif args.unit:
+        units_to_generate.append((args.level, args.unit))
+    else:
+        for unit_num in range(args.start, args.end + 1):
+            units_to_generate.append((args.level, unit_num))
+
+    logger.info(f"Will generate {len(units_to_generate)} units")
 
     if args.dry_run:
-        logger.info("Dry run - showing lessons to generate:")
-        for level, lesson_num in lessons_to_generate:
-            logger.info(f"  {level} Lesson {lesson_num}")
+        logger.info("Dry run - showing units to generate:")
+        for level, unit_num in units_to_generate:
+            logger.info(f"  Level {level} Unit {unit_num}")
         return
 
-    # Generate lessons
+    # Generate units
     results = []
-    for level, lesson_num in lessons_to_generate:
+    for level, unit_num in units_to_generate:
         output_dir = get_output_dir(args.output, args.lang, level)
-        result = generate_lesson(
+        result = generate_unit(
             lang_code=args.lang,
             level=level,
-            lesson_num=lesson_num,
+            unit_num=unit_num,
             output_dir=output_dir,
             script_only=args.script_only,
             save_to_db=not args.no_db,
@@ -383,11 +483,11 @@ def main():
 
         if not result["success"]:
             logger.error(f"Failed: {result.get('error')}")
-            # Continue with next lesson
+            # Continue with next unit
 
     # Summary
     successful = sum(1 for r in results if r["success"])
-    logger.info(f"=" * 60)
+    logger.info("=" * 60)
     logger.info(f"Generation complete: {successful}/{len(results)} successful")
 
 

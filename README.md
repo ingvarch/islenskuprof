@@ -16,11 +16,13 @@ A Telegram bot for learning Icelandic (and German) through AI-generated exercise
 - Image-based speaking prompts
 - Contextual communication practice
 
-**Pimsleur Lessons** (`/pimsleur`) - NEW
+**Pimsleur Lessons** (`/pimsleur`)
 - 30-minute audio lessons following the Pimsleur method
 - Spaced repetition (graduated interval recall)
 - Anticipation principle: prompt -> pause -> answer -> repeat
-- 90 lessons across 3 levels (A1, A2, B1)
+- 30 units per level (3 levels planned)
+- Vocabulary organized by Pimsleur categories (survival_skills, meet_greet, directions, etc.)
+- Opening dialogues as teaching foundation for each unit
 - Sequential lesson unlocking (complete N-1 to access N)
 - Custom lesson generation from user-provided text
 
@@ -116,11 +118,19 @@ isl/
 │   │   ├── icelandic.py        # Icelandic-specific prompts and data
 │   │   └── german.py           # German-specific prompts and data
 │   ├── pimsleur/               # Pimsleur method module
+│   │   ├── config.py           # Timing, voices, universal settings
 │   │   ├── generator.py        # Lesson script generation
 │   │   ├── audio_assembler.py  # Audio file assembly
 │   │   ├── vocabulary_manager.py
 │   │   ├── prompts.py          # LLM prompt templates
-│   │   └── constants.py        # Curriculum data
+│   │   ├── constants.py        # Legacy curriculum data
+│   │   └── languages/          # Vocabulary by language
+│   │       ├── icelandic/
+│   │       │   ├── level_01.py     # Level 1 aggregator
+│   │       │   ├── level_01_01.py  # Unit 1 vocabulary
+│   │       │   ├── level_01_02.py  # Unit 2 vocabulary
+│   │       │   └── ...
+│   │       └── german/         # German (stub)
 │   ├── db/
 │   │   ├── database.py         # SQLAlchemy session management
 │   │   ├── models.py           # ORM models
@@ -155,26 +165,26 @@ isl/
 Pre-generate lessons using the CLI script:
 
 ```bash
-# Generate a single lesson (script only, for review)
-python scripts/generate_pimsleur_lessons.py --level A1 --lesson 1 --script-only
+# List available units with vocabulary data
+python scripts/generate_pimsleur_lessons.py --list
 
-# Generate a lesson with audio
-python scripts/generate_pimsleur_lessons.py --level A1 --lesson 1
+# Generate a single unit (script only, for review)
+python scripts/generate_pimsleur_lessons.py --level 1 --unit 1 --script-only
 
-# Generate a range of lessons
-python scripts/generate_pimsleur_lessons.py --level A1 --start 1 --end 10
+# Generate a unit with audio
+python scripts/generate_pimsleur_lessons.py --level 1 --unit 1
 
-# Generate all A1 lessons
-python scripts/generate_pimsleur_lessons.py --level A1
+# Generate a range of units
+python scripts/generate_pimsleur_lessons.py --level 1 --start 1 --end 10
 
-# Generate all 90 lessons
+# Generate all available units (with vocabulary data)
 python scripts/generate_pimsleur_lessons.py --all
 
 # Dry run (see what would be generated)
 python scripts/generate_pimsleur_lessons.py --all --dry-run
 
 # Force overwrite existing files without confirmation
-python scripts/generate_pimsleur_lessons.py --level A1 --lesson 1 --force
+python scripts/generate_pimsleur_lessons.py --level 1 --unit 1 --force
 ```
 
 ### CLI Options
@@ -182,10 +192,11 @@ python scripts/generate_pimsleur_lessons.py --level A1 --lesson 1 --force
 | Option | Description |
 |--------|-------------|
 | `--lang` | Language code (default: `is` for Icelandic) |
-| `--level` | CEFR level: A1, A2, or B1 |
-| `--lesson` | Single lesson number (1-30) |
-| `--start`, `--end` | Range of lessons to generate |
-| `--all` | Generate all 90 lessons |
+| `--level` | Pimsleur level: 1, 2, or 3 |
+| `--unit` | Single unit number (1-30) |
+| `--start`, `--end` | Range of units to generate |
+| `--all` | Generate all available units (with vocabulary data) |
+| `--list` | List available units with vocabulary |
 | `--script-only` | Generate JSON script only, skip audio |
 | `--force`, `-f` | Overwrite existing files without asking |
 | `--no-db` | Don't save to database |

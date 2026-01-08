@@ -14,7 +14,7 @@ from typing import Optional
 
 from pydub import AudioSegment
 
-from bot.pimsleur.constants import VOICES, PAUSE_BETWEEN_SEGMENTS
+from bot.pimsleur.config import VOICES, PAUSE_BETWEEN_SEGMENTS
 
 logger = logging.getLogger(__name__)
 
