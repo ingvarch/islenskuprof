@@ -17,7 +17,7 @@ from bot.pimsleur.config import CEFR_GUIDELINES, LEVEL_CEFR_MAPPING
 logger = logging.getLogger(__name__)
 
 
-VOCABULARY_GENERATION_SYSTEM_PROMPT = """You are an expert Icelandic language curriculum designer creating vocabulary lists for spaced repetition audio lessons.
+VOCABULARY_GENERATION_SYSTEM_PROMPT = """You are an expert {language} language curriculum designer creating vocabulary lists for spaced repetition audio lessons.
 
 Your task is to select vocabulary that is:
 1. Appropriate for the specified CEFR level
@@ -35,30 +35,46 @@ Your task is to select vocabulary that is:
 Use English-approximation phonetics that help English speakers:
 - Capital letters = stressed syllable
 - Use familiar English sounds where possible
-- Examples:
-  - "afsakid" -> "AHF-sa-kith"
-  - "skilur" -> "SKI-lur"
-  - "thu" -> "thoo"
-  - "eg" -> "yeh"
 
-### Icelandic-Specific Guidelines
-- Include gender markers for adjectives: (m) for masculine, (f) for feminine
-- Note case forms when relevant: nominative, accusative, dative, genitive
-- Use standard Icelandic spelling (not dialectal)
-- Include both singular and plural forms for key nouns
+{language_specific_guidelines}
 
 ### Word Selection Criteria
 - Prefer high-frequency words over rare synonyms
-- Include verbs in both 1st person (eg) and 2nd person (thu) forms
+- Include verbs in common conjugation forms
 - Balance word types: nouns, verbs, adjectives, adverbs, expressions
 - Ensure words can be combined into meaningful phrases
 
 You must output ONLY valid JSON. No markdown, no explanations."""
 
 
-VOCABULARY_GENERATION_USER_PROMPT = """Generate vocabulary for an Icelandic spaced audio lesson.
+# Language-specific guidelines for LLM prompts
+LANGUAGE_GUIDELINES = {
+    "Icelandic": """### Icelandic-Specific Guidelines
+- Include gender markers for adjectives: (m) for masculine, (f) for feminine
+- Note case forms when relevant: nominative, accusative, dative, genitive
+- Use standard Icelandic spelling with proper characters (þ, ð, á, é, í, ó, ú, ý, æ, ö)
+- Include both singular and plural forms for key nouns
+- Examples: "afsakið" -> "AHF-sa-kith", "þú" -> "thoo", "ég" -> "yeh" """,
+
+    "German": """### German-Specific Guidelines
+- Include gender markers for nouns: (m) der, (f) die, (n) das
+- Include plural forms for nouns
+- Use standard German spelling with proper characters (ä, ö, ü, ß)
+- Note case changes when relevant (nominative, accusative, dative, genitive)
+- Examples: "Entschuldigung" -> "ent-SHOOL-di-goong", "sprechen" -> "SHPREH-khen" """,
+
+    "default": """### Language-Specific Guidelines
+- Include gender markers if applicable
+- Use standard spelling with proper diacritics
+- Include plural forms for nouns where relevant
+- Note grammatical forms when they affect meaning"""
+}
+
+
+VOCABULARY_GENERATION_USER_PROMPT = """Generate vocabulary for a {language} spaced audio lesson.
 
 ## PARAMETERS
+- Language: {language}
 - Level: {level} / CEFR: {cefr}
 - Unit: {unit} of 30
 - Theme: {theme}
@@ -80,15 +96,15 @@ VOCABULARY_GENERATION_USER_PROMPT = """Generate vocabulary for an Icelandic spac
     "categories": [/* 2-4 relevant categories */]
   }},
   "opening_dialogue": [
-    ["Icelandic line", "English translation"],
+    ["{language} line", "English translation"],
     /* 4-8 lines that introduce key vocabulary naturally */
   ],
   "vocabulary": [
-    ["icelandic_word", "english_translation", "word_type", "phonetic"],
+    ["{language}_word", "english_translation", "word_type", "phonetic"],
     /* 15-20 new vocabulary items */
   ],
   "phrases": [
-    ["Icelandic phrase", "English translation", "usage_note"],
+    ["{language} phrase", "English translation", "usage_note"],
     /* 4-6 key expressions using new vocabulary */
   ],
   "grammar_notes": [
@@ -104,11 +120,6 @@ VOCABULARY_GENERATION_USER_PROMPT = """Generate vocabulary for an Icelandic spac
 - adverb, preposition, conjunction
 - pronoun, question_word, interjection
 - phrase, expression, greeting
-
-## EXAMPLE VOCABULARY ENTRY
-["afsakid", "excuse me", "phrase", "AHF-sa-kith"]
-["skilur", "understand (you)", "verb", "SKI-lur"]
-["bandariskur", "American (m)", "adjective", "BAN-da-REES-kur"]
 
 Generate the vocabulary now. Output ONLY JSON."""
 
@@ -202,6 +213,43 @@ def _parse_vocabulary_response(response: str) -> dict:
     }
 
 
+# Language code to name mapping
+LANGUAGE_NAMES = {
+    "is": "Icelandic",
+    "de": "German",
+    "es": "Spanish",
+    "fr": "French",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "nl": "Dutch",
+    "sv": "Swedish",
+    "no": "Norwegian",
+    "da": "Danish",
+}
+
+
+def _get_unit_theme(language_code: str, level: int, unit: int) -> tuple[str, str]:
+    """Get unit theme, with fallback for unsupported languages."""
+    try:
+        if language_code == "is":
+            from bot.pimsleur.vocabulary_banks.icelandic.categories import get_unit_theme
+            return get_unit_theme(level, unit)
+    except ImportError:
+        pass
+
+    # Generic themes for unsupported languages
+    generic_themes = {
+        1: "basic_communication",
+        2: "greetings",
+        3: "introductions",
+        4: "directions",
+        5: "personal_info",
+    }
+    theme = generic_themes.get(unit, "general")
+    title = f"Level {level} Unit {unit}"
+    return theme, title
+
+
 def generate_unit_vocabulary(
     language_code: str,
     level: int,
@@ -212,7 +260,7 @@ def generate_unit_vocabulary(
     Generate vocabulary for a unit using LLM.
 
     Args:
-        language_code: ISO code (e.g., "is")
+        language_code: ISO code (e.g., "is", "de")
         level: Course level (1, 2, 3)
         unit: Unit number (1-30)
         ai_service: Optional AI service instance
@@ -224,9 +272,11 @@ def generate_unit_vocabulary(
         from bot.openrouter_service import OpenRouterService
         ai_service = OpenRouterService()
 
+    # Get language name
+    language = LANGUAGE_NAMES.get(language_code, language_code.upper())
+
     # Get unit theme
-    from bot.pimsleur.vocabulary_banks.icelandic.categories import get_unit_theme
-    theme, title = get_unit_theme(level, unit)
+    theme, title = _get_unit_theme(language_code, level, unit)
 
     cefr = get_cefr_for_level(level)
     review_units = get_review_units(unit)
@@ -234,14 +284,22 @@ def generate_unit_vocabulary(
     # Format CEFR guidelines
     cefr_guidelines = _format_cefr_guidelines(cefr)
 
+    # Get language-specific guidelines
+    language_guidelines = LANGUAGE_GUIDELINES.get(
+        language, LANGUAGE_GUIDELINES["default"]
+    )
+
     # Get previous vocabulary summary
     previous_vocab = _get_previous_vocab_summary(language_code, level, unit)
 
     system_prompt = VOCABULARY_GENERATION_SYSTEM_PROMPT.format(
+        language=language,
         cefr_guidelines=cefr_guidelines,
+        language_specific_guidelines=language_guidelines,
     )
 
     user_prompt = VOCABULARY_GENERATION_USER_PROMPT.format(
+        language=language,
         level=level,
         cefr=cefr,
         unit=unit,
@@ -261,10 +319,15 @@ def generate_unit_vocabulary(
         # Parse response
         result = _parse_vocabulary_response(response)
         result["source"] = "llm_fallback"
-        result["generated_for"] = {"level": level, "unit": unit, "cefr": cefr}
+        result["generated_for"] = {
+            "language": language,
+            "level": level,
+            "unit": unit,
+            "cefr": cefr,
+        }
 
         logger.info(
-            f"Generated {len(result.get('vocabulary', []))} words for "
+            f"Generated {len(result.get('vocabulary', []))} {language} words for "
             f"L{level}U{unit} via LLM fallback"
         )
 
