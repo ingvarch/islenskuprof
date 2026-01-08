@@ -21,6 +21,8 @@ from bot.pimsleur.config import (
     PAUSE_SYLLABLE,
     PAUSE_LEARNING,
     SEGMENT_SPEAKER_DEFAULTS,
+    LEVEL_SPEED_CONFIG,
+    DEFAULT_SPEED_CONFIG,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,21 +36,37 @@ class PimsleurAudioAssembler:
     audio processing and merging.
     """
 
-    def __init__(self, language_code: str = "is"):
+    def __init__(self, language_code: str = "is", level: int = 1):
         """
         Initialize audio assembler.
 
         Args:
             language_code: ISO language code for native speaker voices
+            level: Course level (1, 2, or 3) for progressive speed adjustment
         """
         self.language_code = language_code
+        self.level = level
         self.temp_dir: Optional[str] = None
 
         # Voice mapping based on language
         self.voices = self._get_voices_for_language(language_code)
 
+        # Get speed configuration for this level
+        self.speed_config = LEVEL_SPEED_CONFIG.get(level, DEFAULT_SPEED_CONFIG)
+        logger.info(
+            f"Audio assembler initialized: level={level}, "
+            f"speech_speed={self.speed_config['speech_speed']}, "
+            f"pause_multiplier={self.speed_config['pause_multiplier']}, "
+            f"use_rubberband={self.speed_config['use_rubberband']}"
+        )
+
         # Lazy-load VoiceMaker service
         self._voicemaker = None
+
+        # Check RubberBand availability if needed
+        self._rubberband_available = None
+        if self.speed_config["use_rubberband"]:
+            self._rubberband_available = self._check_rubberband_available()
 
     @property
     def voicemaker(self):
@@ -57,6 +75,93 @@ class PimsleurAudioAssembler:
             from bot.voicemaker_service import VoiceMakerService
             self._voicemaker = VoiceMakerService()
         return self._voicemaker
+
+    def _check_rubberband_available(self) -> bool:
+        """
+        Check if PyRubberBand is available for high-quality time-stretching.
+
+        Returns:
+            True if pyrubberband can be imported and used
+        """
+        try:
+            import pyrubberband  # noqa: F401
+            import soundfile  # noqa: F401
+            logger.info("PyRubberBand available for high-quality time-stretching")
+            return True
+        except ImportError as e:
+            logger.warning(
+                f"PyRubberBand not available ({e}), "
+                f"falling back to TTS-native speed control"
+            )
+            return False
+
+    def _apply_time_stretch(self, audio: AudioSegment, rate: float) -> AudioSegment:
+        """
+        Apply time-stretch to audio using PyRubberBand for natural-sounding speedup.
+
+        Args:
+            audio: AudioSegment to stretch
+            rate: Stretch rate (1.2 = 20% faster)
+
+        Returns:
+            Time-stretched AudioSegment
+        """
+        if rate == 1.0:
+            return audio
+
+        if not self._rubberband_available:
+            logger.debug("RubberBand not available, returning original audio")
+            return audio
+
+        try:
+            import pyrubberband as pyrb
+            import soundfile as sf
+            import numpy as np
+
+            # Export to temporary WAV for processing
+            temp_wav = os.path.join(self.temp_dir, "stretch_temp.wav")
+            temp_out = os.path.join(self.temp_dir, "stretch_out.wav")
+
+            # Convert to WAV (pyrubberband needs WAV)
+            audio.export(temp_wav, format="wav")
+
+            # Load and stretch
+            y, sr = sf.read(temp_wav)
+            y_stretched = pyrb.time_stretch(y, sr, rate)
+
+            # Save stretched audio
+            sf.write(temp_out, y_stretched, sr)
+
+            # Load back as AudioSegment
+            stretched = AudioSegment.from_file(temp_out)
+
+            logger.debug(
+                f"Time-stretched audio: {len(audio)}ms -> {len(stretched)}ms "
+                f"(rate={rate})"
+            )
+
+            # Cleanup temp files
+            os.remove(temp_wav)
+            os.remove(temp_out)
+
+            return stretched
+
+        except Exception as e:
+            logger.error(f"Time-stretch failed: {e}, returning original audio")
+            return audio
+
+    def _get_scaled_pause(self, base_pause_ms: int) -> int:
+        """
+        Apply pause multiplier based on level configuration.
+
+        Args:
+            base_pause_ms: Base pause duration in milliseconds
+
+        Returns:
+            Scaled pause duration
+        """
+        multiplier = self.speed_config["pause_multiplier"]
+        return int(base_pause_ms * multiplier)
 
     def _get_voices_for_language(self, lang_code: str) -> dict:
         """
@@ -161,12 +266,14 @@ class PimsleurAudioAssembler:
         """
         Get pause duration between segments based on context.
 
+        Applies level-based pause scaling for progressive difficulty.
+
         Args:
             current_segment: Current segment dictionary
             next_segment: Next segment dictionary (if any)
 
         Returns:
-            Pause duration in milliseconds
+            Pause duration in milliseconds (scaled by level)
         """
         current_type = current_segment.get("type", "")
         next_type = next_segment.get("type", "") if next_segment else ""
@@ -177,18 +284,22 @@ class PimsleurAudioAssembler:
 
         # Syllable practice needs quick transitions
         if current_type == "syllable_practice":
-            return int(PAUSE_SYLLABLE * 200)  # Very short, ~400ms
+            base_pause = int(PAUSE_SYLLABLE * 200)  # Very short, ~400ms
+            return self._get_scaled_pause(base_pause)
 
         # After native model, short learning pause
         if current_type in ("native_model", "model_answer"):
-            return int(PAUSE_LEARNING * 300)  # ~660ms
+            base_pause = int(PAUSE_LEARNING * 300)  # ~660ms
+            return self._get_scaled_pause(base_pause)
 
         # After dialogue, slightly longer transition
         if current_type in ("dialogue_segment", "opening_dialogue"):
-            return int(PAUSE_DIALOGUE * 1000)
+            base_pause = int(PAUSE_DIALOGUE * 1000)
+            return self._get_scaled_pause(base_pause)
 
         # Default transition pause
-        return int(PAUSE_TRANSITION * 1000)
+        base_pause = int(PAUSE_TRANSITION * 1000)
+        return self._get_scaled_pause(base_pause)
 
     def _generate_segment_audio(
         self,
@@ -262,6 +373,10 @@ class PimsleurAudioAssembler:
         """
         Generate TTS audio for a text segment.
 
+        Applies level-based speed adjustments:
+        - For small speedups (levels 1-2): uses TTS-native speed parameter
+        - For larger speedups (level 3+): uses RubberBand post-processing
+
         Args:
             text: Text to synthesize
             voice_id: VoiceMaker voice ID
@@ -269,22 +384,38 @@ class PimsleurAudioAssembler:
             index: Segment index
 
         Returns:
-            AudioSegment with synthesized speech
+            AudioSegment with synthesized speech (speed-adjusted)
         """
         output_file = os.path.join(self.temp_dir, f"segment_{index}.mp3")
+
+        # Determine speed strategy based on configuration
+        use_rubberband = self.speed_config["use_rubberband"] and self._rubberband_available
+        tts_speed = self.speed_config["speech_speed"]
+        stretch_rate = self.speed_config["stretch_rate"]
+
+        # If using RubberBand, generate at normal TTS speed
+        # (RubberBand will handle the speedup with better quality)
+        if use_rubberband:
+            tts_speed = 0
 
         try:
             audio_data = self.voicemaker._generate_single_audio(
                 text=text,
                 voice_id=voice_id,
                 language_code=language_code,
-                speed=0,  # Normal speed for Pimsleur
+                speed=tts_speed,
             )
 
             with open(output_file, "wb") as f:
                 f.write(audio_data)
 
-            return AudioSegment.from_file(output_file)
+            audio = AudioSegment.from_file(output_file)
+
+            # Apply RubberBand time-stretch if configured
+            if use_rubberband and stretch_rate != 1.0:
+                audio = self._apply_time_stretch(audio, stretch_rate)
+
+            return audio
 
         except Exception as e:
             logger.error(f"TTS failed for segment {index}: {e}")
@@ -313,8 +444,9 @@ class PimsleurAudioAssembler:
         dialogue = AudioSegment.empty()
         lines = segment.get("lines", [])
 
-        # Pause between dialogue lines (ms)
-        line_pause_ms = int(PAUSE_DIALOGUE * 1000)
+        # Pause between dialogue lines (ms) - scaled by level
+        base_pause_ms = int(PAUSE_DIALOGUE * 1000)
+        line_pause_ms = self._get_scaled_pause(base_pause_ms)
 
         for i, line in enumerate(lines):
             speaker = line.get("speaker", "native_female")

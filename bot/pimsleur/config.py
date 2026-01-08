@@ -216,6 +216,43 @@ LEVEL_CEFR_MAPPING = {
     3: {"primary": "B1", "secondary": "B2", "name": "Upper Intermediate", "word_target": 500},
 }
 
+# Progressive speech speed configuration per level
+# Uses hybrid approach: TTS-native speed for small adjustments,
+# RubberBand post-processing for larger speedups (better quality)
+#
+# speech_speed: VoiceMaker API speed parameter (-100 to 100, 0 = normal)
+# pause_multiplier: Multiplier for pause durations (1.0 = full, 0.85 = 15% shorter)
+# use_rubberband: Whether to use PyRubberBand for time-stretching
+# stretch_rate: Time-stretch factor when using RubberBand (1.2 = 20% faster)
+LEVEL_SPEED_CONFIG = {
+    1: {
+        "speech_speed": 0,
+        "pause_multiplier": 1.0,
+        "use_rubberband": False,
+        "stretch_rate": 1.0,
+    },
+    2: {
+        "speech_speed": 10,
+        "pause_multiplier": 0.9,
+        "use_rubberband": False,
+        "stretch_rate": 1.0,
+    },
+    3: {
+        "speech_speed": 0,
+        "pause_multiplier": 0.85,
+        "use_rubberband": True,
+        "stretch_rate": 1.2,
+    },
+}
+
+# Default speed config (fallback for unknown levels)
+DEFAULT_SPEED_CONFIG = {
+    "speech_speed": 0,
+    "pause_multiplier": 1.0,
+    "use_rubberband": False,
+    "stretch_rate": 1.0,
+}
+
 # CEFR vocabulary guidelines for LLM generation
 CEFR_GUIDELINES = {
     "A1": {

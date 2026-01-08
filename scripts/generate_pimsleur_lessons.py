@@ -254,7 +254,7 @@ def generate_unit(
             logger.warning("VOICEMAKER_API_KEY not set, skipping audio generation")
         else:
             logger.info("Generating lesson audio...")
-            assembler = PimsleurAudioAssembler(lang_code)
+            assembler = PimsleurAudioAssembler(lang_code, level=level)
 
             # Estimate cost first
             cost = assembler.estimate_cost(script)
