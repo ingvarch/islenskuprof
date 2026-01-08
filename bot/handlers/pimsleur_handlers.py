@@ -299,9 +299,8 @@ async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_
     # Get completed lessons
     completed = get_completed_lessons(db_user.id, target_lang)
 
-    # Get available units from vocabulary module
-    from bot.pimsleur.languages import icelandic
-    available_unit_nums = icelandic.get_available_units(int(level))
+    # All 30 units available for each level
+    available_unit_nums = range(1, 31)
 
     # Get generated lessons from database (convert level to DB format)
     db_level = _level_to_db_format(level)
