@@ -7,6 +7,15 @@ import logging
 from typing import Optional
 
 from bot.openrouter_service import OpenRouterService
+from bot.pimsleur.config import (
+    PAUSE_SYLLABLE,
+    PAUSE_LEARNING,
+    PAUSE_REPETITION,
+    PAUSE_THINKING,
+    PAUSE_COMPOSITION,
+    PAUSE_TRANSITION,
+    SEGMENT_TYPES,
+)
 from bot.pimsleur.prompts import (
     get_lesson_generation_prompt,
     get_custom_lesson_prompt,
@@ -68,7 +77,17 @@ class PimsleurLessonGenerator:
         if not title:
             title = self.vocab_manager.get_unit_title(numeric_level, lesson_number)
 
-        logger.info(f"Generating script for Level {numeric_level} Unit {lesson_number}: {title}")
+        # Get opening dialogue (critical for real Pimsleur pattern)
+        opening_dialogue = self.vocab_manager.get_opening_dialogue(numeric_level, lesson_number)
+
+        # Get grammar notes and phrases for context
+        grammar_notes = self.vocab_manager.get_grammar_notes(numeric_level, lesson_number)
+        phrases = self.vocab_manager.get_phrases(numeric_level, lesson_number)
+
+        logger.info(
+            f"Generating script for Level {numeric_level} Unit {lesson_number}: {title} "
+            f"({len(opening_dialogue)} dialogue lines, {len(grammar_notes)} grammar notes)"
+        )
 
         # Prepare prompts
         system_prompt, user_prompt = get_lesson_generation_prompt(
@@ -80,6 +99,9 @@ class PimsleurLessonGenerator:
             theme=theme,
             new_vocabulary=vocab["new"],
             review_vocabulary=vocab["review"],
+            opening_dialogue=opening_dialogue,
+            grammar_notes=grammar_notes,
+            phrases=phrases,
         )
 
         # Generate script via LLM
@@ -209,6 +231,30 @@ class PimsleurLessonGenerator:
         script["vocabulary_new"] = vocab["new"]
         script["vocabulary_review"] = vocab["review"]
 
+        # Validate and fix segment types
+        unknown_types = set()
+        for segment in script.get("segments", []):
+            seg_type = segment.get("type", "")
+            if seg_type and seg_type not in SEGMENT_TYPES:
+                unknown_types.add(seg_type)
+
+        if unknown_types:
+            logger.warning(f"Script contains unknown segment types: {unknown_types}")
+
+        # Check for required Pimsleur structure elements
+        segment_types_present = {s.get("type") for s in script.get("segments", [])}
+
+        missing_critical = []
+        if "opening_title" not in segment_types_present:
+            missing_critical.append("opening_title")
+        if "closing_summary" not in segment_types_present:
+            missing_critical.append("closing_summary")
+        if "syllable_practice" not in segment_types_present:
+            logger.warning("Script may be missing backward build-up (no syllable_practice)")
+
+        if missing_critical:
+            logger.warning(f"Script missing critical Pimsleur elements: {missing_critical}")
+
         # Calculate actual duration
         script["calculated_duration"] = self._estimate_duration(script)
 
@@ -216,11 +262,22 @@ class PimsleurLessonGenerator:
         for i, segment in enumerate(script.get("segments", [])):
             segment["segment_id"] = i
 
+        # Add validation metadata
+        script["validation"] = {
+            "unknown_segment_types": list(unknown_types),
+            "has_opening": "opening_title" in segment_types_present,
+            "has_closing": "closing_summary" in segment_types_present,
+            "has_backward_buildup": "syllable_practice" in segment_types_present,
+        }
+
         return script
 
     def _estimate_duration(self, script: dict) -> int:
         """
         Estimate total duration of script in seconds.
+
+        Uses variable pause durations based on cognitive load,
+        following real Pimsleur patterns.
 
         Args:
             script: Lesson script dictionary
@@ -230,13 +287,53 @@ class PimsleurLessonGenerator:
         """
         total = 0
         for segment in script.get("segments", []):
-            if segment.get("type") == "pause":
-                total += segment.get("duration", 3)
-            elif segment.get("type") == "dialogue_segment":
-                total += segment.get("duration_estimate", 10)
-            else:
+            seg_type = segment.get("type", "")
+
+            if seg_type == "pause":
+                # Use pause duration from segment, or estimate based on purpose
+                purpose = segment.get("purpose", "")
+                if "duration" in segment:
+                    total += segment["duration"]
+                elif purpose in ("user_repetition", "repeat"):
+                    total += PAUSE_REPETITION
+                elif purpose in ("user_response", "thinking"):
+                    total += PAUSE_THINKING
+                elif purpose in ("composition", "user_composition"):
+                    total += PAUSE_COMPOSITION
+                elif purpose == "transition":
+                    total += PAUSE_TRANSITION
+                else:
+                    total += PAUSE_LEARNING  # Default
+
+            elif seg_type == "syllable_practice":
+                # Short TTS for syllables + learning pause
+                total += segment.get("duration_estimate", 1.5)
+
+            elif seg_type in ("opening_dialogue", "dialogue_segment"):
+                # Dialogue segments typically longer
+                total += segment.get("duration_estimate", 8)
+
+            elif seg_type in (
+                "native_model", "model_answer", "context_application",
+                "review_in_context"
+            ):
+                # Native speaker segments
                 total += segment.get("duration_estimate", 3)
-        return total
+
+            elif seg_type in (
+                "instruction", "comprehension_question", "prompt_for_composition",
+                "prompt_for_question", "repeat_after", "grammar_explanation",
+                "cultural_note", "opening_title", "opening_instruction",
+                "closing_summary", "closing_instructions"
+            ):
+                # Narrator segments - typically longer
+                total += segment.get("duration_estimate", 4)
+
+            else:
+                # Default for unknown types
+                total += segment.get("duration_estimate", 3)
+
+        return int(total)
 
     def get_script_statistics(self, script: dict) -> dict:
         """
@@ -246,7 +343,7 @@ class PimsleurLessonGenerator:
             script: Lesson script dictionary
 
         Returns:
-            Statistics dictionary
+            Statistics dictionary with Pimsleur-specific metrics
         """
         segments = script.get("segments", [])
 
@@ -255,18 +352,46 @@ class PimsleurLessonGenerator:
             seg_type = seg.get("type", "unknown")
             segment_types[seg_type] = segment_types.get(seg_type, 0) + 1
 
-        pause_time = sum(
-            seg.get("duration", 0)
-            for seg in segments
-            if seg.get("type") == "pause"
-        )
+        # Calculate pause time with variable durations
+        pause_time = 0
+        for seg in segments:
+            if seg.get("type") == "pause":
+                purpose = seg.get("purpose", "")
+                if "duration" in seg:
+                    pause_time += seg["duration"]
+                elif purpose in ("user_repetition", "repeat"):
+                    pause_time += PAUSE_REPETITION
+                elif purpose in ("user_response", "thinking"):
+                    pause_time += PAUSE_THINKING
+                elif purpose in ("composition", "user_composition"):
+                    pause_time += PAUSE_COMPOSITION
+                else:
+                    pause_time += PAUSE_LEARNING
+
+        estimated_duration = self._estimate_duration(script)
+
+        # Count Pimsleur-specific elements
+        syllable_practice_count = segment_types.get("syllable_practice", 0)
+        backward_buildup_sequences = syllable_practice_count // 3  # ~3 syllables per word
 
         return {
             "total_segments": len(segments),
             "segment_types": segment_types,
-            "estimated_duration": self._estimate_duration(script),
-            "pause_time": pause_time,
-            "speaking_time": self._estimate_duration(script) - pause_time,
+            "estimated_duration": estimated_duration,
+            "estimated_minutes": round(estimated_duration / 60, 1),
+            "pause_time": int(pause_time),
+            "speaking_time": estimated_duration - int(pause_time),
             "new_vocabulary_count": len(script.get("vocabulary_new", [])),
             "review_vocabulary_count": len(script.get("vocabulary_review", [])),
+            # Pimsleur-specific metrics
+            "has_opening_structure": (
+                segment_types.get("opening_title", 0) > 0 and
+                segment_types.get("opening_dialogue", 0) > 0
+            ),
+            "has_closing_structure": segment_types.get("closing_summary", 0) > 0,
+            "backward_buildup_count": backward_buildup_sequences,
+            "syllable_practice_count": syllable_practice_count,
+            "comprehension_questions": segment_types.get("comprehension_question", 0),
+            "composition_prompts": segment_types.get("prompt_for_composition", 0),
+            "validation": script.get("validation", {}),
         }

@@ -50,6 +50,25 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# Level format conversion helpers
+# ============================================================================
+
+
+def _level_to_db_format(level: str) -> str:
+    """Convert UI level (1, 2, 3) to database format (L1, L2, L3)."""
+    if level.startswith("L"):
+        return level  # Already in DB format
+    return f"L{level}"
+
+
+def _level_from_db_format(level: str) -> str:
+    """Convert database level (L1, L2, L3) to UI format (1, 2, 3)."""
+    if level.startswith("L"):
+        return level[1:]
+    return level
+
+
+# ============================================================================
 # Wizard State Management
 # ============================================================================
 
@@ -201,9 +220,9 @@ def _build_main_menu_keyboard(progress: dict, db_user_id: int, target_lang: str)
 
     # Level selection buttons
     keyboard.append([
-        InlineKeyboardButton("A1", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}A1"),
-        InlineKeyboardButton("A2", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}A2"),
-        InlineKeyboardButton("B1", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}B1"),
+        InlineKeyboardButton("Level 1", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}1"),
+        InlineKeyboardButton("Level 2", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}2"),
+        InlineKeyboardButton("Level 3", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}3"),
     ])
 
     # Custom lesson option
@@ -280,47 +299,59 @@ async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_
     # Get completed lessons
     completed = get_completed_lessons(db_user.id, target_lang)
 
-    # Get available lessons
-    available_lessons = get_lessons_for_level(target_lang, level, generated_only=True)
-    available_nums = {l.lesson_number for l in available_lessons}
+    # Get available units from vocabulary module
+    from bot.pimsleur.languages import icelandic
+    available_unit_nums = icelandic.get_available_units(int(level))
 
-    # Build lesson grid (6 rows x 5 columns = 30 lessons)
+    # Get generated lessons from database (convert level to DB format)
+    db_level = _level_to_db_format(level)
+    available_lessons = get_lessons_for_level(target_lang, db_level, generated_only=True)
+    generated_nums = {l.lesson_number for l in available_lessons}
+
+    # Build lesson grid dynamically (5 buttons per row)
     keyboard = []
-    for row in range(6):
-        row_buttons = []
-        for col in range(5):
-            lesson_num = row * 5 + col + 1
-            is_completed = lesson_num in completed
-            is_available = lesson_num in available_nums
-            is_unlocked = is_lesson_unlocked(db_user.id, target_lang, level, lesson_num)
+    row_buttons = []
+    for unit_num in available_unit_nums:
+        is_completed = unit_num in completed
+        is_generated = unit_num in generated_nums
+        is_unlocked = is_lesson_unlocked(db_user.id, target_lang, level, unit_num)
 
-            if is_completed:
-                emoji = "V"  # Completed
-            elif is_unlocked and is_available:
-                emoji = ""  # Unlocked
-            else:
-                emoji = "X"  # Locked
+        if is_completed:
+            emoji = "\u2713"  # Checkmark for completed
+        elif is_unlocked and is_generated:
+            emoji = ""  # Available - no emoji
+        else:
+            emoji = "\U0001F512"  # Lock emoji for locked
 
-            if is_unlocked and is_available:
-                callback = f"{PIMSLEUR_LESSON_PREFIX}{level}_{lesson_num}"
-            else:
-                callback = PIMSLEUR_LOCKED
+        if is_unlocked and is_generated:
+            callback = f"{PIMSLEUR_LESSON_PREFIX}{level}_{unit_num}"
+        else:
+            callback = PIMSLEUR_LOCKED
 
-            row_buttons.append(InlineKeyboardButton(
-                f"{emoji}{lesson_num}",
-                callback_data=callback
-            ))
+        row_buttons.append(InlineKeyboardButton(
+            f"{emoji}{unit_num}",
+            callback_data=callback
+        ))
+
+        # 5 buttons per row
+        if len(row_buttons) == 5:
+            keyboard.append(row_buttons)
+            row_buttons = []
+
+    # Add remaining buttons
+    if row_buttons:
         keyboard.append(row_buttons)
 
     # Back button
     keyboard.append([InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU)])
 
-    level_names = {"A1": "Beginner", "A2": "Elementary", "B1": "Intermediate"}
+    level_names = {"1": "Beginner", "2": "Elementary", "3": "Intermediate"}
+    units_text = f"{len(available_unit_nums)} units available" if available_unit_nums else "No units yet"
     try:
         await query.edit_message_text(
-            f"*{level} - {level_names.get(level, '')}*\n\n"
-            f"V = completed, X = locked\n"
-            f"Select a lesson to start:",
+            f"*Level {level} - {level_names.get(level, '')}*\n\n"
+            f"{units_text}\n"
+            f"Select a unit to start:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode=ParseMode.MARKDOWN,
         )
@@ -363,12 +394,13 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
         )
         return
 
-    # Get the lesson
-    lesson = get_lesson(target_lang, level, lesson_num)
+    # Get the lesson (convert level to DB format)
+    db_level = _level_to_db_format(level)
+    lesson = get_lesson(target_lang, db_level, lesson_num)
 
     if not lesson or not lesson.is_generated:
         await query.edit_message_text(
-            f"Sorry, {level} Lesson {lesson_num} is not yet available.\n"
+            f"Sorry, Level {level} Unit {lesson_num} is not yet available.\n"
             f"Please try another lesson.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("Back", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}{level}")
@@ -378,11 +410,13 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
 
     # Send lesson info
     duration_min = lesson.duration_seconds // 60
+    # Escape underscores in description for Markdown
+    description = (lesson.description or '').replace('_', ' ')
     await query.edit_message_text(
-        f"*{level} Lesson {lesson_num}*\n"
+        f"*Level {level} Unit {lesson_num}*\n"
         f"*{lesson.title}*\n\n"
         f"Duration: {duration_min} minutes\n"
-        f"{lesson.description or ''}\n\n"
+        f"{description}\n\n"
         "Sending audio...",
         parse_mode=ParseMode.MARKDOWN,
     )
@@ -1022,7 +1056,7 @@ async def wizard_back_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             f"- {analysis.get('word_count', 0)} words total\n"
             f"- {analysis.get('unique_words', 0)} unique words\n"
             f"- ~{analysis.get('estimated_lesson_words', 15)} words for lesson\n"
-            f"- Detected level: {analysis.get('detected_difficulty', 'A2')}\n\n"
+            f"- Detected level: {analysis.get('detected_difficulty', '1')}\n\n"
             f"*Suggested title:*\n"
             f"_{wizard.get('title', 'Untitled')}_"
         )
@@ -1128,7 +1162,7 @@ async def _show_settings_step(query, wizard: dict) -> None:
     focus = settings.get("focus", "vocabulary")
     voice = settings.get("voice", "both")
     difficulty = settings.get("difficulty", "auto")
-    detected_diff = analysis.get("detected_difficulty", "A2")
+    detected_diff = analysis.get("detected_difficulty", "1")
 
     # Focus options
     focus_display = {
@@ -1171,8 +1205,9 @@ async def _show_settings_step(query, wizard: dict) -> None:
 
     # Difficulty row
     diff_row = []
-    for d in ["A1", "A2", "B1", "auto"]:
-        label = d if d != "auto" else f"Auto ({detected_diff})"
+    diff_labels = {"1": "L1", "2": "L2", "3": "L3"}
+    for d in ["1", "2", "3", "auto"]:
+        label = diff_labels.get(d, d) if d != "auto" else f"Auto"
         if d == difficulty:
             label = f"\u2713 {label}"
         diff_row.append(InlineKeyboardButton(
@@ -1250,7 +1285,7 @@ async def wizard_confirm_callback(update: Update, context: ContextTypes.DEFAULT_
     # Determine effective difficulty
     difficulty = settings.get("difficulty", "auto")
     if difficulty == "auto":
-        difficulty = analysis.get("detected_difficulty", "A2")
+        difficulty = analysis.get("detected_difficulty", "1")
 
     # Create lesson in database with settings
     lesson = create_custom_lesson_with_settings(

@@ -14,7 +14,14 @@ from typing import Optional
 
 from pydub import AudioSegment
 
-from bot.pimsleur.config import VOICES, PAUSE_BETWEEN_SEGMENTS
+from bot.pimsleur.config import (
+    VOICES,
+    PAUSE_TRANSITION,
+    PAUSE_DIALOGUE,
+    PAUSE_SYLLABLE,
+    PAUSE_LEARNING,
+    SEGMENT_SPEAKER_DEFAULTS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,12 +115,14 @@ class PimsleurAudioAssembler:
                 if audio:
                     audio_segments.append(audio)
 
-                    # Add small pause between segments
+                    # Add appropriate pause between segments based on type
                     if i < total_segments - 1:
-                        pause = AudioSegment.silent(
-                            duration=PAUSE_BETWEEN_SEGMENTS * 1000
-                        )
-                        audio_segments.append(pause)
+                        next_seg = segments[i + 1] if i + 1 < total_segments else None
+                        pause_ms = self._get_inter_segment_pause(segment, next_seg)
+                        if pause_ms > 0:
+                            audio_segments.append(
+                                AudioSegment.silent(duration=pause_ms)
+                            )
 
             # Merge all segments
             logger.info(f"Merging {len(audio_segments)} audio segments")
@@ -144,6 +153,43 @@ class PimsleurAudioAssembler:
                 shutil.rmtree(self.temp_dir, ignore_errors=True)
                 logger.debug(f"Cleaned up temp dir: {self.temp_dir}")
 
+    def _get_inter_segment_pause(
+        self,
+        current_segment: dict,
+        next_segment: Optional[dict],
+    ) -> int:
+        """
+        Get pause duration between segments based on context.
+
+        Args:
+            current_segment: Current segment dictionary
+            next_segment: Next segment dictionary (if any)
+
+        Returns:
+            Pause duration in milliseconds
+        """
+        current_type = current_segment.get("type", "")
+        next_type = next_segment.get("type", "") if next_segment else ""
+
+        # No pause before explicit pause segments
+        if next_type == "pause":
+            return 0
+
+        # Syllable practice needs quick transitions
+        if current_type == "syllable_practice":
+            return int(PAUSE_SYLLABLE * 200)  # Very short, ~400ms
+
+        # After native model, short learning pause
+        if current_type in ("native_model", "model_answer"):
+            return int(PAUSE_LEARNING * 300)  # ~660ms
+
+        # After dialogue, slightly longer transition
+        if current_type in ("dialogue_segment", "opening_dialogue"):
+            return int(PAUSE_DIALOGUE * 1000)
+
+        # Default transition pause
+        return int(PAUSE_TRANSITION * 1000)
+
     def _generate_segment_audio(
         self,
         segment: dict,
@@ -151,6 +197,9 @@ class PimsleurAudioAssembler:
     ) -> Optional[AudioSegment]:
         """
         Generate audio for a single segment.
+
+        Handles all Pimsleur segment types including new backward build-up
+        and opening structure segments.
 
         Args:
             segment: Segment dictionary from script
@@ -165,27 +214,35 @@ class PimsleurAudioAssembler:
         if seg_type == "pause":
             duration_ms = segment.get("duration", 3) * 1000
             logger.debug(f"Segment {index}: pause {duration_ms}ms")
-            return AudioSegment.silent(duration=duration_ms)
+            return AudioSegment.silent(duration=int(duration_ms))
 
-        # Handle dialogue segments (multiple lines)
-        if seg_type == "dialogue_segment":
+        # Handle dialogue segments with multiple lines
+        if seg_type in ("dialogue_segment", "opening_dialogue"):
             return self._generate_dialogue_audio(segment, index)
 
         # All other segments need TTS
         text = segment.get("text", "")
         if not text:
-            logger.warning(f"Segment {index} has no text, skipping")
+            logger.warning(f"Segment {index} ({seg_type}) has no text, skipping")
             return None
 
-        speaker = segment.get("speaker", "narrator")
-        language = segment.get("language", "en")
+        # Determine speaker from segment or use default for type
+        speaker = segment.get("speaker")
+        if not speaker:
+            speaker = SEGMENT_SPEAKER_DEFAULTS.get(seg_type, "narrator")
+
+        # Resolve language-specific native speakers
+        if speaker == "native_female":
+            speaker = f"native_female"
+        elif speaker == "native_male":
+            speaker = f"native_male"
 
         # Get voice config
         voice_config = self.voices.get(speaker, self.voices["narrator"])
 
         logger.debug(
             f"Segment {index}: {seg_type}, speaker={speaker}, "
-            f"text='{text[:30]}...'"
+            f"text='{text[:30]}{'...' if len(text) > 30 else ''}'"
         )
 
         return self._tts_segment(
@@ -243,6 +300,9 @@ class PimsleurAudioAssembler:
         """
         Generate audio for a dialogue segment with multiple speakers.
 
+        Handles both opening_dialogue (teaching foundation) and
+        dialogue_segment (practice dialogues).
+
         Args:
             segment: Dialogue segment dictionary
             index: Segment index
@@ -252,6 +312,9 @@ class PimsleurAudioAssembler:
         """
         dialogue = AudioSegment.empty()
         lines = segment.get("lines", [])
+
+        # Pause between dialogue lines (ms)
+        line_pause_ms = int(PAUSE_DIALOGUE * 1000)
 
         for i, line in enumerate(lines):
             speaker = line.get("speaker", "native_female")
@@ -270,8 +333,10 @@ class PimsleurAudioAssembler:
             )
 
             dialogue += line_audio
-            # Short pause between dialogue lines
-            dialogue += AudioSegment.silent(duration=500)
+
+            # Add pause between lines (but not after last line)
+            if i < len(lines) - 1:
+                dialogue += AudioSegment.silent(duration=line_pause_ms)
 
         return dialogue
 
@@ -287,15 +352,25 @@ class PimsleurAudioAssembler:
         """
         total_chars = 0
         segments_count = 0
+        syllable_count = 0
 
         for segment in script.get("segments", []):
-            if segment.get("type") == "pause":
+            seg_type = segment.get("type", "")
+
+            if seg_type == "pause":
                 continue
 
-            if segment.get("type") == "dialogue_segment":
+            # Dialogue types have multiple lines
+            if seg_type in ("dialogue_segment", "opening_dialogue"):
                 for line in segment.get("lines", []):
                     total_chars += len(line.get("text", ""))
                     segments_count += 1
+            elif seg_type == "syllable_practice":
+                # Syllable segments are typically very short
+                text = segment.get("text", "")
+                total_chars += len(text)
+                segments_count += 1
+                syllable_count += 1
             else:
                 total_chars += len(segment.get("text", ""))
                 segments_count += 1
@@ -307,5 +382,6 @@ class PimsleurAudioAssembler:
         return {
             "total_characters": total_chars,
             "tts_segments": segments_count,
+            "syllable_segments": syllable_count,
             "estimated_cost_usd": round(estimated_cost, 2),
         }

@@ -41,7 +41,7 @@ def get_lesson(
 
     Args:
         language_code: Language code (e.g., "is")
-        level: CEFR level (A1, A2, B1)
+        level: Pimsleur level (1, 2, 3)
         lesson_number: Lesson number (1-30)
         session: Optional database session (for reuse within existing transaction)
 
@@ -73,7 +73,7 @@ def get_lessons_for_level(
 
     Args:
         language_code: Language code
-        level: CEFR level
+        level: Pimsleur level (1, 2, 3)
         generated_only: If True, only return lessons with generated audio
 
     Returns:
@@ -158,7 +158,7 @@ def get_or_create_user_progress(
             progress = UserPimsleurProgress(
                 user_id=user_id,
                 language_code=language_code,
-                level="A1",
+                level="1",
                 lesson_number=1,
             )
             session.add(progress)
@@ -200,19 +200,19 @@ def is_lesson_unlocked(
     A lesson is unlocked if:
     - It's lesson 1 of any level
     - All previous lessons in that level are completed
-    - Previous level is completed (for A2/B1)
+    - Previous level is completed (for level 2/3)
 
     Args:
         user_id: Database user ID
         language_code: Language code
-        level: CEFR level
+        level: Pimsleur level (1, 2, 3)
         lesson_number: Lesson number
 
     Returns:
         True if lesson is unlocked
     """
-    # Lesson 1 of A1 is always unlocked
-    if level == "A1" and lesson_number == 1:
+    # Lesson 1 of Level 1 is always unlocked
+    if level == "1" and lesson_number == 1:
         return True
 
     completed = get_completed_lessons(user_id, language_code)
@@ -246,7 +246,7 @@ def mark_lesson_completed(
     Args:
         user_id: Database user ID
         language_code: Language code
-        level: CEFR level
+        level: Pimsleur level (1, 2, 3)
         lesson_number: Lesson number
         lesson_id: Lesson database ID
     """
@@ -322,7 +322,7 @@ def get_progress_summary(user_id: int, language_code: str) -> dict:
     if not progress:
         return {
             "started": False,
-            "level": "A1",
+            "level": "1",
             "current_lesson": 1,
             "completed_count": 0,
             "streak": 0,
@@ -517,7 +517,7 @@ def create_custom_lesson_with_settings(
         source_text: User-provided text
         focus: Lesson focus ("vocabulary", "pronunciation", "dialogue")
         voice_preference: Voice preference ("female", "male", "both")
-        difficulty_level: Difficulty level ("A1", "A2", "B1", "auto")
+        difficulty_level: Difficulty level ("1", "2", "3", "auto")
         text_analysis_json: Cached text analysis results
 
     Returns:

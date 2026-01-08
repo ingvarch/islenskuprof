@@ -6,10 +6,23 @@ Timing, voices, and settings that apply across all languages.
 # Lesson timing constants (in seconds)
 # Based on analysis of original Pimsleur Icelandic transcripts
 LESSON_DURATION_TARGET = 1800  # 30 minutes per unit
-PAUSE_ANTICIPATION = 3.5  # Pause for user to formulate response
-PAUSE_REPETITION = 2.5  # Pause for user to repeat (matches original ~2.1-2.8s)
-PAUSE_BETWEEN_SEGMENTS = 1.2  # Small pause between segments
-PAUSE_BETWEEN_WORDS = 2.2  # Pause between new word introduction
+CUSTOM_LESSON_DURATION_TARGET = 1200  # 20 minutes for custom lessons
+
+# Pause durations by cognitive load (based on real Pimsleur analysis)
+# These variable pauses are critical - fixed pauses break the learning flow
+PAUSE_SYLLABLE = 2.0  # After syllable in backward build-up (2.0-2.2s)
+PAUSE_LEARNING = 2.2  # After native speaker models word (2.0-2.5s)
+PAUSE_REPETITION = 2.5  # For user to repeat after model (2.2-2.8s)
+PAUSE_THINKING = 3.5  # After "How do you say X?" (3.0-4.0s)
+PAUSE_COMPOSITION = 4.5  # When creating new sentences (4.0-5.0s)
+PAUSE_CONFIRMATION = 2.0  # Brief pause after providing answer
+PAUSE_TRANSITION = 1.0  # Between major segments (0.8-1.2s)
+PAUSE_DIALOGUE = 1.5  # Between dialogue lines
+
+# Legacy aliases for backward compatibility
+PAUSE_ANTICIPATION = PAUSE_THINKING
+PAUSE_BETWEEN_SEGMENTS = PAUSE_TRANSITION
+PAUSE_BETWEEN_WORDS = PAUSE_LEARNING
 
 # Spaced repetition intervals (in seconds from word introduction)
 # Based on Pimsleur's graduated interval recall research
@@ -69,3 +82,68 @@ CATEGORIES = [
 # Bonus pack configuration
 BONUS_PACK_INTERVAL = 5  # Unlock bonus pack every N units
 BONUS_PACK_WORDS = 30    # Words per bonus pack
+
+# Segment types for Pimsleur lessons
+# Based on analysis of 9 real Pimsleur Icelandic transcriptions
+SEGMENT_TYPES = {
+    # Opening structure (0-60 seconds)
+    "opening_title",        # "This is Unit X of Pimsleur's Icelandic"
+    "opening_instruction",  # "Listen to this Icelandic conversation"
+    "opening_dialogue",     # Full native dialogue at natural speed
+
+    # Core teaching segments
+    "instruction",          # Narrator guidance and context
+    "native_model",         # Native speaker demonstrates word/phrase
+    "syllable_practice",    # Individual syllable in backward build-up
+    "repeat_after",         # "Listen and repeat"
+
+    # Practice and recall segments
+    "comprehension_question",   # "How do you say X in Icelandic?"
+    "prompt_for_composition",   # "Try to say X and Y together"
+    "prompt_for_question",      # "Ask her if..."
+    "model_answer",             # Correct answer from native speaker
+    "context_application",      # Word used in phrase/sentence
+
+    # Review and reinforcement
+    "review_in_context",    # Previous vocabulary in new context
+    "dialogue_segment",     # Practice dialogue line
+    "grammar_explanation",  # Brief grammar note from narrator
+    "cultural_note",        # Cultural context
+
+    # Closing structure (last 25-30 seconds)
+    "closing_summary",      # "This is the end of Unit X"
+    "closing_instructions", # "Continue with Unit X+1 tomorrow"
+
+    # Utility
+    "pause",                # Silent pause for user response
+}
+
+# Segment type to speaker mapping (default speakers)
+SEGMENT_SPEAKER_DEFAULTS = {
+    "opening_title": "narrator",
+    "opening_instruction": "narrator",
+    "instruction": "narrator",
+    "repeat_after": "narrator",
+    "comprehension_question": "narrator",
+    "prompt_for_composition": "narrator",
+    "prompt_for_question": "narrator",
+    "grammar_explanation": "narrator",
+    "cultural_note": "narrator",
+    "closing_summary": "narrator",
+    "closing_instructions": "narrator",
+    # Native speaker segments use language-specific voices
+    "native_model": "native_female",
+    "syllable_practice": "native_female",
+    "model_answer": "native_female",
+    "context_application": "native_female",
+    "review_in_context": "native_female",
+    "dialogue_segment": "native_female",  # Can be male or female
+}
+
+# Lesson structure timing (approximate allocation in seconds)
+LESSON_STRUCTURE = {
+    "opening": 60,           # Title, instruction, dialogue
+    "new_material": 660,     # 11 minutes - new vocabulary with build-up
+    "spaced_practice": 960,  # 16 minutes - spaced repetition and context
+    "closing": 30,           # Summary and next steps
+}

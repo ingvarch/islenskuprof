@@ -198,14 +198,14 @@ class TextAnalyzer:
         unique_words: int
     ) -> str:
         """
-        Estimate CEFR difficulty level based on text characteristics.
+        Estimate difficulty level based on text characteristics.
 
         Uses heuristics based on:
         - Word length (longer words = more complex)
         - Sentence length (longer sentences = more complex)
         - Vocabulary diversity (more unique words = more complex)
 
-        Returns: 'A1', 'A2', or 'B1'
+        Returns: '1', '2', or '3' (Pimsleur levels)
         """
         score = 0
 
@@ -227,13 +227,13 @@ class TextAnalyzer:
         if unique_words > 150:
             score += 1
 
-        # Map score to CEFR level
+        # Map score to Pimsleur level
         if score <= 1:
-            return "A1"
+            return "1"
         elif score <= 3:
-            return "A2"
+            return "2"
         else:
-            return "B1"
+            return "3"
 
     def generate_title(self, text: str, max_length: int = 50) -> str:
         """

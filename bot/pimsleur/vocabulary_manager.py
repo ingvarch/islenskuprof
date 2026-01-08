@@ -220,6 +220,79 @@ class VocabularyProgressionManager:
 
         return f"Level {level} Unit {unit_number}"
 
+    def get_opening_dialogue(self, level: int, unit_number: int) -> list[dict]:
+        """
+        Get opening dialogue for a specific unit.
+
+        Args:
+            level: Pimsleur level
+            unit_number: Unit number (1-30)
+
+        Returns:
+            List of dialogue lines as dicts with 'target' and 'translation' keys
+        """
+        lang_module = self._get_language_module()
+        if not lang_module:
+            return []
+
+        unit = lang_module.get_unit(level, unit_number)
+        if not unit or not unit.get("opening_dialogue"):
+            return []
+
+        return [
+            {"target": line[0], "translation": line[1]}
+            for line in unit["opening_dialogue"]
+        ]
+
+    def get_grammar_notes(self, level: int, unit_number: int) -> list[str]:
+        """
+        Get grammar notes for a specific unit.
+
+        Args:
+            level: Pimsleur level
+            unit_number: Unit number (1-30)
+
+        Returns:
+            List of grammar note strings
+        """
+        lang_module = self._get_language_module()
+        if not lang_module:
+            return []
+
+        unit = lang_module.get_unit(level, unit_number)
+        if unit and unit.get("grammar_notes"):
+            return unit["grammar_notes"]
+
+        return []
+
+    def get_phrases(self, level: int, unit_number: int) -> list[dict]:
+        """
+        Get key phrases for a specific unit.
+
+        Args:
+            level: Pimsleur level
+            unit_number: Unit number (1-30)
+
+        Returns:
+            List of phrase dicts with 'target', 'translation', 'note' keys
+        """
+        lang_module = self._get_language_module()
+        if not lang_module:
+            return []
+
+        unit = lang_module.get_unit(level, unit_number)
+        if not unit or not unit.get("phrases"):
+            return []
+
+        return [
+            {
+                "target": phrase[0],
+                "translation": phrase[1],
+                "note": phrase[2] if len(phrase) > 2 else "",
+            }
+            for phrase in unit["phrases"]
+        ]
+
     def validate_vocabulary_coverage(
         self,
         level: int,
