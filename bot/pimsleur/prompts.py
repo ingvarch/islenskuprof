@@ -1,20 +1,32 @@
 """
-LLM prompt templates for Pimsleur lesson generation.
+LLM prompt templates for Spaced Audio Course lesson generation.
 
-Based on analysis of 20 real Pimsleur Icelandic transcriptions.
+Based on analysis of 30 real audio lesson transcriptions.
 Key patterns: backward build-up, variable pauses, progressive context building,
 instruction language evolution, grammar drills.
+
+Note: Uses "Spaced Audio Course" instead of trademark names.
 """
 
 import json
 
-PIMSLEUR_LESSON_SYSTEM_PROMPT = """You are an expert language curriculum designer specializing in the authentic Pimsleur method for audio-based language learning.
+from bot.pimsleur.config import (
+    COURSE_BRAND_NAME,
+    OPENING_TITLE_FORMAT,
+    CLOSING_SUMMARY_FORMAT,
+    LEVEL_CEFR_MAPPING,
+    CEFR_GUIDELINES,
+)
 
-Your task is to create lesson scripts that EXACTLY follow real Pimsleur methodology based on analysis of 20 official Pimsleur units.
+PIMSLEUR_LESSON_SYSTEM_PROMPT = """You are an expert language curriculum designer specializing in the spaced repetition audio method for language learning.
 
-## CORE PIMSLEUR PRINCIPLES
+Your task is to create lesson scripts that follow proven audio-lingual methodology based on analysis of 30 transcribed lessons.
 
-### 1. BACKWARD BUILD-UP (CRITICAL - This is the #1 Pimsleur technique)
+IMPORTANT: Do NOT use the word "Pimsleur" in any generated text. Use "Spaced Audio Course" or simply describe the lesson.
+
+## CORE SPACED AUDIO PRINCIPLES
+
+### 1. BACKWARD BUILD-UP (CRITICAL - This is the #1 audio-lingual technique)
 Every new word MUST be taught syllable-by-syllable from END to START:
 - Start with the LAST syllable
 - Work backwards through the word
@@ -57,7 +69,7 @@ Every word progresses through these stages:
 ### 6. LESSON STRUCTURE (30 minutes = 1800 seconds)
 
 **OPENING (30-60 seconds):**
-- opening_title: "This is Unit X of Pimsleur [Language]"
+- opening_title: "This is Level Y, Unit X of your [Language] Spaced Audio Course"
 - opening_context (units 15+): Brief context setup before dialogue
 - opening_preview (optional): "You will hear [phrase] which means [translation]"
 - opening_instruction: "Listen to this conversation" / "Hlustaðu á þetta samtal"
@@ -94,7 +106,7 @@ Every word progresses through these stages:
 
 ## QUESTION VARIATION PATTERNS
 
-Use variety in question phrasing (from real Pimsleur):
+Use variety in question phrasing (from real audio lessons):
 - "How do you say X?" (standard)
 - "How would you say X?" (conditional)
 - "How does he/she tell you that..." (third person)
@@ -121,10 +133,10 @@ You must output ONLY valid JSON. No markdown, no explanations.
 Output compact JSON without unnecessary whitespace."""
 
 
-PIMSLEUR_LESSON_USER_PROMPT = """Create an authentic Pimsleur-style lesson script for {target_language} learners.
+PIMSLEUR_LESSON_USER_PROMPT = """Create a spaced repetition audio lesson script for {target_language} learners.
 
 ## LESSON PARAMETERS
-- Level: {cefr_level} (Pimsleur Level {pimsleur_level})
+- Level: {pimsleur_level} (CEFR: {cefr_level})
 - Unit Number: {lesson_number} of 30
 - Title: {lesson_title}
 - Theme: {theme}
@@ -156,7 +168,7 @@ PIMSLEUR_LESSON_USER_PROMPT = """Create an authentic Pimsleur-style lesson scrip
 ### 1. OPENING SEGMENTS
 
 opening_title:
-{{"type": "opening_title", "speaker": "narrator", "language": "en", "text": "This is Unit {lesson_number} of Pimsleur {target_language}.", "duration_estimate": 4}}
+{{"type": "opening_title", "speaker": "narrator", "language": "en", "text": "This is Level {pimsleur_level}, Unit {lesson_number} of your {target_language} Spaced Audio Course.", "duration_estimate": 5}}
 
 opening_context (for units 15+, context before dialogue):
 {{"type": "opening_context", "speaker": "narrator", "language": "en", "text": "John has gone to visit his friend. You will hear him asking for directions.", "duration_estimate": 5}}
@@ -256,7 +268,7 @@ cultural_note:
 ### 5. CLOSING SEGMENTS
 
 closing_summary:
-{{"type": "closing_summary", "speaker": "narrator", "language": "en", "text": "This is the end of Unit {lesson_number} and the end of today's lesson.", "duration_estimate": 5}}
+{{"type": "closing_summary", "speaker": "narrator", "language": "en", "text": "This is the end of Level {pimsleur_level}, Unit {lesson_number}.", "duration_estimate": 4}}
 
 closing_instructions:
 {{"type": "closing_instructions", "speaker": "narrator", "language": "en", "text": "For best results, continue with Unit {next_lesson} tomorrow.", "duration_estimate": 4}}
@@ -302,7 +314,7 @@ Word: "smávegis" (phonetic: SMOW-vey-is, meaning: "a little")
 Generate the complete lesson script now. Output ONLY the JSON object."""
 
 
-CUSTOM_LESSON_PROMPT = """Create an authentic Pimsleur-style lesson from user-provided text.
+CUSTOM_LESSON_PROMPT = """Create a spaced repetition audio lesson from user-provided text.
 
 ## SOURCE TEXT ({target_language})
 {source_text}
@@ -310,7 +322,7 @@ CUSTOM_LESSON_PROMPT = """Create an authentic Pimsleur-style lesson from user-pr
 ## TASK
 1. Extract 10-15 key vocabulary words and phrases from the text
 2. Create a 15-20 minute lesson (900-1200 seconds) teaching this vocabulary
-3. Follow authentic Pimsleur patterns including BACKWARD BUILD-UP
+3. Follow authentic spaced audio patterns including BACKWARD BUILD-UP
 
 ## OUTPUT FORMAT
 
@@ -326,7 +338,7 @@ CUSTOM_LESSON_PROMPT = """Create an authentic Pimsleur-style lesson from user-pr
 
 ### 1. OPENING (30-45 seconds)
 
-{{"type": "opening_title", "speaker": "narrator", "language": "en", "text": "This is your custom {target_language} lesson.", "duration_estimate": 3}}
+{{"type": "opening_title", "speaker": "narrator", "language": "en", "text": "Welcome to your custom {target_language} Spaced Audio Lesson.", "duration_estimate": 4}}
 {{"type": "opening_instruction", "speaker": "narrator", "language": "en", "text": "In this lesson, you'll learn vocabulary from a text you provided.", "duration_estimate": 4}}
 
 ### 2. NEW WORD INTRODUCTION (MANDATORY - use for EVERY word)
@@ -432,7 +444,7 @@ def get_lesson_generation_prompt(
     Returns:
         Tuple of (system_prompt, user_prompt)
     """
-    # Map CEFR to Pimsleur level
+    # Map CEFR to course level
     level_map = {"A1": 1, "A2": 2, "B1": 3}
     pimsleur_level = level_map.get(cefr_level, 1)
 

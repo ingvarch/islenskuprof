@@ -1,8 +1,13 @@
 """
-Vocabulary progression manager for Pimsleur lessons.
+Vocabulary progression manager for Spaced Audio Course lessons.
 
 Handles vocabulary selection, progression across units,
 and cross-unit review scheduling.
+
+Supports hybrid vocabulary loading:
+1. Primary: VocabularyBank with curated files
+2. Fallback: Legacy language modules
+3. Final fallback: LLM-generated vocabulary
 """
 
 import logging
@@ -31,7 +36,20 @@ class VocabularyProgressionManager:
         self.language_code = language_code
 
     def _get_language_module(self):
-        """Get the language-specific vocabulary module."""
+        """Get the language-specific vocabulary module.
+
+        Priority:
+        1. VocabularyBank (curated files + LLM fallback)
+        2. Legacy language modules (for backwards compatibility)
+        """
+        # Try VocabularyBank first (hybrid: curated + LLM fallback)
+        try:
+            from bot.pimsleur.vocabulary_banks import VocabularyBank
+            return VocabularyBank(self.language_code)
+        except ImportError:
+            logger.debug("VocabularyBank not available, using legacy modules")
+
+        # Fallback to legacy language modules
         if self.language_code == "is":
             from bot.pimsleur.languages import icelandic
             return icelandic

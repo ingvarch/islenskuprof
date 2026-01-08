@@ -1,6 +1,8 @@
 """
-Universal configuration for Pimsleur lesson generation.
+Universal configuration for Spaced Audio Course lesson generation.
 Timing, voices, and settings that apply across all languages.
+
+Note: We use "Spaced Audio Course" instead of trademark names.
 """
 
 # Lesson timing constants (in seconds)
@@ -197,4 +199,99 @@ LESSON_STRUCTURE = {
     "new_material": 660,     # 11 minutes - new vocabulary with build-up
     "spaced_practice": 960,  # 16 minutes - spaced repetition and context
     "closing": 30,           # Summary and next steps
+}
+
+# Brand configuration (avoid trademark issues)
+COURSE_BRAND_NAME = "Spaced Audio Course"
+OPENING_TITLE_FORMAT = "This is Level {level}, Unit {unit} of your {language} {brand}."
+CLOSING_SUMMARY_FORMAT = "This is the end of Level {level}, Unit {unit}."
+
+# CEFR level mapping for each course level
+# Level 1: Beginner (A1-A2) - 500 words
+# Level 2: Intermediate (A2-B1) - 500 words
+# Level 3: Upper Intermediate (B1-B2) - 500 words
+LEVEL_CEFR_MAPPING = {
+    1: {"primary": "A1", "secondary": "A2", "name": "Beginner", "word_target": 500},
+    2: {"primary": "A2", "secondary": "B1", "name": "Intermediate", "word_target": 500},
+    3: {"primary": "B1", "secondary": "B2", "name": "Upper Intermediate", "word_target": 500},
+}
+
+# CEFR vocabulary guidelines for LLM generation
+CEFR_GUIDELINES = {
+    "A1": {
+        "description": "Basic survival vocabulary",
+        "characteristics": [
+            "Concrete, tangible nouns (food, objects, places)",
+            "Basic verbs (to be, to have, to want, to go)",
+            "Simple adjectives (good, bad, big, small)",
+            "Numbers 1-100",
+            "Basic greetings and farewells",
+            "Simple question words (what, where, who)",
+        ],
+        "avoid": [
+            "Abstract concepts",
+            "Complex verb tenses",
+            "Idiomatic expressions",
+            "Technical vocabulary",
+            "Rare or literary words",
+        ],
+        "word_length": "Prefer shorter words (1-3 syllables)",
+        "frequency": "Top 1000 most common words",
+    },
+    "A2": {
+        "description": "Elementary conversation vocabulary",
+        "characteristics": [
+            "Past tense markers and common irregular verbs",
+            "Comparative and superlative adjectives",
+            "Prepositions of time and place",
+            "Connectors (because, but, so, then)",
+            "Daily routine vocabulary",
+            "Simple opinions (I think, I like)",
+        ],
+        "avoid": [
+            "Subjunctive mood",
+            "Complex conditionals",
+            "Specialized terminology",
+            "Archaic or formal register",
+        ],
+        "word_length": "1-4 syllables",
+        "frequency": "Top 2000 most common words",
+    },
+    "B1": {
+        "description": "Intermediate conversational fluency",
+        "characteristics": [
+            "Conditional structures (if... then...)",
+            "Modal verbs (could, should, might)",
+            "Abstract nouns (idea, situation, experience)",
+            "Common idioms and expressions",
+            "Opinion and argument vocabulary",
+            "Feelings and emotions vocabulary",
+        ],
+        "avoid": [
+            "Highly specialized jargon",
+            "Obscure idioms",
+            "Regional dialects",
+            "Literary or archaic forms",
+        ],
+        "word_length": "1-5 syllables",
+        "frequency": "Top 3500 most common words",
+    },
+    "B2": {
+        "description": "Upper intermediate fluency",
+        "characteristics": [
+            "Hypothetical and counterfactual language",
+            "Nuanced vocabulary (subtle, considerable, somewhat)",
+            "Formal vs informal register awareness",
+            "Idiomatic expressions",
+            "Academic and professional vocabulary",
+            "Cultural references",
+        ],
+        "avoid": [
+            "Highly technical terms without context",
+            "Very rare vocabulary",
+            "Regional slang that non-natives won't hear",
+        ],
+        "word_length": "Variable",
+        "frequency": "Top 5000 most common words",
+    },
 }
