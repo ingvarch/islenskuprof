@@ -1,25 +1,21 @@
 """
 Vocabulary progression manager for Pimsleur lessons.
 
-Handles vocabulary selection, progression across lessons,
-and cross-lesson review scheduling.
+Handles vocabulary selection, progression across units,
+and cross-unit review scheduling.
 """
 
 import logging
 from typing import Optional
 
-from bot.pimsleur.constants import (
-    VOCABULARY_CURRICULUM,
-    ICELANDIC_CORE_VOCABULARY_A1,
-    CROSS_LESSON_REVIEW_OFFSETS,
-)
+from bot.pimsleur.config import CROSS_UNIT_REVIEW_OFFSETS
 
 logger = logging.getLogger(__name__)
 
 
 class VocabularyProgressionManager:
     """
-    Manages vocabulary progression across Pimsleur lessons.
+    Manages vocabulary progression across Pimsleur units.
 
     Ensures proper introduction of new words and review of
     previously learned vocabulary following spaced repetition.
@@ -34,72 +30,76 @@ class VocabularyProgressionManager:
         """
         self.language_code = language_code
 
-    def get_core_vocabulary(self, level: str) -> list[dict]:
+    def _get_language_module(self):
+        """Get the language-specific vocabulary module."""
+        if self.language_code == "is":
+            from bot.pimsleur.languages import icelandic
+            return icelandic
+        elif self.language_code == "de":
+            from bot.pimsleur.languages import german
+            return german
+        return None
+
+    def get_unit_vocabulary(self, level: int, unit_number: int) -> list[dict]:
         """
-        Get core vocabulary list for a specific level.
+        Get vocabulary list for a specific unit.
 
         Args:
-            level: CEFR level (A1, A2, B1)
+            level: Pimsleur level (1, 2, 3)
+            unit_number: Unit number (1-30)
 
         Returns:
             List of vocabulary dictionaries
         """
-        if self.language_code == "is" and level == "A1":
-            return [
-                {
-                    "word_target": word[0],
-                    "word_native": word[1],
-                    "word_type": word[2],
-                    "phonetic": word[3],
-                }
-                for word in ICELANDIC_CORE_VOCABULARY_A1
-            ]
+        lang_module = self._get_language_module()
+        if not lang_module:
+            logger.warning(f"No vocabulary module for language: {self.language_code}")
+            return []
 
-        # For other levels/languages, return empty (to be populated from DB or generated)
-        logger.warning(f"No core vocabulary defined for {self.language_code} {level}")
-        return []
+        unit = lang_module.get_unit(level, unit_number)
+        if not unit or not unit.get("vocabulary"):
+            logger.warning(f"No vocabulary for {self.language_code} L{level} U{unit_number}")
+            return []
+
+        return [
+            {
+                "word_target": word[0],
+                "word_native": word[1],
+                "word_type": word[2],
+                "phonetic": word[3] if len(word) > 3 else "",
+            }
+            for word in unit["vocabulary"]
+        ]
 
     def get_lesson_vocabulary(
         self,
-        level: str,
-        lesson_number: int,
-        previous_lessons_vocab: Optional[list[dict]] = None,
+        level: int,
+        unit_number: int,
+        previous_units_vocab: Optional[list[dict]] = None,
     ) -> dict:
         """
-        Get vocabulary for a specific lesson including new and review words.
+        Get vocabulary for a specific unit including new and review words.
 
         Args:
-            level: CEFR level
-            lesson_number: Lesson number (1-30)
-            previous_lessons_vocab: Optional list of vocabulary from previous lessons
+            level: Pimsleur level (1, 2, 3)
+            unit_number: Unit number (1-30)
+            previous_units_vocab: Optional list of vocabulary from previous units
 
         Returns:
             Dictionary with 'new' and 'review' vocabulary lists
         """
-        curriculum = VOCABULARY_CURRICULUM.get(level, VOCABULARY_CURRICULUM["A1"])
-        new_words_count = curriculum["new_words_per_lesson"]
-        review_words_count = curriculum["review_words_per_lesson"]
+        # Get new vocabulary for this unit
+        new_vocabulary = self.get_unit_vocabulary(level, unit_number)
 
-        # Get core vocabulary for this level
-        core_vocab = self.get_core_vocabulary(level)
-
-        # Calculate which words to introduce in this lesson
-        start_index = (lesson_number - 1) * new_words_count
-        end_index = min(start_index + new_words_count, len(core_vocab))
-
-        new_vocabulary = core_vocab[start_index:end_index] if start_index < len(core_vocab) else []
-
-        # Get review vocabulary from previous lessons
+        # Get review vocabulary from previous units
         review_vocabulary = self._get_review_words(
             level=level,
-            lesson_number=lesson_number,
-            core_vocab=core_vocab,
-            new_words_count=new_words_count,
-            review_count=review_words_count,
+            unit_number=unit_number,
+            review_count=8,  # Target ~8 review words
         )
 
         logger.info(
-            f"Lesson {level} L{lesson_number}: {len(new_vocabulary)} new words, "
+            f"Unit L{level} U{unit_number}: {len(new_vocabulary)} new words, "
             f"{len(review_vocabulary)} review words"
         )
 
@@ -111,117 +111,133 @@ class VocabularyProgressionManager:
 
     def _get_review_words(
         self,
-        level: str,
-        lesson_number: int,
-        core_vocab: list[dict],
-        new_words_count: int,
+        level: int,
+        unit_number: int,
         review_count: int,
     ) -> list[dict]:
         """
-        Select review words from previous lessons following spaced repetition.
+        Select review words from previous units following spaced repetition.
 
-        Reviews vocabulary from lessons N-1, N-2, N-5, N-10 (if they exist).
+        Reviews vocabulary from units N-1, N-2, N-5, N-10 (if they exist).
 
         Args:
-            level: CEFR level
-            lesson_number: Current lesson number
-            core_vocab: Full vocabulary list
-            new_words_count: Words per lesson
+            level: Pimsleur level
+            unit_number: Current unit number
             review_count: Target number of review words
 
         Returns:
             List of review vocabulary items
         """
-        if lesson_number <= 1:
+        if unit_number <= 1:
             return []
 
         review_words = []
 
-        for offset in CROSS_LESSON_REVIEW_OFFSETS:
-            review_lesson = lesson_number - offset
-            if review_lesson < 1:
+        for offset in CROSS_UNIT_REVIEW_OFFSETS:
+            review_unit = unit_number - offset
+            if review_unit < 1:
                 continue
 
-            # Calculate which words were introduced in the review lesson
-            start_idx = (review_lesson - 1) * new_words_count
-            end_idx = min(start_idx + new_words_count, len(core_vocab))
+            # Get vocabulary from review unit
+            unit_vocab = self.get_unit_vocabulary(level, review_unit)
 
-            # Take a few words from each review lesson
-            words_from_lesson = core_vocab[start_idx:end_idx]
-
-            # Take proportionally fewer words from older lessons
-            take_count = max(1, review_count // len(CROSS_LESSON_REVIEW_OFFSETS))
+            # Take proportionally fewer words from older units
+            take_count = max(1, review_count // len(CROSS_UNIT_REVIEW_OFFSETS))
             if offset > 5:
-                take_count = max(1, take_count // 2)  # Even fewer from very old lessons
+                take_count = max(1, take_count // 2)
 
-            # Select evenly spaced words from the lesson
-            step = max(1, len(words_from_lesson) // take_count)
-            for i in range(0, len(words_from_lesson), step):
-                if len(review_words) >= review_count:
-                    break
-                word = words_from_lesson[i]
-                if word not in review_words:
-                    review_words.append(word)
+            # Select evenly spaced words from the unit
+            if unit_vocab:
+                step = max(1, len(unit_vocab) // take_count)
+                for i in range(0, len(unit_vocab), step):
+                    if len(review_words) >= review_count:
+                        break
+                    word = unit_vocab[i]
+                    if word not in review_words:
+                        review_words.append(word)
 
             if len(review_words) >= review_count:
                 break
 
         return review_words[:review_count]
 
-    def get_review_lesson_ids(self, lesson_number: int) -> list[int]:
+    def get_review_unit_ids(self, unit_number: int) -> list[int]:
         """
-        Get lesson IDs that should be reviewed in this lesson.
+        Get unit IDs that should be reviewed in this unit.
 
         Args:
-            lesson_number: Current lesson number
+            unit_number: Current unit number
 
         Returns:
-            List of lesson numbers to review from
+            List of unit numbers to review from
         """
-        review_lessons = []
-        for offset in CROSS_LESSON_REVIEW_OFFSETS:
-            review_lesson = lesson_number - offset
-            if review_lesson >= 1:
-                review_lessons.append(review_lesson)
-        return review_lessons
+        review_units = []
+        for offset in CROSS_UNIT_REVIEW_OFFSETS:
+            review_unit = unit_number - offset
+            if review_unit >= 1:
+                review_units.append(review_unit)
+        return review_units
 
-    def get_theme_for_lesson(self, level: str, lesson_number: int) -> str:
+    def get_theme_for_unit(self, level: int, unit_number: int) -> str:
         """
-        Get the theme/topic for a specific lesson.
+        Get the theme/topic for a specific unit.
 
         Args:
-            level: CEFR level
-            lesson_number: Lesson number (1-30)
+            level: Pimsleur level
+            unit_number: Unit number (1-30)
 
         Returns:
-            Theme string
+            Theme string (first category of the unit)
         """
-        curriculum = VOCABULARY_CURRICULUM.get(level, VOCABULARY_CURRICULUM["A1"])
-        themes = curriculum.get("themes", [])
+        lang_module = self._get_language_module()
+        if not lang_module:
+            return "general"
 
-        if lesson_number <= len(themes):
-            return themes[lesson_number - 1]
+        unit = lang_module.get_unit(level, unit_number)
+        if unit and unit.get("categories"):
+            return unit["categories"][0]
 
-        return f"review_and_practice_{lesson_number}"
+        return "general"
+
+    def get_unit_title(self, level: int, unit_number: int) -> str:
+        """
+        Get the title for a specific unit.
+
+        Args:
+            level: Pimsleur level
+            unit_number: Unit number (1-30)
+
+        Returns:
+            Unit title string
+        """
+        lang_module = self._get_language_module()
+        if not lang_module:
+            return f"Level {level} Unit {unit_number}"
+
+        unit = lang_module.get_unit(level, unit_number)
+        if unit and unit.get("title"):
+            return unit["title"]
+
+        return f"Level {level} Unit {unit_number}"
 
     def validate_vocabulary_coverage(
         self,
-        level: str,
-        lesson_number: int,
+        level: int,
+        unit_number: int,
         script_vocabulary: list[str],
     ) -> dict:
         """
-        Validate that a lesson script covers required vocabulary.
+        Validate that a unit script covers required vocabulary.
 
         Args:
-            level: CEFR level
-            lesson_number: Lesson number
+            level: Pimsleur level
+            unit_number: Unit number
             script_vocabulary: List of words used in the script
 
         Returns:
             Dictionary with validation results
         """
-        expected = self.get_lesson_vocabulary(level, lesson_number)
+        expected = self.get_lesson_vocabulary(level, unit_number)
         expected_words = {v["word_target"] for v in expected["new"]}
         expected_words.update(v["word_target"] for v in expected["review"])
 

@@ -12,7 +12,6 @@ from bot.pimsleur.prompts import (
     get_custom_lesson_prompt,
 )
 from bot.pimsleur.vocabulary_manager import VocabularyProgressionManager
-from bot.pimsleur.constants import LESSON_TITLES, VOCABULARY_CURRICULUM
 
 logger = logging.getLogger(__name__)
 
@@ -46,36 +45,36 @@ class PimsleurLessonGenerator:
         Generate a complete Pimsleur lesson script.
 
         Args:
-            level: CEFR level (A1, A2, B1)
-            lesson_number: Lesson number (1-30)
+            level: Level identifier (can be "A1"/"A2"/"B1" for backwards compat, or 1/2/3)
+            lesson_number: Lesson/unit number (1-30)
             theme: Optional theme override
             title: Optional title override
 
         Returns:
             Lesson script dictionary ready for audio generation
         """
-        # Get vocabulary for this lesson
-        vocab = self.vocab_manager.get_lesson_vocabulary(level, lesson_number)
+        # Convert CEFR level to numeric if needed (backwards compatibility)
+        level_map = {"A1": 1, "A2": 2, "B1": 3}
+        numeric_level = level_map.get(level, int(level) if str(level).isdigit() else 1)
+
+        # Get vocabulary for this unit
+        vocab = self.vocab_manager.get_lesson_vocabulary(numeric_level, lesson_number)
 
         # Get theme if not provided
         if not theme:
-            theme = self.vocab_manager.get_theme_for_lesson(level, lesson_number)
+            theme = self.vocab_manager.get_theme_for_unit(numeric_level, lesson_number)
 
         # Get title if not provided
         if not title:
-            titles = LESSON_TITLES.get(level, [])
-            if lesson_number <= len(titles):
-                title = titles[lesson_number - 1]
-            else:
-                title = f"{level} Lesson {lesson_number}: {theme.replace('_', ' ').title()}"
+            title = self.vocab_manager.get_unit_title(numeric_level, lesson_number)
 
-        logger.info(f"Generating script for {level} Lesson {lesson_number}: {title}")
+        logger.info(f"Generating script for Level {numeric_level} Unit {lesson_number}: {title}")
 
         # Prepare prompts
         system_prompt, user_prompt = get_lesson_generation_prompt(
             target_language=self._language_name,
             lang_code=self._lang_code,
-            cefr_level=level,
+            cefr_level=level,  # Keep original for prompt compatibility
             lesson_number=lesson_number,
             lesson_title=title,
             theme=theme,
@@ -97,7 +96,7 @@ class PimsleurLessonGenerator:
             # Validate and enhance script
             script = self._validate_and_enhance_script(
                 script=script,
-                level=level,
+                level=numeric_level,
                 lesson_number=lesson_number,
                 vocab=vocab,
             )
@@ -180,7 +179,7 @@ class PimsleurLessonGenerator:
     def _validate_and_enhance_script(
         self,
         script: dict,
-        level: str,
+        level: int,
         lesson_number: int,
         vocab: dict,
     ) -> dict:
@@ -189,8 +188,8 @@ class PimsleurLessonGenerator:
 
         Args:
             script: Generated script dictionary
-            level: CEFR level
-            lesson_number: Lesson number
+            level: Pimsleur level (1, 2, 3)
+            lesson_number: Unit number
             vocab: Vocabulary data
 
         Returns:
@@ -202,9 +201,9 @@ class PimsleurLessonGenerator:
         script.setdefault("segments", [])
         script.setdefault("vocabulary_summary", [])
 
-        # Add review lesson references
-        review_lessons = self.vocab_manager.get_review_lesson_ids(lesson_number)
-        script["review_from_lessons"] = review_lessons
+        # Add review unit references
+        review_units = self.vocab_manager.get_review_unit_ids(lesson_number)
+        script["review_from_units"] = review_units
 
         # Store vocabulary data
         script["vocabulary_new"] = vocab["new"]

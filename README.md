@@ -123,7 +123,6 @@ isl/
 │   │   ├── audio_assembler.py  # Audio file assembly
 │   │   ├── vocabulary_manager.py
 │   │   ├── prompts.py          # LLM prompt templates
-│   │   ├── constants.py        # Legacy curriculum data
 │   │   └── languages/          # Vocabulary by language
 │   │       ├── icelandic/
 │   │       │   ├── level_01.py     # Level 1 aggregator
