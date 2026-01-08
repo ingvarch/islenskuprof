@@ -12,9 +12,13 @@ from bot.pimsleur.config import (
     PAUSE_LEARNING,
     PAUSE_REPETITION,
     PAUSE_THINKING,
+    PAUSE_RECALL,
     PAUSE_COMPOSITION,
     PAUSE_TRANSITION,
+    PAUSE_REFLECTION,
     SEGMENT_TYPES,
+    NATIVE_INSTRUCTION_START_UNIT,
+    NATIVE_INSTRUCTION_FULL_UNIT,
 )
 from bot.pimsleur.prompts import (
     get_lesson_generation_prompt,
@@ -255,6 +259,14 @@ class PimsleurLessonGenerator:
         if missing_critical:
             logger.warning(f"Script missing critical Pimsleur elements: {missing_critical}")
 
+        # Check for instruction language evolution (units 11+ should have native instructions)
+        has_native_instruction = "native_instruction" in segment_types_present
+        if lesson_number >= NATIVE_INSTRUCTION_FULL_UNIT and not has_native_instruction:
+            logger.warning(
+                f"Unit {lesson_number} should use native language instructions "
+                f"(Hlustaðu, Spurðu, etc.) but none found"
+            )
+
         # Calculate actual duration
         script["calculated_duration"] = self._estimate_duration(script)
 
@@ -268,6 +280,8 @@ class PimsleurLessonGenerator:
             "has_opening": "opening_title" in segment_types_present,
             "has_closing": "closing_summary" in segment_types_present,
             "has_backward_buildup": "syllable_practice" in segment_types_present,
+            "has_native_instructions": has_native_instruction,
+            "expected_native_instructions": lesson_number >= NATIVE_INSTRUCTION_START_UNIT,
         }
 
         return script
@@ -298,8 +312,12 @@ class PimsleurLessonGenerator:
                     total += PAUSE_REPETITION
                 elif purpose in ("user_response", "thinking"):
                     total += PAUSE_THINKING
+                elif purpose in ("recall", "remember"):
+                    total += PAUSE_RECALL
                 elif purpose in ("composition", "user_composition"):
                     total += PAUSE_COMPOSITION
+                elif purpose in ("reflection", "long_reflection"):
+                    total += PAUSE_REFLECTION
                 elif purpose == "transition":
                     total += PAUSE_TRANSITION
                 else:
@@ -315,7 +333,7 @@ class PimsleurLessonGenerator:
 
             elif seg_type in (
                 "native_model", "model_answer", "context_application",
-                "review_in_context"
+                "review_in_context", "native_instruction", "grammar_drill"
             ):
                 # Native speaker segments
                 total += segment.get("duration_estimate", 3)
@@ -324,6 +342,8 @@ class PimsleurLessonGenerator:
                 "instruction", "comprehension_question", "prompt_for_composition",
                 "prompt_for_question", "repeat_after", "grammar_explanation",
                 "cultural_note", "opening_title", "opening_instruction",
+                "opening_context", "opening_preview", "recall_question",
+                "scenario_setup", "gender_explanation",
                 "closing_summary", "closing_instructions"
             ):
                 # Narrator segments - typically longer
@@ -363,8 +383,12 @@ class PimsleurLessonGenerator:
                     pause_time += PAUSE_REPETITION
                 elif purpose in ("user_response", "thinking"):
                     pause_time += PAUSE_THINKING
+                elif purpose in ("recall", "remember"):
+                    pause_time += PAUSE_RECALL
                 elif purpose in ("composition", "user_composition"):
                     pause_time += PAUSE_COMPOSITION
+                elif purpose in ("reflection", "long_reflection"):
+                    pause_time += PAUSE_REFLECTION
                 else:
                     pause_time += PAUSE_LEARNING
 
@@ -393,5 +417,11 @@ class PimsleurLessonGenerator:
             "syllable_practice_count": syllable_practice_count,
             "comprehension_questions": segment_types.get("comprehension_question", 0),
             "composition_prompts": segment_types.get("prompt_for_composition", 0),
+            # New segment type counts (from Units 11-20 analysis)
+            "recall_questions": segment_types.get("recall_question", 0),
+            "scenario_setups": segment_types.get("scenario_setup", 0),
+            "grammar_drills": segment_types.get("grammar_drill", 0),
+            "native_instructions": segment_types.get("native_instruction", 0),
+            "gender_explanations": segment_types.get("gender_explanation", 0),
             "validation": script.get("validation", {}),
         }

@@ -8,16 +8,18 @@ Timing, voices, and settings that apply across all languages.
 LESSON_DURATION_TARGET = 1800  # 30 minutes per unit
 CUSTOM_LESSON_DURATION_TARGET = 1200  # 20 minutes for custom lessons
 
-# Pause durations by cognitive load (based on real Pimsleur analysis)
+# Pause durations by cognitive load (based on analysis of 20 real Pimsleur units)
 # These variable pauses are critical - fixed pauses break the learning flow
 PAUSE_SYLLABLE = 2.0  # After syllable in backward build-up (2.0-2.2s)
 PAUSE_LEARNING = 2.2  # After native speaker models word (2.0-2.5s)
 PAUSE_REPETITION = 2.5  # For user to repeat after model (2.2-2.8s)
 PAUSE_THINKING = 3.5  # After "How do you say X?" (3.0-4.0s)
+PAUSE_RECALL = 3.4  # After "Do you remember how to say..." (3.4-4.0s)
 PAUSE_COMPOSITION = 4.5  # When creating new sentences (4.0-5.0s)
 PAUSE_CONFIRMATION = 2.0  # Brief pause after providing answer
 PAUSE_TRANSITION = 1.0  # Between major segments (0.8-1.2s)
 PAUSE_DIALOGUE = 1.5  # Between dialogue lines
+PAUSE_REFLECTION = 6.5  # Long reflection pause in later units (6.5-8.7s)
 
 # Legacy aliases for backward compatibility
 PAUSE_ANTICIPATION = PAUSE_THINKING
@@ -84,30 +86,39 @@ BONUS_PACK_INTERVAL = 5  # Unlock bonus pack every N units
 BONUS_PACK_WORDS = 30    # Words per bonus pack
 
 # Segment types for Pimsleur lessons
-# Based on analysis of 9 real Pimsleur Icelandic transcriptions
+# Based on analysis of 20 real Pimsleur Icelandic transcriptions
 SEGMENT_TYPES = {
     # Opening structure (0-60 seconds)
     "opening_title",        # "This is Unit X of Pimsleur's Icelandic"
     "opening_instruction",  # "Listen to this Icelandic conversation"
+    "opening_context",      # Context before dialogue (Unit 15+): "John has gone to..."
+    "opening_preview",      # Preview phrase: "You will hear X which means Y"
     "opening_dialogue",     # Full native dialogue at natural speed
 
     # Core teaching segments
     "instruction",          # Narrator guidance and context
+    "native_instruction",   # Instruction in target language (Unit 11+): "Hlustaðu"
     "native_model",         # Native speaker demonstrates word/phrase
     "syllable_practice",    # Individual syllable in backward build-up
-    "repeat_after",         # "Listen and repeat"
+    "repeat_after",         # "Listen and repeat" / "Hlustaðu og endurtaktu"
 
     # Practice and recall segments
     "comprehension_question",   # "How do you say X in Icelandic?"
+    "recall_question",          # "Do you remember how to say..." (review from prev units)
     "prompt_for_composition",   # "Try to say X and Y together"
-    "prompt_for_question",      # "Ask her if..."
+    "prompt_for_question",      # "Ask her if..." / "Spurðu"
+    "scenario_setup",           # "Suppose you're hosting a party..."
     "model_answer",             # Correct answer from native speaker
     "context_application",      # Word used in phrase/sentence
+
+    # Grammar teaching (discovered in Units 11-20)
+    "gender_explanation",   # "Beer is a masculine word. Here's how to say..."
+    "grammar_drill",        # Gender/conjugation variation drilling
+    "grammar_explanation",  # Brief grammar note from narrator
 
     # Review and reinforcement
     "review_in_context",    # Previous vocabulary in new context
     "dialogue_segment",     # Practice dialogue line
-    "grammar_explanation",  # Brief grammar note from narrator
     "cultural_note",        # Cultural context
 
     # Closing structure (last 25-30 seconds)
@@ -118,24 +129,64 @@ SEGMENT_TYPES = {
     "pause",                # Silent pause for user response
 }
 
+# Native language instruction phrases (for Units 11+)
+# These replace English instructions in later units
+NATIVE_INSTRUCTIONS = {
+    "is": {
+        "listen": "Hlustaðu",
+        "listen_repeat": "Hlustaðu og endurtaktu",
+        "listen_conversation": "Hlustaðu á þetta samtal",
+        "ask": "Spurðu",
+        "say": "Segðu",
+        "answer_questions": "Svaraðu spurningum",
+        "listen_once_more": "Hlustaðu einu sinni enn",
+        "now_say": "Segðu núna",
+    },
+    "de": {
+        "listen": "Hören Sie",
+        "listen_repeat": "Hören Sie und wiederholen Sie",
+        "listen_conversation": "Hören Sie dieses Gespräch",
+        "ask": "Fragen Sie",
+        "say": "Sagen Sie",
+        "answer_questions": "Beantworten Sie die Fragen",
+        "listen_once_more": "Hören Sie noch einmal",
+        "now_say": "Sagen Sie jetzt",
+    },
+}
+
+# Unit ranges for instruction language evolution
+# Units 1-5: All English instructions
+# Units 6-10: Mixed (some native commands)
+# Units 11+: Primarily native language instructions
+NATIVE_INSTRUCTION_START_UNIT = 6
+NATIVE_INSTRUCTION_FULL_UNIT = 11
+
 # Segment type to speaker mapping (default speakers)
 SEGMENT_SPEAKER_DEFAULTS = {
+    # Narrator segments (English)
     "opening_title": "narrator",
     "opening_instruction": "narrator",
+    "opening_context": "narrator",
+    "opening_preview": "narrator",
     "instruction": "narrator",
     "repeat_after": "narrator",
     "comprehension_question": "narrator",
+    "recall_question": "narrator",
     "prompt_for_composition": "narrator",
     "prompt_for_question": "narrator",
+    "scenario_setup": "narrator",
+    "gender_explanation": "narrator",
     "grammar_explanation": "narrator",
     "cultural_note": "narrator",
     "closing_summary": "narrator",
     "closing_instructions": "narrator",
-    # Native speaker segments use language-specific voices
+    # Native speaker segments (target language)
+    "native_instruction": "native_female",  # Instructions in target language
     "native_model": "native_female",
     "syllable_practice": "native_female",
     "model_answer": "native_female",
     "context_application": "native_female",
+    "grammar_drill": "native_female",
     "review_in_context": "native_female",
     "dialogue_segment": "native_female",  # Can be male or female
 }

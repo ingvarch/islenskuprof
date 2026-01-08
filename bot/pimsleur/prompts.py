@@ -1,15 +1,16 @@
 """
 LLM prompt templates for Pimsleur lesson generation.
 
-Based on analysis of real Pimsleur Icelandic transcriptions (9 units).
-Key patterns: backward build-up, variable pauses, progressive context building.
+Based on analysis of 20 real Pimsleur Icelandic transcriptions.
+Key patterns: backward build-up, variable pauses, progressive context building,
+instruction language evolution, grammar drills.
 """
 
 import json
 
 PIMSLEUR_LESSON_SYSTEM_PROMPT = """You are an expert language curriculum designer specializing in the authentic Pimsleur method for audio-based language learning.
 
-Your task is to create lesson scripts that EXACTLY follow real Pimsleur methodology.
+Your task is to create lesson scripts that EXACTLY follow real Pimsleur methodology based on analysis of 20 official Pimsleur units.
 
 ## CORE PIMSLEUR PRINCIPLES
 
@@ -29,11 +30,11 @@ Example for "Afsakið" (phonetic: AHF-sa-kith):
 ### 2. GRADUATED INTERVAL RECALL (Spaced Repetition)
 - New words repeated at increasing intervals: 5s, 25s, 2min, 10min, 20min
 - Each new word appears 7-10 times minimum throughout the lesson
-- Review vocabulary from previous lessons at strategic intervals
+- Review vocabulary from previous lessons using "Do you remember how to say..."
 
 ### 3. ANTICIPATION PRINCIPLE
 - Always prompt the learner BEFORE providing the answer
-- Use "How do you say [English]?" or "Say [phrase]"
+- Use varied question patterns (see Question Variation section)
 - Variable pause duration based on difficulty (see pause guide)
 - Follow with correct model answer spoken by native speaker
 
@@ -44,37 +45,77 @@ Every word progresses through these stages:
 3. Phrase in complete sentence
 4. Sentence in dialogue context
 
-### 5. LESSON STRUCTURE (30 minutes = 1800 seconds)
+### 5. INSTRUCTION LANGUAGE EVOLUTION (Critical for units 6+)
+- Units 1-5: All instructions in English
+- Units 6-10: Mix English with some target language commands
+- Units 11+: Use target language for common instructions:
+  * "Hlustaðu" (Listen) instead of "Listen"
+  * "Hlustaðu og endurtaktu" instead of "Listen and repeat"
+  * "Spurðu" instead of "Ask"
+  * "Svaraðu spurningum" (Answer questions)
+
+### 6. LESSON STRUCTURE (30 minutes = 1800 seconds)
 
 **OPENING (30-60 seconds):**
-- opening_title: "This is Unit X of Pimsleur Icelandic"
-- opening_instruction: "Listen to this Icelandic conversation"
+- opening_title: "This is Unit X of Pimsleur [Language]"
+- opening_context (units 15+): Brief context setup before dialogue
+- opening_preview (optional): "You will hear [phrase] which means [translation]"
+- opening_instruction: "Listen to this conversation" / "Hlustaðu á þetta samtal"
 - opening_dialogue: Full native conversation (4-8 lines)
 
 **NEW MATERIAL (600-720 seconds):**
-- Introduce new vocabulary one by one with backward build-up
+- Introduce new vocabulary with backward build-up
+- Include gender/grammar explanations where relevant
 - Each word gets full introduction sequence (~60 seconds per word)
 
 **SPACED PRACTICE (900-1080 seconds):**
-- Review and repeat new words at intervals
-- Build complexity: word → phrase → sentence
+- Review new words at intervals
+- Use recall_question for previous unit vocabulary
+- Use scenario_setup for contextualized practice
+- Include grammar_drill for gender/conjugation practice
 - Short dialogues showing vocabulary in context
-- Comprehension questions and composition prompts
 
 **CLOSING (25-30 seconds):**
 - closing_summary: "This is the end of Unit X"
 - closing_instructions: "For best results, continue with Unit X+1 tomorrow"
 
-## PAUSE DURATION GUIDE (CRITICAL - Do not use fixed 3s everywhere!)
+## PAUSE DURATION GUIDE (CRITICAL - Variable pauses!)
 
 | Pause Type | Duration | When to Use |
 |------------|----------|-------------|
 | syllable_pause | 2.0-2.2s | After each syllable in backward build-up |
 | learning_pause | 2.2-2.5s | After native speaker models complete word |
 | thinking_pause | 3.0-4.0s | After "How do you say X?" questions |
+| recall_pause | 3.4-4.0s | After "Do you remember how to say..." |
 | composition_pause | 4.0-5.0s | When student creates new sentences |
 | confirmation_pause | 1.8-2.2s | After providing correct answer |
 | transition_pause | 0.8-1.2s | Between major segments |
+| reflection_pause | 6.5-8.7s | For complex reflection in later units |
+
+## QUESTION VARIATION PATTERNS
+
+Use variety in question phrasing (from real Pimsleur):
+- "How do you say X?" (standard)
+- "How would you say X?" (conditional)
+- "How does he/she tell you that..." (third person)
+- "How do you ask him/her if..." (indirect question)
+- "Do you remember how to say..." (recall from previous units)
+- "Now say..." / "Segðu núna..." (direct command)
+- "Ask him/her..." / "Spurðu..." (question formation)
+
+## GRAMMAR DRILL PATTERN (Units 11+)
+
+For gender/conjugation teaching:
+1. Explain grammar point: "Beer is a masculine word. Here's how to say no beer."
+2. Model the form: native speaker says it
+3. Drill variations: masculine, feminine, neuter forms
+4. Practice in context
+
+Example:
+- "ekkert" (neuter - no wine)
+- "engan" (masculine - no beer)
+- "enga" (feminine - no króna)
+- "engar" (feminine plural - no krónur)
 
 You must output ONLY valid JSON. No markdown, no explanations.
 Output compact JSON without unnecessary whitespace."""
@@ -117,8 +158,15 @@ PIMSLEUR_LESSON_USER_PROMPT = """Create an authentic Pimsleur-style lesson scrip
 opening_title:
 {{"type": "opening_title", "speaker": "narrator", "language": "en", "text": "This is Unit {lesson_number} of Pimsleur {target_language}.", "duration_estimate": 4}}
 
-opening_instruction:
+opening_context (for units 15+, context before dialogue):
+{{"type": "opening_context", "speaker": "narrator", "language": "en", "text": "John has gone to visit his friend. You will hear him asking for directions.", "duration_estimate": 5}}
+
+opening_preview (optional - preview key phrase):
+{{"type": "opening_preview", "speaker": "narrator", "language": "en", "text": "You will hear 'Hvert ertu að fara?' which means 'Where are you going?'", "duration_estimate": 4}}
+
+opening_instruction (use native language for units 11+):
 {{"type": "opening_instruction", "speaker": "narrator", "language": "en", "text": "Listen to this {target_language} conversation.", "duration_estimate": 3}}
+For units 11+: {{"type": "native_instruction", "speaker": "native_female", "language": "{lang_code}", "text": "Hlustaðu á þetta samtal.", "duration_estimate": 2}}
 
 opening_dialogue (multi-line conversation):
 {{"type": "opening_dialogue", "lines": [
@@ -161,14 +209,23 @@ Step 7 - Context application:
 
 ### 3. PRACTICE SEGMENTS
 
-comprehension_question:
+comprehension_question (standard "How do you say"):
 {{"type": "comprehension_question", "speaker": "narrator", "language": "en", "text": "How do you say 'X' in {target_language}?", "expected_response": "answer", "duration_estimate": 3}}
+
+recall_question (for vocabulary from PREVIOUS units):
+{{"type": "recall_question", "speaker": "narrator", "language": "en", "text": "Do you remember how to say 'hello'?", "expected_response": "answer", "duration_estimate": 4}}
+{{"type": "pause", "duration": 3.4, "purpose": "recall"}}
 
 prompt_for_composition:
 {{"type": "prompt_for_composition", "speaker": "narrator", "language": "en", "text": "Try to say 'I understand a little {target_language}'.", "expected_response": "expected phrase", "duration_estimate": 4}}
 
-prompt_for_question:
+prompt_for_question (use native language for units 11+):
 {{"type": "prompt_for_question", "speaker": "narrator", "language": "en", "text": "Ask her if she understands English.", "expected_response": "expected question", "duration_estimate": 4}}
+For units 11+: {{"type": "native_instruction", "speaker": "native_female", "language": "{lang_code}", "text": "Spurðu.", "duration_estimate": 1}}
+
+scenario_setup (contextualized practice):
+{{"type": "scenario_setup", "speaker": "narrator", "language": "en", "text": "Suppose you're hosting a party for some business associates. Say to one of the guests, please come in.", "duration_estimate": 6}}
+{{"type": "pause", "duration": 4.5, "purpose": "composition"}}
 
 review_in_context:
 {{"type": "review_in_context", "speaker": "narrator", "language": "en", "text": "Say 'hello' again.", "expected_response": "word", "duration_estimate": 2}}
@@ -183,6 +240,15 @@ dialogue_segment:
 
 grammar_explanation:
 {{"type": "grammar_explanation", "speaker": "narrator", "language": "en", "text": "In {target_language}, questions are formed by...", "duration_estimate": 6}}
+
+gender_explanation (for gender-specific vocabulary, units 11+):
+{{"type": "gender_explanation", "speaker": "narrator", "language": "en", "text": "Beer is a masculine word. Here's how to say 'no beer' or 'not any beer'.", "duration_estimate": 5}}
+
+grammar_drill (drill gender/conjugation variations):
+{{"type": "grammar_drill", "speaker": "native_female", "language": "{lang_code}", "text": "engan bjór", "grammar_form": "masculine_accusative", "duration_estimate": 2}}
+{{"type": "pause", "duration": 2.5, "purpose": "user_repetition"}}
+{{"type": "grammar_drill", "speaker": "native_female", "language": "{lang_code}", "text": "ekkert vín", "grammar_form": "neuter_accusative", "duration_estimate": 2}}
+{{"type": "pause", "duration": 2.5, "purpose": "user_repetition"}}
 
 cultural_note:
 {{"type": "cultural_note", "speaker": "narrator", "language": "en", "text": "In Iceland, people use patronymic names...", "duration_estimate": 8}}
@@ -218,6 +284,11 @@ Word: "smávegis" (phonetic: SMOW-vey-is, meaning: "a little")
 6. Each new word appears 7-10 times throughout lesson
 7. Alternate between native_female and native_male speakers
 8. Progressive context: word → phrase → sentence → dialogue
+9. For units 6+: Start mixing target language instructions
+10. For units 11+: Use primarily target language for commands (Hlustaðu, Spurðu, etc.)
+11. Use recall_question ("Do you remember...") for review vocabulary
+12. Use scenario_setup for contextualized practice in later units
+13. Include gender_explanation and grammar_drill for grammar-heavy vocabulary
 
 ## VOCABULARY SUMMARY FORMAT
 
