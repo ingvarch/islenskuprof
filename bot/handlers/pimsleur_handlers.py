@@ -1748,6 +1748,7 @@ async def wizard_retry_callback(
             language_code=target_lang,
             source_text=lesson.source_text,
             title=lesson.title,
+            difficulty_level=lesson.difficulty_level,
             settings={
                 "focus": lesson.focus,
                 "voice": lesson.voice_preference,

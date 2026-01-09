@@ -4,6 +4,7 @@ Pimsleur lesson script generator using LLM.
 
 import json
 import logging
+import re
 from typing import Optional
 
 from bot.openrouter_service import OpenRouterService
@@ -349,17 +350,8 @@ class PimsleurLessonGenerator:
             "grammar_notes": grammar_notes,
         }
 
-    def _parse_script_response(self, response: str) -> dict:
-        """
-        Parse LLM response into script dictionary.
-
-        Args:
-            response: Raw LLM response text
-
-        Returns:
-            Parsed script dictionary
-        """
-        # Clean up response - remove markdown code blocks if present
+    def _clean_markdown_json(self, response: str) -> str:
+        """Remove markdown code blocks from JSON response."""
         cleaned = response.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]
@@ -367,14 +359,50 @@ class PimsleurLessonGenerator:
             cleaned = cleaned[3:]
         if cleaned.endswith("```"):
             cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
+        return cleaned.strip()
+
+    def _repair_truncated_json(self, json_str: str) -> str:
+        """Attempt to repair truncated JSON by adding missing closing brackets."""
+        repaired = json_str.rstrip()
+
+        # Remove incomplete trailing elements
+        repaired = re.sub(r",\s*$", "", repaired)  # Trailing comma
+        repaired = re.sub(r',\s*"[^"]*$', "", repaired)  # Incomplete key after comma
+        repaired = re.sub(r':\s*"[^"]*$', "", repaired)  # Incomplete string value
+        repaired = re.sub(r":\s*$", "", repaired)  # Trailing colon
+
+        # Count brackets and add missing closers
+        open_brackets = repaired.count("[") - repaired.count("]")
+        open_braces = repaired.count("{") - repaired.count("}")
+
+        # Add missing closers (arrays first, then objects)
+        repaired += "]" * max(0, open_brackets)
+        repaired += "}" * max(0, open_braces)
+
+        return repaired
+
+    def _parse_script_response(self, response: str) -> dict:
+        """Parse LLM response into script dictionary with repair for truncated JSON."""
+        cleaned = self._clean_markdown_json(response)
 
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse script JSON: {e}")
-            logger.debug(f"Response was: {cleaned[:500]}...")
-            raise ValueError(f"Invalid JSON in LLM response: {e}")
+            logger.warning(f"Initial JSON parse failed: {e}")
+            logger.debug(f"Response tail (last 200 chars): ...{cleaned[-200:]}")
+
+            # Attempt to repair truncated JSON
+            logger.info("Attempting to repair truncated JSON...")
+            repaired = self._repair_truncated_json(cleaned)
+
+            try:
+                result = json.loads(repaired)
+                logger.info("JSON repair successful")
+                return result
+            except json.JSONDecodeError as e2:
+                logger.error(f"JSON repair failed: {e2}")
+                logger.debug(f"Repaired tail: ...{repaired[-200:]}")
+                raise ValueError(f"Invalid JSON in LLM response: {e}")
 
     def _inject_opening_dialogue_segment(
         self,
