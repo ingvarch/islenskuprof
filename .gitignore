@@ -1,7 +1,9 @@
 venv
 .idea
-
+.DS_Store
 *.log
+data/
+experiments/
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
@@ -179,3 +181,6 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+.envrc
+.envrc
+.DS_Store

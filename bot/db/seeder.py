@@ -10,7 +10,7 @@ to enable per-user language selection.
 import logging
 import sqlalchemy as sa
 from sqlalchemy import func
-from bot.db.database import get_db_session
+from bot.db.database import get_db_session, db_session
 from bot.db.models import Name, City, Job, Activity, Topic, TargetLanguage
 from bot.languages import get_language_config, get_all_language_configs
 
@@ -110,9 +110,12 @@ def reset_sequences(session):
     Reset PostgreSQL sequences to match the current max IDs in tables.
     This is needed when data was inserted without using sequences.
     """
-    tables = ['names', 'cities', 'jobs', 'activities', 'topic', 'persons', 'target_languages']
-    for table in tables:
+    # Whitelist of allowed table names to prevent SQL injection
+    ALLOWED_TABLES = frozenset(['names', 'cities', 'jobs', 'activities', 'topic', 'persons', 'target_languages'])
+
+    for table in ALLOWED_TABLES:
         try:
+            # Using text() with explicit table validation for safety
             session.execute(
                 sa.text(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}")
             )
@@ -173,54 +176,49 @@ def seed_database_if_empty():
     language_names = [lc.name for lc in lang_configs]
     logger.info(f"Checking if database needs seeding for: {', '.join(language_names)}")
 
-    session = get_db_session()
     try:
-        # Reset sequences to avoid primary key conflicts
-        reset_sequences(session)
+        with db_session() as session:
+            # Reset sequences to avoid primary key conflicts
+            reset_sequences(session)
 
-        # Seed target_languages table first
-        seed_target_languages(session, lang_configs)
+            # Seed target_languages table first
+            seed_target_languages(session, lang_configs)
 
-        # Seed data for each configured language
-        for lang_config in lang_configs:
-            code = lang_config.code
-            seed_data = lang_config.seed_data
-            tables_seeded = []
+            # Seed data for each configured language
+            for lang_config in lang_configs:
+                code = lang_config.code
+                seed_data = lang_config.seed_data
+                tables_seeded = []
 
-            if not has_language_data(session, Name, code):
-                seed_names(session, seed_data.names, code)
-                tables_seeded.append("names")
+                if not has_language_data(session, Name, code):
+                    seed_names(session, seed_data.names, code)
+                    tables_seeded.append("names")
 
-            if not has_language_data(session, City, code):
-                seed_cities(session, seed_data.cities, code)
-                tables_seeded.append("cities")
+                if not has_language_data(session, City, code):
+                    seed_cities(session, seed_data.cities, code)
+                    tables_seeded.append("cities")
 
-            if not has_language_data(session, Job, code):
-                seed_jobs(session, seed_data.jobs, code)
-                tables_seeded.append("jobs")
+                if not has_language_data(session, Job, code):
+                    seed_jobs(session, seed_data.jobs, code)
+                    tables_seeded.append("jobs")
 
-            if not has_language_data(session, Activity, code):
-                seed_activities(session, seed_data.weekend_activities, seed_data.plan_activities, code)
-                tables_seeded.append("activities")
+                if not has_language_data(session, Activity, code):
+                    seed_activities(session, seed_data.weekend_activities, seed_data.plan_activities, code)
+                    tables_seeded.append("activities")
 
-            if not has_language_data(session, Topic, code):
-                seed_topics(session, seed_data.topics, code)
-                tables_seeded.append("topics")
+                if not has_language_data(session, Topic, code):
+                    seed_topics(session, seed_data.topics, code)
+                    tables_seeded.append("topics")
 
-            if tables_seeded:
-                logger.info(f"Seeded tables for {lang_config.name}: {', '.join(tables_seeded)}")
-            else:
-                logger.info(f"All seed data tables already populated for {lang_config.name}")
+                if tables_seeded:
+                    logger.info(f"Seeded tables for {lang_config.name}: {', '.join(tables_seeded)}")
+                else:
+                    logger.info(f"All seed data tables already populated for {lang_config.name}")
 
-        session.commit()
-        logger.info("Database seeding completed successfully")
-
+            logger.info("Database seeding completed successfully")
     except Exception as e:
-        session.rollback()
         logger.error(f"Error seeding database: {e}")
         raise
-    finally:
-        session.close()
 
 
 def clear_and_reseed_database():
@@ -239,36 +237,31 @@ def clear_and_reseed_database():
     language_names = [lc.name for lc in lang_configs]
     logger.warning(f"Clearing and reseeding database for: {', '.join(language_names)}...")
 
-    session = get_db_session()
     try:
-        # Clear existing data
-        session.query(Name).delete()
-        session.query(City).delete()
-        session.query(Job).delete()
-        session.query(Activity).delete()
-        session.query(Topic).delete()
-        session.query(TargetLanguage).delete()
+        with db_session() as session:
+            # Clear existing data
+            session.query(Name).delete()
+            session.query(City).delete()
+            session.query(Job).delete()
+            session.query(Activity).delete()
+            session.query(Topic).delete()
+            session.query(TargetLanguage).delete()
 
-        # Seed target_languages table
-        seed_target_languages(session, lang_configs)
+            # Seed target_languages table
+            seed_target_languages(session, lang_configs)
 
-        # Seed data for each language
-        for lang_config in lang_configs:
-            code = lang_config.code
-            seed_data = lang_config.seed_data
+            # Seed data for each language
+            for lang_config in lang_configs:
+                code = lang_config.code
+                seed_data = lang_config.seed_data
 
-            seed_names(session, seed_data.names, code)
-            seed_cities(session, seed_data.cities, code)
-            seed_jobs(session, seed_data.jobs, code)
-            seed_activities(session, seed_data.weekend_activities, seed_data.plan_activities, code)
-            seed_topics(session, seed_data.topics, code)
+                seed_names(session, seed_data.names, code)
+                seed_cities(session, seed_data.cities, code)
+                seed_jobs(session, seed_data.jobs, code)
+                seed_activities(session, seed_data.weekend_activities, seed_data.plan_activities, code)
+                seed_topics(session, seed_data.topics, code)
 
-        session.commit()
-        logger.info(f"Database cleared and reseeded for: {', '.join(language_names)}")
-
+            logger.info(f"Database cleared and reseeded for: {', '.join(language_names)}")
     except Exception as e:
-        session.rollback()
         logger.error(f"Error clearing and reseeding database: {e}")
         raise
-    finally:
-        session.close()

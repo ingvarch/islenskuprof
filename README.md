@@ -1,124 +1,230 @@
-# Telegram Bot
+# Islenskuprof - Icelandic Language Learning Bot
 
-A simple Telegram bot built with python-telegram-bot library that generates Icelandic language tests.
+A Telegram bot for learning Icelandic (and German) through AI-generated exercises and Pimsleur-style audio lessons.
 
 ## Features
 
-- Responds to `/start` command with a greeting and a list of available commands
-- Responds to `/section_01` command by generating Icelandic language test content and audio
-- Supports Markdown formatting in messages
-- Automatically cleans up temporary audio files after sending
-- Responds to unknown commands with an appropriate message
-- Stores user information in a PostgreSQL database
-- Tracks user interactions with the bot
-- Updates user's last contact timestamp whenever they use a command
+### Learning Modes
+
+**Understanding Section** (`/understanding`)
+- AI-generated dialogues with native speaker audio (Listening Comprehension)
+- AI-generated reading passages about fictional characters (Reading Comprehension)
+- Multiple-choice quiz questions with instant feedback
+- Vocabulary, phrases, and grammar notes
+
+**Communication Section** (`/communication`)
+- Image-based speaking prompts
+- Contextual communication practice
+
+**Pimsleur Lessons** (`/pimsleur`)
+- 30-minute audio lessons following the Pimsleur method
+- Spaced repetition (graduated interval recall)
+- Anticipation principle: prompt -> pause -> answer -> repeat
+- 30 units per level (3 levels planned)
+- Vocabulary organized by Pimsleur categories (survival_skills, meet_greet, directions, etc.)
+- Opening dialogues as teaching foundation for each unit
+- Sequential lesson unlocking (complete N-1 to access N)
+- Custom lesson generation from user-provided text
+
+### Personalization
+
+- **Target Language**: Icelandic or German
+- **CEFR Level**: A1 through C2 (content adapts to level)
+- **Audio Speed**: 0.5x to 2.0x playback
+- **Background Effects**: Real-world audio environments (train station, airport, etc.) for advanced listening practice
+
+## Tech Stack
+
+- **Language**: Python 3.13
+- **Bot Framework**: python-telegram-bot v20+
+- **LLM**: OpenRouter API (OpenAI-compatible)
+- **TTS**: VoiceMaker API (neural voices for Icelandic/German)
+- **Database**: PostgreSQL with SQLAlchemy ORM
+- **Migrations**: Alembic
 
 ## Requirements
 
-- Python 3.7+
-- python-telegram-bot library (version 20.0 or higher)
-- OpenAI Python library
-- pydub library for audio processing
+- Python 3.10+
 - PostgreSQL database
-- SQLAlchemy and Alembic for database operations
+- ffmpeg (for audio processing)
+
+## Environment Variables
+
+```bash
+# Required
+TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
+OPENROUTER_API_KEY="your_openrouter_api_key"
+OPENROUTER_MODEL="openai/gpt-4o-mini"  # or other model
+VOICEMAKER_API_KEY="your_voicemaker_api_key"
+DB_DSN="postgresql://user:password@host:port/database"
+
+# Optional
+TARGET_LANGUAGE="is"           # Default target language (is=Icelandic, de=German)
+TARGET_LANGUAGES="is,de"       # Languages to seed in database
+LOG_LEVEL="info"               # debug, info, warn, error
+```
 
 ## Setup
 
-1. Clone this repository:
-   ```
-   git clone <repository-url>
-   cd <repository-directory>
-   ```
-
-2. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-3. Create a Telegram bot and get your bot token:
-   - Talk to [BotFather](https://t.me/botfather) on Telegram
-   - Use the `/newbot` command to create a new bot
-   - Copy the token provided by BotFather
-
-4. Set the environment variables:
-   ```
-   # Linux/macOS
-   export TELEGRAM_BOT_TOKEN="your_bot_token_here"
-   export OPENAI_API_KEY="your_openai_api_key_here"
-   export DB_DSN="postgresql://username:password@hostname:port/database"
-
-   # Windows (Command Prompt)
-   set TELEGRAM_BOT_TOKEN=your_bot_token_here
-   set OPENAI_API_KEY=your_openai_api_key_here
-   set DB_DSN=postgresql://username:password@hostname:port/database
-
-   # Windows (PowerShell)
-   $env:TELEGRAM_BOT_TOKEN="your_bot_token_here"
-   $env:OPENAI_API_KEY="your_openai_api_key_here"
-   $env:DB_DSN="postgresql://username:password@hostname:port/database"
-   ```
-
-## Running the Bot
-
-### Database Setup
-Before running the bot, you need to set up the database:
-
-1. Make sure PostgreSQL is installed and running
-2. Create a database for the bot
-3. Set the `DB_DSN` environment variable to point to your database
-4. Run the database migrations:
-   ```
-   ./run_migrations.py upgrade
-   ```
-
-### Standard Method
-Run the bot with the following command:
+1. **Clone and install dependencies:**
+```bash
+git clone <repository-url>
+cd islenskuprof/isl
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
 ```
+
+2. **Set environment variables** (create `.env` file or export)
+
+3. **Run database migrations:**
+```bash
+python run_migrations.py
+```
+
+4. **Start the bot:**
+```bash
 python main.py
 ```
 
-The bot will start and listen for commands from users.
+## Docker
 
-### Using Docker
-You can also run the bot using Docker:
-
-1. Build the Docker image:
-   ```
-   docker build -t islenska-citizenship-bot .
-   ```
-
-2. Run the Docker container with your environment variables:
-   ```
-   docker run -e TELEGRAM_BOT_TOKEN="your_bot_token_here" -e OPENAI_API_KEY="your_openai_api_key_here" -e DB_DSN="postgresql://username:password@hostname:port/database" islenska-citizenship-bot
-   ```
-
-Note: The Docker image includes ffmpeg, which is required for audio processing.
+```bash
+docker build -t islenskuprof .
+docker run -e TELEGRAM_BOT_TOKEN="..." \
+           -e OPENROUTER_API_KEY="..." \
+           -e VOICEMAKER_API_KEY="..." \
+           -e DB_DSN="..." \
+           islenskuprof
+```
 
 ## Project Structure
 
-- `main.py`: Entry point for the application
-- `bot/`: Package containing the bot implementation
-  - `__init__.py`: Package initialization
-  - `telegram_bot.py`: Bot implementation with command handlers
-  - `openai_service.py`: Service for OpenAI interactions
-  - `handlers/`: Command handlers for the bot
-    - `basic_handlers.py`: Basic command handlers (start, etc.)
-    - `section_handlers.py`: Section-specific command handlers
-  - `utils/`: Utility functions and decorators
-    - `access_control.py`: Access control utilities
-    - `user_tracking.py`: User tracking utilities
-  - `db/`: Database module
-    - `__init__.py`: Package initialization
-    - `database.py`: Database connection and session management
-    - `models.py`: SQLAlchemy models for database tables
-    - `user_service.py`: User-related database operations
-    - `README.md`: Database module documentation
-- `data/`: Directory for generated audio files
-- `alembic/`: Database migration scripts
-- `alembic.ini`: Alembic configuration file
-- `run_migrations.py`: Script to run database migrations
+```
+isl/
+├── main.py                     # Entry point
+├── bot/
+│   ├── telegram_bot.py         # Bot setup and handler registration
+│   ├── openrouter_service.py   # LLM API wrapper
+│   ├── voicemaker_service.py   # TTS API wrapper
+│   ├── ai_service.py           # Abstract AI service base
+│   ├── handlers/
+│   │   ├── basic_handlers.py       # /start, unknown commands
+│   │   ├── section_handlers.py     # /understanding, /communication
+│   │   ├── settings_handlers.py    # /settings
+│   │   └── pimsleur_handlers.py    # /pimsleur
+│   ├── languages/
+│   │   ├── base.py             # Abstract LanguageConfig
+│   │   ├── icelandic.py        # Icelandic-specific prompts and data
+│   │   └── german.py           # German-specific prompts and data
+│   ├── pimsleur/               # Pimsleur method module
+│   │   ├── config.py           # Timing, voices, universal settings
+│   │   ├── generator.py        # Lesson script generation
+│   │   ├── audio_assembler.py  # Audio file assembly
+│   │   ├── vocabulary_manager.py
+│   │   ├── prompts.py          # LLM prompt templates
+│   │   └── languages/          # Vocabulary by language
+│   │       ├── icelandic/
+│   │       │   ├── level_01.py     # Level 1 aggregator
+│   │       │   ├── level_01_01.py  # Unit 1 vocabulary
+│   │       │   ├── level_01_02.py  # Unit 2 vocabulary
+│   │       │   └── ...
+│   │       └── german/         # German (stub)
+│   ├── db/
+│   │   ├── database.py         # SQLAlchemy session management
+│   │   ├── models.py           # ORM models
+│   │   ├── user_service.py     # User CRUD operations
+│   │   ├── pimsleur_service.py # Pimsleur lesson operations
+│   │   └── seeder.py           # Database seeding
+│   └── utils/
+│       ├── access_control.py   # Authorization decorators
+│       ├── user_tracking.py    # Activity tracking
+│       ├── translations.py     # UI translations
+│       └── commands.py         # Telegram command registration
+├── scripts/
+│   └── generate_pimsleur_lessons.py  # CLI for lesson pre-generation
+├── alembic/
+│   └── versions/               # Database migrations
+├── data/                       # Generated audio files
+└── requirements.txt
+```
 
-## Available Commands
+## Bot Commands
 
-- `/start`: Start interaction with the bot and show list of available commands
-- `/section_01`: Generate Icelandic language test content with audio dialogue
+| Command | Description |
+|---------|-------------|
+| `/start` | Welcome message and settings summary |
+| `/understanding` | Listening/Reading comprehension exercises |
+| `/communication` | Image-based communication practice |
+| `/pimsleur` | Pimsleur-style audio lessons |
+| `/settings` | Configure language, level, audio speed, effects |
+
+## Pimsleur Lesson Generation
+
+Pre-generate lessons using the CLI script:
+
+```bash
+# List available units with vocabulary data
+python scripts/generate_pimsleur_lessons.py --list
+
+# Generate a single unit (script only, for review)
+python scripts/generate_pimsleur_lessons.py --level 1 --unit 1 --script-only
+
+# Generate a unit with audio
+python scripts/generate_pimsleur_lessons.py --level 1 --unit 1
+
+# Generate a range of units
+python scripts/generate_pimsleur_lessons.py --level 1 --start 1 --end 10
+
+# Generate all available units (with vocabulary data)
+python scripts/generate_pimsleur_lessons.py --all
+
+# Dry run (see what would be generated)
+python scripts/generate_pimsleur_lessons.py --all --dry-run
+
+# Force overwrite existing files without confirmation
+python scripts/generate_pimsleur_lessons.py --level 1 --unit 1 --force
+```
+
+### CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `--lang` | Language code (default: `is` for Icelandic) |
+| `--level` | Pimsleur level: 1, 2, or 3 |
+| `--unit` | Single unit number (1-30) |
+| `--start`, `--end` | Range of units to generate |
+| `--all` | Generate all available units (with vocabulary data) |
+| `--list` | List available units with vocabulary |
+| `--script-only` | Generate JSON script only, skip audio |
+| `--force`, `-f` | Overwrite existing files without asking |
+| `--no-db` | Don't save to database |
+| `--dry-run` | Show what would be generated |
+| `--output` | Output directory (default: `data/pimsleur`) |
+
+## Database Schema
+
+Key tables:
+- `users` - Telegram user profiles
+- `user_settings` - Preferences (language, level, speed, effects)
+- `pimsleur_lessons` - Pre-generated Pimsleur lessons
+- `pimsleur_vocabulary` - Vocabulary tracking across lessons
+- `user_pimsleur_progress` - User progress through lessons
+- `pimsleur_custom_lessons` - User-generated custom lessons
+
+## Voice Configuration
+
+**Icelandic:**
+- Female: `ai3-is-IS-Svana`
+- Male: `ai3-is-IS-Ulfr`
+
+**German:**
+- Female: `pro1-Helena`
+- Male: `pro1-Thomas`
+
+**English (narrator for Pimsleur):**
+- `ai3-Jony`
+
+## License
+
+MIT

@@ -13,6 +13,7 @@ async def register_bot_commands(application: Application) -> None:
         BotCommand("start", "Start interaction with the bot"),
         BotCommand("understanding", "Understanding Section (Listening and Reading)"),
         BotCommand("communication", "Communication Section"),
+        BotCommand("pimsleur", "Pimsleur-style audio lessons"),
         BotCommand("settings", "Bot settings")
     ]
 
