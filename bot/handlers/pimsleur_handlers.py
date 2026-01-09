@@ -45,6 +45,13 @@ from bot.db.pimsleur_service import (
     retry_custom_lesson,
 )
 from bot.pimsleur.text_analyzer import TextAnalyzer
+from bot.pimsleur.vocabulary_manager import VocabularyProgressionManager
+from bot.pimsleur.lesson_formatter import (
+    format_header_message,
+    format_vocabulary_message,
+    format_grammar_message,
+    format_simple_vocabulary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -407,23 +414,22 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
         )
         return
 
-    # Send lesson info
-    duration_min = lesson.duration_seconds // 60
-    # Escape underscores in description for Markdown
-    description = (lesson.description or '').replace('_', ' ')
-    await query.edit_message_text(
-        f"*Level {level} Unit {lesson_num}*\n"
-        f"*{lesson.title}*\n\n"
-        f"Duration: {duration_min} minutes\n"
-        f"{description}\n\n"
-        "Sending audio...",
-        parse_mode=ParseMode.MARKDOWN,
-    )
+    # Try to get rich display data from vocabulary banks
+    numeric_level = int(level) if level.isdigit() else 1
+    vocab_manager = VocabularyProgressionManager(language_code=target_lang)
+    display_data = vocab_manager.get_lesson_display_data(numeric_level, lesson_num)
 
-    # Send audio file
     try:
+        # Update message to show loading
+        await query.edit_message_text(
+            f"*Level {level} Unit {lesson_num}*\n"
+            f"*{lesson.title}*\n\n"
+            "Sending audio...",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+        # 1. Send audio file FIRST
         if lesson.telegram_file_id:
-            # Use cached file_id for fast delivery
             message = await context.bot.send_audio(
                 chat_id=update.effective_chat.id,
                 audio=lesson.telegram_file_id,
@@ -431,7 +437,6 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
                 performer="Islenskuprof Pimsleur",
             )
         else:
-            # Upload from file path
             with open(lesson.audio_file_path, "rb") as audio_file:
                 message = await context.bot.send_audio(
                     chat_id=update.effective_chat.id,
@@ -439,27 +444,51 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
                     title=f"{level} L{lesson_num}: {lesson.title}",
                     performer="Islenskuprof Pimsleur",
                 )
-                # Cache the file_id
                 if message.audio and message.audio.file_id:
                     cache_telegram_file_id(lesson.id, message.audio.file_id)
 
-        # Send vocabulary summary
-        vocab = json.loads(lesson.vocabulary_json) if lesson.vocabulary_json else []
-        if vocab:
-            vocab_text = "*Vocabulary in this lesson:*\n"
-            for item in vocab[:15]:  # Limit to 15 items
-                word = item.get("word", item.get("word_target", ""))
-                translation = item.get("translation", item.get("word_native", ""))
-                if word and translation:
-                    vocab_text += f"- {word}: {translation}\n"
-
+        # 2. Send lesson info messages
+        if display_data:
+            # Rich format: Header + Dialogue
+            header_msg = format_header_message(
+                display_data, numeric_level, lesson_num, target_lang
+            )
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=vocab_text,
+                text=header_msg,
                 parse_mode=ParseMode.MARKDOWN,
             )
 
-        # Send completion button
+            # Vocabulary + Phrases
+            vocab_msg = format_vocabulary_message(display_data, target_lang)
+            if vocab_msg:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=vocab_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+
+            # Grammar + Meta
+            grammar_msg = format_grammar_message(display_data, lesson.duration_seconds)
+            if grammar_msg:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=grammar_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+        else:
+            # Fallback: simple format when no vocabulary bank exists
+            vocab = json.loads(lesson.vocabulary_json) if lesson.vocabulary_json else []
+            if vocab:
+                vocab_text = format_simple_vocabulary(vocab)
+                if vocab_text:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=vocab_text,
+                        parse_mode=ParseMode.MARKDOWN,
+                    )
+
+        # 3. Send completion button
         keyboard = [[InlineKeyboardButton(
             "Mark as Complete",
             callback_data=f"{PIMSLEUR_COMPLETE_PREFIX}{level}_{lesson_num}_{lesson.id}"
@@ -476,10 +505,10 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
         )
 
     except Exception as e:
-        logger.error(f"Error sending lesson audio: {e}", exc_info=True)
+        logger.error(f"Error sending lesson: {e}", exc_info=True)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Sorry, there was an error sending the lesson audio. Please try again later.",
+            text="Sorry, there was an error sending the lesson. Please try again later.",
         )
 
 

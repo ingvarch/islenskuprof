@@ -290,6 +290,66 @@ class VocabularyProgressionManager:
             for phrase in unit["phrases"]
         ]
 
+    def get_lesson_display_data(self, level: int, unit_number: int) -> dict:
+        """
+        Get all lesson data needed for display (header, dialogue, vocab, etc.).
+
+        Args:
+            level: Pimsleur level (1, 2, 3)
+            unit_number: Unit number (1-30)
+
+        Returns:
+            Dictionary with all display data, or None if unit doesn't exist
+        """
+        lang_module = self._get_language_module()
+        if not lang_module:
+            return None
+
+        unit = lang_module.get_unit(level, unit_number)
+        if not unit:
+            return None
+
+        # Get vocabulary with phonetic hints
+        vocabulary = []
+        if unit.get("vocabulary"):
+            for word in unit["vocabulary"]:
+                vocabulary.append({
+                    "word": word[0],
+                    "translation": word[1],
+                    "word_type": word[2] if len(word) > 2 else "",
+                    "phonetic": word[3] if len(word) > 3 else "",
+                })
+
+        # Get phrases
+        phrases = []
+        if unit.get("phrases"):
+            for phrase in unit["phrases"]:
+                phrases.append({
+                    "target": phrase[0],
+                    "translation": phrase[1],
+                    "context": phrase[2] if len(phrase) > 2 else "",
+                })
+
+        # Get opening dialogue
+        dialogue = []
+        if unit.get("opening_dialogue"):
+            for line in unit["opening_dialogue"]:
+                dialogue.append({
+                    "target": line[0],
+                    "translation": line[1],
+                })
+
+        return {
+            "title": unit.get("title", f"Level {level} Unit {unit_number}"),
+            "theme": unit.get("categories", ["general"])[0] if unit.get("categories") else "general",
+            "categories": unit.get("categories", []),
+            "opening_dialogue": dialogue,
+            "vocabulary": vocabulary,
+            "phrases": phrases,
+            "grammar_notes": unit.get("grammar_notes", []),
+            "review_from_units": self.get_review_unit_ids(unit_number),
+        }
+
     def validate_vocabulary_coverage(
         self,
         level: int,
