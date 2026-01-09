@@ -81,23 +81,18 @@ def ask_overwrite(filepath: Path, file_type: str) -> bool:
 
 def list_available_units(lang_code: str):
     """List all available units with vocabulary data."""
-    from bot.pimsleur.languages import SUPPORTED_LANGUAGES
+    from bot.pimsleur.vocabulary_banks import VocabularyBank
 
-    lang_info = SUPPORTED_LANGUAGES.get(lang_code.replace("is", "icelandic"))
-    if not lang_info:
-        logger.error(f"Unknown language: {lang_code}")
-        return
+    bank = VocabularyBank(lang_code)
 
-    logger.info(f"Available units for {lang_info['name']}:")
+    logger.info(f"Available units for {lang_code}:")
 
-    for level in lang_info.get("levels", []):
-        if lang_code == "is":
-            from bot.pimsleur.languages.icelandic import get_available_units, get_unit
-
-            available = get_available_units(level)
-            logger.info(f"\n  Level {level}: {len(available)} units with content")
-            for unit_num in available:
-                unit = get_unit(level, unit_num)
+    for level in [1, 2, 3]:
+        available = bank.get_available_units(level)
+        logger.info(f"\n  Level {level}: {len(available)} units with content")
+        for unit_num in available:
+            unit = bank.get_unit(level, unit_num)
+            if unit:
                 logger.info(f"    Unit {unit_num:02d}: {unit['title']}")
                 logger.info(f"             Vocabulary: {len(unit['vocabulary'])} words")
 
@@ -190,9 +185,10 @@ def generate_unit(
         # Get review vocabulary from previous units
         for prev_unit in unit_data.get("review_from_units", []):
             if lang_code == "is":
-                from bot.pimsleur.languages.icelandic import get_unit
+                from bot.pimsleur.vocabulary_banks import VocabularyBank
 
-                prev_data = get_unit(level, prev_unit)
+                bank = VocabularyBank(lang_code)
+                prev_data = bank.get_unit(level, prev_unit)
                 if prev_data and prev_data.get("vocabulary"):
                     for w in prev_data["vocabulary"][:3]:  # Take 3 words from each
                         vocab_review.append(
@@ -302,7 +298,7 @@ def save_unit_to_db(
     unit_num: int,
     script: dict,
     script_path: str,
-    audio_path: str = None,
+    audio_path: str | None = None,
 ):
     """Save generated unit to database."""
     from bot.db.database import db_session
@@ -450,10 +446,11 @@ def main():
     if args.all:
         # Generate only units with vocabulary data
         if args.lang == "is":
-            from bot.pimsleur.languages.icelandic import get_available_units
+            from bot.pimsleur.vocabulary_banks import VocabularyBank
 
+            bank = VocabularyBank(args.lang)
             for level in [1]:  # Currently only level 1
-                available = get_available_units(level)
+                available = bank.get_available_units(level)
                 for unit_num in available:
                     units_to_generate.append((level, unit_num))
     elif args.unit:
