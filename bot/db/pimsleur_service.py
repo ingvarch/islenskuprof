@@ -790,3 +790,41 @@ def get_custom_lesson_count(user_id: int, language_code: str) -> dict:
                 counts[lesson.status] += 1
 
         return counts
+
+
+def recover_orphaned_generating_lessons(timeout_minutes: int = 15) -> int:
+    """
+    Reset lessons stuck in 'generating' status to 'failed'.
+
+    This should be called on bot startup to recover lessons that were
+    interrupted by a restart during generation.
+
+    Args:
+        timeout_minutes: Consider lessons stuck if generating for longer than this
+
+    Returns:
+        Number of lessons recovered
+    """
+    with db_session() as session:
+        cutoff = datetime.utcnow() - timedelta(minutes=timeout_minutes)
+
+        stuck_lessons = (
+            session.query(PimsleurCustomLesson)
+            .filter(
+                PimsleurCustomLesson.status == "generating",
+                PimsleurCustomLesson.generation_started_at < cutoff,
+            )
+            .all()
+        )
+
+        recovered_count = 0
+        for lesson in stuck_lessons:
+            lesson.status = "failed"
+            lesson.error_message = "Generation interrupted by restart"
+            lesson.updated_at = datetime.utcnow()
+            recovered_count += 1
+            logger.info(
+                f"Recovered orphaned lesson {lesson.id} (user {lesson.user_id})"
+            )
+
+        return recovered_count

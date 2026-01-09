@@ -92,13 +92,29 @@ def main():
 
         clear_and_fill_persons_table()
         logger.info("Persons table cleared and filled with random data")
+
+        # Recover any lessons stuck in 'generating' status from previous restart
+        from bot.db.pimsleur_service import recover_orphaned_generating_lessons
+
+        recovered = recover_orphaned_generating_lessons()
+        if recovered:
+            logger.info(f"Recovered {recovered} orphaned generating lesson(s)")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         return
 
+    # Optional Redis for state persistence
+    redis_url = os.environ.get("REDIS_URL")
+    if redis_url:
+        logger.info("Redis persistence configured")
+    else:
+        logger.warning(
+            "REDIS_URL not set, using in-memory storage (state lost on restart)"
+        )
+
     # Create and start the bot
     logger.info("Creating bot instance")
-    bot = create_bot(token)
+    bot = create_bot(token, redis_url=redis_url)
 
     logger.info("Starting bot polling")
     bot.run_polling()

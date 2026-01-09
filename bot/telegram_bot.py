@@ -3,6 +3,7 @@ Telegram bot implementation module.
 """
 
 import logging
+from typing import Optional
 
 from telegram.ext import (
     Application,
@@ -25,19 +26,29 @@ from bot.handlers.pimsleur_handlers import (
 logger = logging.getLogger(__name__)
 
 
-def create_bot(token: str) -> Application:
+def create_bot(token: str, redis_url: Optional[str] = None) -> Application:
     """
     Create and configure the Telegram bot.
 
     Args:
         token: Telegram bot token from BotFather
+        redis_url: Optional Redis URL for state persistence
 
     Returns:
         Configured Application instance
     """
-    # Create the Application
+    # Create the Application with optional persistence
     logger.info("Creating Telegram bot application")
-    application = Application.builder().token(token).concurrent_updates(8).build()
+    builder = Application.builder().token(token).concurrent_updates(8)
+
+    if redis_url:
+        from bot.persistence import RedisPersistence
+
+        persistence = RedisPersistence(redis_url)
+        builder = builder.persistence(persistence)
+        logger.info("Redis persistence enabled")
+
+    application = builder.build()
 
     # Add command handlers
     logger.debug("Adding command handlers")
