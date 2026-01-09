@@ -11,6 +11,7 @@ Includes a multi-step wizard for custom lesson creation with:
 import asyncio
 import json
 import logging
+from datetime import date
 from enum import Enum
 from pathlib import Path
 
@@ -32,6 +33,7 @@ from bot.db.pimsleur_service import (
     cache_custom_lesson_file_id,
     get_user_custom_lessons,
     get_custom_lesson_by_id,
+    get_custom_lesson_count,
     update_custom_lesson_status,
     create_custom_lesson_with_settings,
     update_custom_lesson_generation_status,
@@ -139,9 +141,9 @@ def _format_progress_bar(percent: int, width: int = 10) -> str:
 
 
 def _format_vocabulary_preview(vocabulary: list[dict], limit: int = 15) -> str:
-    """Format vocabulary list for display."""
+    """Format vocabulary list for display in a code block."""
     if not vocabulary:
-        return "_No vocabulary extracted_"
+        return "```\nNo vocabulary extracted\n```"
 
     lines = []
     for item in vocabulary[:limit]:
@@ -151,9 +153,9 @@ def _format_vocabulary_preview(vocabulary: list[dict], limit: int = 15) -> str:
         lines.append(f"- {word} ({count}x){freq_marker}")
 
     if len(vocabulary) > limit:
-        lines.append(f"_...and {len(vocabulary) - limit} more_")
+        lines.append(f"...and {len(vocabulary) - limit} more")
 
-    return "\n".join(lines)
+    return "```\n" + "\n".join(lines) + "\n```"
 
 
 # Callback data prefixes - Standard lesson flow
@@ -813,25 +815,29 @@ async def handle_pimsleur_text_input(
     # Analyze text
     analyzer = TextAnalyzer(target_lang)
     analysis = analyzer.analyze(text)
-    suggested_title = analyzer.generate_title(text)
+
+    # Generate default title: #N - DD-MM-YYYY
+    lesson_counts = get_custom_lesson_count(db_user.id, target_lang)
+    next_number = lesson_counts.get("total", 0) + 1
+    today = date.today().strftime("%d-%m-%Y")
+    default_title = f"#{next_number} - {today}"
 
     # Update wizard state
     wizard = _get_wizard_data(context)
     wizard["state"] = WizardState.TEXT_ANALYSIS
     wizard["source_text"] = text
     wizard["analysis"] = analysis
-    wizard["title"] = suggested_title
+    wizard["title"] = default_title
 
     # Show analysis results (Step 2)
     stats_text = (
-        f"*Text Analysis*\n\n"
-        f"*Statistics:*\n"
-        f"- {analysis['word_count']} words total\n"
-        f"- {analysis['unique_words']} unique words\n"
-        f"- ~{analysis['estimated_lesson_words']} words for lesson\n"
-        f"- Detected level: {analysis['detected_difficulty']}\n\n"
-        f"*Suggested title:*\n"
-        f"_{suggested_title}_"
+        f"📊 *Text Analysis*\n\n"
+        f"📝 {analysis['word_count']} words total\n"
+        f"🔤 {analysis['unique_words']} unique words\n"
+        f"📚 ~{analysis['estimated_lesson_words']} words for lesson\n"
+        f"📈 Difficulty level: {analysis['detected_difficulty']}\n\n"
+        f"*Default title:*\n"
+        f"`{default_title}`"
     )
 
     keyboard = [
@@ -1180,7 +1186,7 @@ async def wizard_view_vocab_callback(
         f"*Vocabulary Preview*\n\n"
         f"Words to be included in the lesson:\n\n"
         f"{vocab_text}\n\n"
-        f"_* = appears frequently_",
+        f"_\\* = appears frequently_",
         reply_markup=InlineKeyboardMarkup(
             [
                 [InlineKeyboardButton("Back", callback_data=WIZARD_BACK)],
@@ -1209,15 +1215,15 @@ async def wizard_back_callback(
         wizard["state"] = WizardState.TEXT_ANALYSIS
         analysis = wizard.get("analysis", {})
 
+        current_title = wizard.get("title", "Untitled")
         stats_text = (
-            f"*Text Analysis*\n\n"
-            f"*Statistics:*\n"
-            f"- {analysis.get('word_count', 0)} words total\n"
-            f"- {analysis.get('unique_words', 0)} unique words\n"
-            f"- ~{analysis.get('estimated_lesson_words', 15)} words for lesson\n"
-            f"- Detected level: {analysis.get('detected_difficulty', '1')}\n\n"
-            f"*Suggested title:*\n"
-            f"_{wizard.get('title', 'Untitled')}_"
+            f"📊 *Text Analysis*\n\n"
+            f"📝 {analysis.get('word_count', 0)} words total\n"
+            f"🔤 {analysis.get('unique_words', 0)} unique words\n"
+            f"📚 ~{analysis.get('estimated_lesson_words', 15)} words for lesson\n"
+            f"📈 Difficulty level: {analysis.get('detected_difficulty', '1')}\n\n"
+            f"*Default title:*\n"
+            f"`{current_title}`"
         )
 
         keyboard = [

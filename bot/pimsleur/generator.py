@@ -203,7 +203,7 @@ class PimsleurLessonGenerator:
             response = self.ai_service.generate_with_custom_prompt(
                 system_message=system_prompt,
                 user_message=user_prompt,
-                max_tokens=12000,  # Full lesson needs more tokens
+                max_tokens=8000,  # Reduced for compatibility with free models
             )
 
             script = self._parse_script_response(response)
