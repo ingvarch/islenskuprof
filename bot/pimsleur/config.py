@@ -198,6 +198,10 @@ LESSON_STRUCTURE = {
 # Brand configuration (avoid trademark issues)
 COURSE_BRAND_NAME = "Spaced Audio Course"
 OPENING_TITLE_FORMAT = "This is Level {level}, Unit {unit} of your {language} {brand}."
+CUSTOM_OPENING_TITLE_FORMAT = (
+    "This is a personalized lesson. "
+    "Based on provided words, difficulty level: {difficulty}."
+)
 CLOSING_SUMMARY_FORMAT = "This is the end of Level {level}, Unit {unit}."
 
 # CEFR level mapping for each course level

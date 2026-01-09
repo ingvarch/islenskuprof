@@ -666,6 +666,7 @@ async def _generate_custom_lesson_background(
     language_code: str,
     source_text: str,
     title: str,
+    difficulty_level: str = "1",
 ) -> None:
     """
     Background task to generate a custom Pimsleur lesson.
@@ -677,6 +678,7 @@ async def _generate_custom_lesson_background(
         language_code: Language code
         source_text: User-provided text
         title: Lesson title
+        difficulty_level: Difficulty level (1, 2, or 3)
     """
     from bot.languages import get_language_config_by_code
     from bot.pimsleur.generator import PimsleurLessonGenerator
@@ -695,7 +697,7 @@ async def _generate_custom_lesson_background(
         logger.info(f"Generating script for custom lesson {lesson_id}")
         generator = PimsleurLessonGenerator(lang_config)
         script = await asyncio.to_thread(
-            generator.generate_custom_lesson_script, source_text
+            generator.generate_custom_lesson_script, source_text, difficulty_level
         )
 
         # Save script
@@ -1047,56 +1049,79 @@ async def pimsleur_custom_play_callback(
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse script_json for lesson {lesson_id}")
 
-    # Send display messages if available
-    if display_data:
-        # Message 1: Header with opening dialogue
-        header_msg = format_custom_lesson_header(display_data, lesson.language_code)
-        if header_msg:
-            await query.message.reply_text(header_msg, parse_mode=ParseMode.MARKDOWN)
+    chat_id = update.effective_chat.id
 
-        # Message 2: Vocabulary and phrases
-        vocab_msg = format_vocabulary_message(display_data, lesson.language_code)
-        if vocab_msg:
-            await query.message.reply_text(vocab_msg, parse_mode=ParseMode.MARKDOWN)
-
-        # Message 3: Grammar notes
-        grammar_msg = format_grammar_message(
-            display_data, lesson.duration_seconds or 900
-        )
-        if grammar_msg:
-            await query.message.reply_text(grammar_msg, parse_mode=ParseMode.MARKDOWN)
-
-    # Send audio
     try:
+        # Update message to show loading
+        await query.edit_message_text(
+            f"*{lesson.title}*\n\nSending audio...",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+        # 1. Send audio file FIRST (same as pre-built lessons)
         if lesson.telegram_file_id:
-            await query.message.reply_audio(
+            await context.bot.send_audio(
+                chat_id=chat_id,
                 audio=lesson.telegram_file_id,
                 title=lesson.title,
-                caption=f"*{lesson.title}*\nCustom Lesson",
-                parse_mode=ParseMode.MARKDOWN,
+                performer="Custom Lesson",
             )
         else:
             audio_path = Path(lesson.audio_file_path)
             if audio_path.exists():
                 with open(audio_path, "rb") as audio_file:
-                    message = await query.message.reply_audio(
+                    message = await context.bot.send_audio(
+                        chat_id=chat_id,
                         audio=audio_file,
                         title=lesson.title,
-                        caption=f"*{lesson.title}*\nCustom Lesson",
-                        parse_mode=ParseMode.MARKDOWN,
+                        performer="Custom Lesson",
                     )
                     # Cache file_id for future use
-                    if message.audio:
+                    if message.audio and message.audio.file_id:
                         cache_custom_lesson_file_id(lesson_id, message.audio.file_id)
             else:
                 logger.error(f"Audio file not found: {audio_path}")
-                await query.message.reply_text(
-                    "Audio file not found. Please try again later."
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text="Audio file not found. Please try again later.",
                 )
                 return
 
-        await query.edit_message_text(
-            f"*{lesson.title}*\n\nEnjoy your custom lesson!",
+        # 2. Send display messages if available
+        if display_data:
+            # Header with opening dialogue
+            header_msg = format_custom_lesson_header(display_data, lesson.language_code)
+            if header_msg:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=header_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+
+            # Vocabulary and phrases
+            vocab_msg = format_vocabulary_message(display_data, lesson.language_code)
+            if vocab_msg:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=vocab_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+
+            # Grammar notes
+            grammar_msg = format_grammar_message(
+                display_data, lesson.duration_seconds or 900
+            )
+            if grammar_msg:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=grammar_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+
+        # 3. Send completion button
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Enjoy your custom lesson!",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
@@ -1106,16 +1131,13 @@ async def pimsleur_custom_play_callback(
                     ]
                 ]
             ),
-            parse_mode=ParseMode.MARKDOWN,
         )
 
     except Exception as e:
         logger.error(f"Error sending custom lesson audio: {e}", exc_info=True)
-        await query.edit_message_text(
-            "Error loading lesson. Please try again later.",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)]]
-            ),
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Sorry, there was an error sending the lesson. Please try again later.",
         )
 
 
@@ -1485,6 +1507,7 @@ async def wizard_confirm_callback(
             language_code=target_lang,
             source_text=wizard.get("source_text", ""),
             title=wizard.get("title", "Custom Lesson"),
+            difficulty_level=difficulty,
             settings=settings,
             user_data=context.user_data,
         )
@@ -1500,6 +1523,7 @@ async def _generate_custom_lesson_with_progress(
     language_code: str,
     source_text: str,
     title: str,
+    difficulty_level: str,
     settings: dict,
     user_data: dict,
 ) -> None:
@@ -1542,7 +1566,7 @@ async def _generate_custom_lesson_with_progress(
         await update_progress("generating_script")
         generator = PimsleurLessonGenerator(lang_config)
         script = await asyncio.to_thread(
-            generator.generate_custom_lesson_script, source_text
+            generator.generate_custom_lesson_script, source_text, difficulty_level
         )
 
         await update_progress("vocabulary")

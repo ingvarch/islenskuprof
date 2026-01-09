@@ -14,9 +14,9 @@ LANGUAGE_FLAGS = {
 
 # CEFR level mapping
 LEVEL_TO_CEFR = {
-    1: "A1",
-    2: "A2",
-    3: "B1",
+    1: "A2",
+    2: "B2",
+    3: "C1",
 }
 
 

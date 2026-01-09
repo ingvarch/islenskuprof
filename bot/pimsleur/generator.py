@@ -8,6 +8,7 @@ from typing import Optional
 
 from bot.openrouter_service import OpenRouterService
 from bot.pimsleur.config import (
+    CUSTOM_OPENING_TITLE_FORMAT,
     PAUSE_LEARNING,
     PAUSE_REPETITION,
     PAUSE_THINKING,
@@ -142,7 +143,9 @@ class PimsleurLessonGenerator:
             logger.error(f"Error generating lesson script: {e}")
             raise
 
-    def generate_custom_lesson_script(self, source_text: str) -> dict:
+    def generate_custom_lesson_script(
+        self, source_text: str, difficulty_level: str = "1"
+    ) -> dict:
         """
         Generate a custom lesson script from user-provided text using two-step process.
 
@@ -151,6 +154,7 @@ class PimsleurLessonGenerator:
 
         Args:
             source_text: Text in target language provided by user
+            difficulty_level: User-selected or auto-detected difficulty (1, 2, or 3)
 
         Returns:
             Lesson script dictionary
@@ -211,6 +215,9 @@ class PimsleurLessonGenerator:
                     f"[Custom Lesson] Injected opening dialogue with "
                     f"{len(opening_dialogue)} lines"
                 )
+
+            # Replace opening_title with custom format for personalized lessons
+            self._replace_opening_title_for_custom(script, difficulty_level)
 
             # Add metadata for custom lessons
             script["is_custom"] = True
@@ -404,6 +411,34 @@ class PimsleurLessonGenerator:
                 break
 
         segments.insert(insert_pos, segment)
+
+    def _replace_opening_title_for_custom(
+        self,
+        script: dict,
+        difficulty_level: str,
+    ) -> None:
+        """
+        Replace the opening_title segment with a custom format for personalized lessons.
+
+        Instead of "Level X, Unit Y", custom lessons say:
+        "This is a personalized lesson. Based on provided words, difficulty level: X."
+
+        Args:
+            script: Script dictionary to modify
+            difficulty_level: Difficulty level (1, 2, or 3)
+        """
+        segments = script.get("segments", [])
+
+        # Find the opening_title segment
+        for segment in segments:
+            if segment.get("type") == "opening_title":
+                segment["text"] = CUSTOM_OPENING_TITLE_FORMAT.format(
+                    difficulty=difficulty_level
+                )
+                logger.info(
+                    f"[Custom Lesson] Replaced opening_title with difficulty {difficulty_level}"
+                )
+                break
 
     def _validate_and_enhance_script(
         self,
