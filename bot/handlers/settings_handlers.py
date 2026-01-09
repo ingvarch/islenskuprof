@@ -208,7 +208,12 @@ async def language_select_callback(
         f"LANGUAGE SELECT CALLBACK ENTERED for user {user.id} with data: {query.data}"
     )
 
-    language_id = int(query.data.replace(LANGUAGE_SELECT_PREFIX, ""))
+    try:
+        language_id = int(query.data.replace(LANGUAGE_SELECT_PREFIX, ""))
+    except ValueError:
+        logger.warning(f"Invalid language_id in callback data: {query.data}")
+        await query.answer("Invalid selection", show_alert=True)
+        return
     logger.info(f"Parsed language_id: {language_id}")
 
     # First answer the callback query
@@ -370,7 +375,12 @@ async def audio_speed_select_callback(
         f"AUDIO SPEED SELECT CALLBACK ENTERED for user {user.id} with data: {query.data}"
     )
 
-    audio_speed_id = int(query.data.replace(AUDIO_SPEED_SELECT_PREFIX, ""))
+    try:
+        audio_speed_id = int(query.data.replace(AUDIO_SPEED_SELECT_PREFIX, ""))
+    except ValueError:
+        logger.warning(f"Invalid audio_speed_id in callback data: {query.data}")
+        await query.answer("Invalid selection", show_alert=True)
+        return
     logger.info(f"Parsed audio_speed_id: {audio_speed_id}")
 
     # First answer the callback query
@@ -543,7 +553,12 @@ async def language_level_select_callback(
         f"LANGUAGE LEVEL SELECT CALLBACK ENTERED for user {user.id} with data: {query.data}"
     )
 
-    language_level_id = int(query.data.replace(LANGUAGE_LEVEL_SELECT_PREFIX, ""))
+    try:
+        language_level_id = int(query.data.replace(LANGUAGE_LEVEL_SELECT_PREFIX, ""))
+    except ValueError:
+        logger.warning(f"Invalid language_level_id in callback data: {query.data}")
+        await query.answer("Invalid selection", show_alert=True)
+        return
     logger.info(f"Parsed language_level_id: {language_level_id}")
 
     # First answer the callback query
@@ -701,7 +716,12 @@ async def target_language_select_callback(
         f"TARGET LANGUAGE SELECT CALLBACK ENTERED for user {user.id} with data: {query.data}"
     )
 
-    target_language_id = int(query.data.replace(TARGET_LANGUAGE_SELECT_PREFIX, ""))
+    try:
+        target_language_id = int(query.data.replace(TARGET_LANGUAGE_SELECT_PREFIX, ""))
+    except ValueError:
+        logger.warning(f"Invalid target_language_id in callback data: {query.data}")
+        await query.answer("Invalid selection", show_alert=True)
+        return
     logger.info(f"Parsed target_language_id: {target_language_id}")
 
     # First answer the callback query

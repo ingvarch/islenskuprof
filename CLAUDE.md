@@ -34,12 +34,19 @@ docker run -e TELEGRAM_BOT_TOKEN="..." -e DB_DSN="..." islenskuprof
 ## Quality Checks (run before committing)
 
 ```bash
-ruff check --fix .  # Lint and auto-fix issues
-ruff format .       # Format code
-ruff clean          # Remove cache files
+make check          # Run all checks: lint, format, tests
+make test           # Run tests only
+make fix            # Auto-fix lint issues and format
+make clean          # Remove cache files
 ```
 
-All code changes MUST pass `ruff check` and `ruff format` before committing.
+Or manually:
+```bash
+ruff check --fix .  # Lint and auto-fix issues
+ruff format .       # Format code
+```
+
+All code changes MUST pass `make check` before committing.
 
 Note: `ruff` is installed in `.venv`, so activate the virtual environment first or use `.venv/bin/ruff`.
 
@@ -155,3 +162,13 @@ Practical application:
 - Delete dead code immediately, don't comment it out
 - One function = one responsibility
 - If a function needs a comment to explain what it does, rename it or refactor it
+
+## Input Validation Requirements
+
+When implementing any function that accepts user input (text, files, etc.):
+
+1. **Validate at entry points only** - validate in public API methods, not in internal functions
+2. **Use existing validators** - for LLM prompts use `bot/pimsleur/input_validator.py`
+3. **Write tests** - every validation function must have unit tests in `tests/`
+4. **Contextual patterns** - detect malicious intent, not single words (e.g., block "ignore all previous instructions", not just "ignore")
+5. **No HTML escaping for LLM** - don't use `html.escape()` for text going to LLM prompts

@@ -177,6 +177,11 @@ WIZARD_USE_TITLE = "pimsleur_wiz_use_title"
 WIZARD_FOCUS_PREFIX = "pimsleur_wiz_focus_"
 WIZARD_VOICE_PREFIX = "pimsleur_wiz_voice_"
 WIZARD_DIFF_PREFIX = "pimsleur_wiz_diff_"
+
+# Valid values for wizard settings (for validation)
+VALID_FOCUS_VALUES = {"vocabulary", "pronunciation", "dialogue"}
+VALID_VOICE_VALUES = {"female", "male", "both"}
+VALID_DIFFICULTY_VALUES = {"1", "2", "3", "auto"}
 WIZARD_CONFIRM = "pimsleur_wiz_confirm"
 WIZARD_RETRY_PREFIX = "pimsleur_wiz_retry_"
 WIZARD_DELETE_PREFIX = "pimsleur_wiz_delete_"
@@ -1420,6 +1425,11 @@ async def wizard_focus_callback(
     query = update.callback_query
     focus = query.data.replace(WIZARD_FOCUS_PREFIX, "")
 
+    if focus not in VALID_FOCUS_VALUES:
+        logger.warning(f"Invalid focus value received: {focus}")
+        await query.answer("Invalid option", show_alert=True)
+        return
+
     wizard = _get_wizard_data(context)
     wizard["settings"]["focus"] = focus
     await query.answer(f"Focus: {focus.title()}")
@@ -1433,6 +1443,11 @@ async def wizard_voice_callback(
     query = update.callback_query
     voice = query.data.replace(WIZARD_VOICE_PREFIX, "")
 
+    if voice not in VALID_VOICE_VALUES:
+        logger.warning(f"Invalid voice value received: {voice}")
+        await query.answer("Invalid option", show_alert=True)
+        return
+
     wizard = _get_wizard_data(context)
     wizard["settings"]["voice"] = voice
     await query.answer(f"Voice: {voice.title()}")
@@ -1445,6 +1460,11 @@ async def wizard_difficulty_callback(
     """Update difficulty setting."""
     query = update.callback_query
     difficulty = query.data.replace(WIZARD_DIFF_PREFIX, "")
+
+    if difficulty not in VALID_DIFFICULTY_VALUES:
+        logger.warning(f"Invalid difficulty value received: {difficulty}")
+        await query.answer("Invalid option", show_alert=True)
+        return
 
     wizard = _get_wizard_data(context)
     wizard["settings"]["difficulty"] = difficulty
