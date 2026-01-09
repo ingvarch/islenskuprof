@@ -380,6 +380,15 @@ class TextAnalyzer:
         self.language_code = language_code
         self.stopwords = STOPWORDS_BY_LANGUAGE.get(language_code, set())
 
+        # Import validator here to avoid circular imports
+        from bot.pimsleur.input_validator import (
+            validate_user_input,
+            sanitize_user_input,
+        )
+
+        self.validate_input = validate_user_input
+        self.sanitize_input = sanitize_user_input
+
     def analyze(self, text: str) -> dict:
         """
         Analyze text and extract statistics and vocabulary.
@@ -399,6 +408,14 @@ class TextAnalyzer:
             - vocabulary_preview: List of vocabulary items with counts
             - detected_difficulty: Estimated CEFR level (A1/A2/B1)
         """
+        # Validate input first
+        is_valid, error_msg = self.validate_input(text)
+        if not is_valid:
+            raise ValueError(f"Invalid input: {error_msg}")
+
+        # Sanitize input
+        text = self.sanitize_input(text)
+
         # Normalize text
         text = self._normalize_text(text)
 

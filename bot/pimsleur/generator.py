@@ -159,6 +159,20 @@ class PimsleurLessonGenerator:
         Returns:
             Lesson script dictionary
         """
+        # Import validator here to avoid circular imports
+        from bot.pimsleur.input_validator import (
+            validate_user_input,
+            sanitize_user_input,
+        )
+
+        # Validate input first
+        is_valid, error_msg = validate_user_input(source_text)
+        if not is_valid:
+            raise ValueError(f"Invalid input: {error_msg}")
+
+        # Sanitize input
+        source_text = sanitize_user_input(source_text)
+
         logger.info(
             f"[Custom Lesson] Starting two-step generation from "
             f"{len(source_text)} chars of text"

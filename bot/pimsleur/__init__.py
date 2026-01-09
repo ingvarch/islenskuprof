@@ -38,6 +38,13 @@ from bot.pimsleur.error_handling import (  # noqa: E402
     LessonLockedError,
 )
 
+# Export input validator
+from bot.pimsleur.input_validator import (  # noqa: E402
+    validate_user_input,
+    sanitize_user_input,
+    InputValidator,
+)
+
 __all__ = [
     "get_lesson_generator",
     "get_audio_assembler",
@@ -45,4 +52,7 @@ __all__ = [
     "PimsleurError",
     "LessonNotFoundError",
     "LessonLockedError",
+    "validate_user_input",
+    "sanitize_user_input",
+    "InputValidator",
 ]
