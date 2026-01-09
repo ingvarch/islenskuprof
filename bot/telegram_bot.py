@@ -46,7 +46,6 @@ def create_bot(token: str, redis_url: Optional[str] = None) -> Application:
 
         persistence = RedisPersistence(redis_url)
         builder = builder.persistence(persistence)
-        logger.info("Redis persistence enabled")
 
     application = builder.build()
 

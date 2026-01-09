@@ -148,3 +148,24 @@ class RedisPersistence(BasePersistence):
         if self._redis:
             await self._redis.close()
             logger.info("Redis connection closed")
+
+
+async def check_redis_connection(redis_url: str) -> bool:
+    """
+    Check if Redis connection is working.
+
+    Args:
+        redis_url: Redis connection URL
+
+    Returns:
+        True if connection is successful, False otherwise
+    """
+    try:
+        redis = Redis.from_url(redis_url, decode_responses=True)
+        await redis.ping()
+        await redis.close()
+        logger.info("Redis connection: OK")
+        return True
+    except Exception as e:
+        logger.error(f"Redis connection: FAILED - {e}")
+        return False

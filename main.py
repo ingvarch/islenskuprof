@@ -3,11 +3,12 @@
 Main entry point for the Telegram bot application.
 """
 
+import asyncio
 import os
 import logging
 from pathlib import Path
 from bot.telegram_bot import create_bot
-from bot.db.database import init_db
+from bot.db.database import init_db, check_db_connection
 from bot.languages import get_language_config
 
 # Set up logging
@@ -78,9 +79,12 @@ def main():
 
     # Initialize the database
     try:
-        logger.info("Initializing database")
         init_db()
-        logger.info("Database initialized successfully")
+
+        # Check database connection
+        if not check_db_connection():
+            logger.error("Failed to connect to PostgreSQL, exiting")
+            return
 
         # Seed database with language-specific data if tables are empty
         from bot.db.seeder import seed_database_if_empty
@@ -106,7 +110,13 @@ def main():
     # Optional Redis for state persistence
     redis_url = os.environ.get("REDIS_URL")
     if redis_url:
-        logger.info("Redis persistence configured")
+        from bot.persistence import check_redis_connection
+
+        if asyncio.run(check_redis_connection(redis_url)):
+            logger.info("Redis persistence enabled")
+        else:
+            logger.warning("Redis connection failed, falling back to in-memory storage")
+            redis_url = None
     else:
         logger.warning(
             "REDIS_URL not set, using in-memory storage (state lost on restart)"

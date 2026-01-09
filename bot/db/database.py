@@ -5,7 +5,7 @@ Database connection module for the Telegram bot.
 import os
 import logging
 from contextlib import contextmanager
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 
@@ -95,3 +95,20 @@ def init_db():
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         raise
+
+
+def check_db_connection() -> bool:
+    """
+    Check if the database connection is working.
+
+    Returns:
+        True if connection is successful, False otherwise
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("PostgreSQL connection: OK")
+        return True
+    except Exception as e:
+        logger.error(f"PostgreSQL connection: FAILED - {e}")
+        return False
