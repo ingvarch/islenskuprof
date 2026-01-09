@@ -188,11 +188,63 @@ def get_completed_lessons(user_id: int, language_code: str) -> list[int]:
         return []
 
 
+def get_level_unlock_status(
+    user_id: int,
+    language_code: str,
+    level: str,
+) -> dict:
+    """
+    Get all unlock status info for a level in 2 queries instead of 32.
+
+    This is an optimized batch function that replaces the N+1 query pattern
+    of calling is_lesson_unlocked() for each unit in a loop.
+
+    Args:
+        user_id: Database user ID
+        language_code: Language code
+        level: Pimsleur level (1, 2, 3)
+
+    Returns:
+        Dictionary with:
+        - completed_set: set of completed lesson numbers
+        - generated_set: set of generated lesson numbers
+    """
+    with db_session(auto_commit=False) as session:
+        # Query 1: User progress
+        progress = session.query(UserPimsleurProgress).filter_by(
+            user_id=user_id,
+            language_code=language_code,
+        ).first()
+
+        # Query 2: Generated lessons for this level
+        db_level = f"L{level}" if not level.startswith("L") else level
+        generated = session.query(PimsleurLesson.lesson_number).filter_by(
+            language_code=language_code,
+            level=db_level,
+            is_generated=True,
+        ).all()
+        generated_set = {row[0] for row in generated}
+
+        # Parse completed lessons once
+        completed_set = set()
+        if progress and progress.completed_lessons:
+            try:
+                completed_set = set(json.loads(progress.completed_lessons))
+            except json.JSONDecodeError:
+                pass
+
+        return {
+            "completed_set": completed_set,
+            "generated_set": generated_set,
+        }
+
+
 def is_lesson_unlocked(
     user_id: int,
     language_code: str,
     level: str,
     lesson_number: int,
+    completed_set: set[int] | None = None,
 ) -> bool:
     """
     Check if a lesson is unlocked for a user.
@@ -207,6 +259,7 @@ def is_lesson_unlocked(
         language_code: Language code
         level: Pimsleur level (1, 2, 3)
         lesson_number: Lesson number
+        completed_set: Optional pre-fetched completed lessons set (avoids DB query)
 
     Returns:
         True if lesson is unlocked
@@ -215,19 +268,14 @@ def is_lesson_unlocked(
     if level == "1" and lesson_number == 1:
         return True
 
-    completed = get_completed_lessons(user_id, language_code)
-
-    # For lesson N, need lessons 1 to N-1 completed in same level
-    # We track lessons as "level_number" keys
-    level_completed = [
-        n for n in completed
-        if 1 <= n <= 30  # Same level lessons
-    ]
+    # Use pre-fetched set if provided, otherwise query DB
+    if completed_set is None:
+        completed_set = set(get_completed_lessons(user_id, language_code))
 
     if lesson_number > 1:
         # Check if previous lesson in this level is completed
         required = lesson_number - 1
-        if required not in level_completed:
+        if required not in completed_set:
             return False
 
     return True

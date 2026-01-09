@@ -130,13 +130,11 @@ def generate_unit(
     from bot.pimsleur.generator import PimsleurLessonGenerator
     from bot.pimsleur.audio_assembler import PimsleurAudioAssembler
 
-    # Get unit data from new vocabulary structure
-    if lang_code == "is":
-        from bot.pimsleur.languages.icelandic import get_unit
+    # Get unit data from vocabulary bank
+    from bot.pimsleur.vocabulary_banks import VocabularyBank
 
-        unit_data = get_unit(level, unit_num)
-    else:
-        unit_data = None
+    vocab_bank = VocabularyBank(lang_code)
+    unit_data = vocab_bank.get_unit(level, unit_num)
 
     if not unit_data or not unit_data.get("vocabulary"):
         logger.warning(f"No vocabulary data for Level {level} Unit {unit_num}")

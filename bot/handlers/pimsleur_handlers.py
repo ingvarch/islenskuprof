@@ -26,19 +26,15 @@ from bot.utils.user_tracking import track_user_activity
 from bot.db.user_service import get_user_by_telegram_id
 from bot.db.pimsleur_service import (
     get_lesson,
-    get_lessons_for_level,
-    get_or_create_user_progress,
-    get_completed_lessons,
+    get_level_unlock_status,
     is_lesson_unlocked,
     mark_lesson_completed,
     get_progress_summary,
     cache_telegram_file_id,
     cache_custom_lesson_file_id,
-    create_custom_lesson_request,
     get_user_custom_lessons,
     get_custom_lesson_by_id,
     update_custom_lesson_status,
-    # New wizard functions
     create_custom_lesson_with_settings,
     update_custom_lesson_generation_status,
     delete_custom_lesson,
@@ -303,24 +299,19 @@ async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_
     db_user = get_user_by_telegram_id(user.id)
     target_lang = _get_target_language(db_user)
 
-    # Get completed lessons
-    completed = get_completed_lessons(db_user.id, target_lang)
-
-    # All 30 units available for each level
-    available_unit_nums = range(1, 31)
-
-    # Get generated lessons from database (convert level to DB format)
-    db_level = _level_to_db_format(level)
-    available_lessons = get_lessons_for_level(target_lang, db_level, generated_only=True)
-    generated_nums = {l.lesson_number for l in available_lessons}
+    # OPTIMIZED: Get all status info in 2 queries instead of 32
+    status = get_level_unlock_status(db_user.id, target_lang, level)
+    completed = status["completed_set"]
+    generated_nums = status["generated_set"]
 
     # Build lesson grid dynamically (5 buttons per row)
     keyboard = []
     row_buttons = []
-    for unit_num in available_unit_nums:
+    for unit_num in range(1, 31):
         is_completed = unit_num in completed
         is_generated = unit_num in generated_nums
-        is_unlocked = is_lesson_unlocked(db_user.id, target_lang, level, unit_num)
+        # Calculate unlock status in memory (no DB query)
+        is_unlocked = unit_num == 1 or (unit_num - 1) in completed
 
         if is_completed:
             emoji = "\u2713"  # Checkmark for completed
@@ -352,7 +343,7 @@ async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_
     keyboard.append([InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU)])
 
     level_names = {"1": "Beginner", "2": "Elementary", "3": "Intermediate"}
-    units_text = f"{len(available_unit_nums)} units available" if available_unit_nums else "No units yet"
+    units_text = f"{len(generated_nums)} units available" if generated_nums else "No units yet"
     try:
         await query.edit_message_text(
             f"*Level {level} - {level_names.get(level, '')}*\n\n"
