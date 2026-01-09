@@ -21,7 +21,7 @@ from bot.pimsleur.config import (
 )
 from bot.pimsleur.prompts import (
     get_lesson_generation_prompt,
-    get_custom_lesson_prompt,
+    get_custom_vocabulary_prompt,
 )
 from bot.pimsleur.vocabulary_manager import VocabularyProgressionManager
 
@@ -128,6 +128,7 @@ class PimsleurLessonGenerator:
                 level=numeric_level,
                 lesson_number=lesson_number,
                 vocab=vocab,
+                opening_dialogue=opening_dialogue,
             )
 
             logger.info(
@@ -143,7 +144,10 @@ class PimsleurLessonGenerator:
 
     def generate_custom_lesson_script(self, source_text: str) -> dict:
         """
-        Generate a custom lesson script from user-provided text.
+        Generate a custom lesson script from user-provided text using two-step process.
+
+        Step 1: Creative agent generates vocabulary structure (dialogue, words, phrases)
+        Step 2: Structural agent generates full Pimsleur lesson
 
         Args:
             source_text: Text in target language provided by user
@@ -151,9 +155,103 @@ class PimsleurLessonGenerator:
         Returns:
             Lesson script dictionary
         """
-        logger.info(f"Generating custom lesson from {len(source_text)} chars of text")
+        logger.info(
+            f"[Custom Lesson] Starting two-step generation from "
+            f"{len(source_text)} chars of text"
+        )
 
-        system_prompt, user_prompt = get_custom_lesson_prompt(
+        # Step 1: Generate vocabulary structure
+        vocab_data = self._generate_custom_vocabulary(source_text)
+
+        # Step 2: Generate full lesson using the vocabulary structure
+        logger.info(
+            f"[Custom Lesson] Step 2: Generating full lesson script "
+            f"(title: {vocab_data.get('title', 'Custom Lesson')})"
+        )
+
+        # Prepare vocabulary in the format expected by lesson generator
+        new_vocabulary = vocab_data.get("vocabulary", [])
+        opening_dialogue = vocab_data.get("opening_dialogue", [])
+        grammar_notes = vocab_data.get("grammar_notes", [])
+        phrases = vocab_data.get("phrases", [])
+
+        logger.info(
+            f"[Custom Lesson] Vocabulary structure: {len(new_vocabulary)} words, "
+            f"{len(opening_dialogue)} dialogue lines, {len(phrases)} phrases"
+        )
+
+        # Use the standard lesson generation prompt with custom vocabulary
+        system_prompt, user_prompt = get_lesson_generation_prompt(
+            target_language=self._language_name,
+            lang_code=self._lang_code,
+            cefr_level="A1",  # Default level for custom lessons
+            lesson_number=0,  # Custom lesson
+            lesson_title=vocab_data.get("title", "Custom Lesson"),
+            theme=vocab_data.get("theme", "custom"),
+            new_vocabulary=new_vocabulary,
+            review_vocabulary=[],  # No review for custom lessons
+            opening_dialogue=opening_dialogue,
+            grammar_notes=grammar_notes,
+            phrases=phrases,
+        )
+
+        try:
+            response = self.ai_service.generate_with_custom_prompt(
+                system_message=system_prompt,
+                user_message=user_prompt,
+                max_tokens=12000,  # Full lesson needs more tokens
+            )
+
+            script = self._parse_script_response(response)
+
+            # Inject opening dialogue from Step 1 (with translations)
+            if opening_dialogue:
+                self._inject_opening_dialogue_segment(script, opening_dialogue)
+                logger.info(
+                    f"[Custom Lesson] Injected opening dialogue with "
+                    f"{len(opening_dialogue)} lines"
+                )
+
+            # Add metadata for custom lessons
+            script["is_custom"] = True
+            script["source_text_length"] = len(source_text)
+            script["custom_vocabulary"] = vocab_data
+
+            # Calculate duration
+            script["calculated_duration"] = self._estimate_duration(script)
+
+            logger.info(
+                f"[Custom Lesson] Complete! {len(script.get('segments', []))} segments, "
+                f"~{script['calculated_duration']}s duration"
+            )
+
+            return script
+
+        except Exception as e:
+            logger.error(f"[Custom Lesson] Step 2 failed: {e}")
+            raise
+
+    def _generate_custom_vocabulary(self, source_text: str) -> dict:
+        """
+        Step 1: Generate vocabulary structure from user input.
+
+        Uses creative agent to:
+        - Analyze input and identify key vocabulary
+        - Create a realistic scenario connecting the words
+        - Generate an opening dialogue using the vocabulary
+        - Extract grammar notes and useful phrases
+
+        Args:
+            source_text: User-provided words or text
+
+        Returns:
+            Vocabulary structure dict with dialogue, vocabulary, phrases, grammar_notes
+        """
+        logger.info(
+            "[Custom Lesson] Step 1: Generating vocabulary structure from input"
+        )
+
+        system_prompt, user_prompt = get_custom_vocabulary_prompt(
             target_language=self._language_name,
             lang_code=self._lang_code,
             source_text=source_text,
@@ -163,19 +261,24 @@ class PimsleurLessonGenerator:
             response = self.ai_service.generate_with_custom_prompt(
                 system_message=system_prompt,
                 user_message=user_prompt,
-                max_tokens=6000,
+                max_tokens=4000,
             )
 
-            script = self._parse_script_response(response)
+            vocab_data = self._parse_script_response(response)
 
-            # Add metadata for custom lessons
-            script["is_custom"] = True
-            script["source_text_length"] = len(source_text)
+            # Log the generated structure
+            logger.info(
+                f"[Custom Lesson] Step 1 complete: "
+                f"title='{vocab_data.get('title', 'Unknown')}', "
+                f"theme='{vocab_data.get('theme', 'unknown')}', "
+                f"vocabulary={len(vocab_data.get('vocabulary', []))} words, "
+                f"dialogue={len(vocab_data.get('opening_dialogue', []))} lines"
+            )
 
-            return script
+            return vocab_data
 
         except Exception as e:
-            logger.error(f"Error generating custom lesson: {e}")
+            logger.error(f"[Custom Lesson] Step 1 failed: {e}")
             raise
 
     def _parse_script_response(self, response: str) -> dict:
@@ -205,12 +308,63 @@ class PimsleurLessonGenerator:
             logger.debug(f"Response was: {cleaned[:500]}...")
             raise ValueError(f"Invalid JSON in LLM response: {e}")
 
+    def _inject_opening_dialogue_segment(
+        self,
+        script: dict,
+        opening_dialogue: list[dict],
+    ) -> None:
+        """
+        Inject opening_dialogue segment from vocabulary bank data.
+
+        This ensures the segment matches the authoritative vocabulary bank
+        and includes translations for display purposes.
+
+        Args:
+            script: Script dictionary to modify
+            opening_dialogue: List of dialogue lines with target/translation keys
+        """
+        if not opening_dialogue:
+            return
+
+        # Build lines with speaker alternation
+        lines = []
+        for i, line in enumerate(opening_dialogue):
+            speaker = "native_female" if i % 2 == 0 else "native_male"
+            lines.append(
+                {
+                    "speaker": speaker,
+                    "text": line.get("target", ""),
+                    "translation": line.get("translation", ""),
+                }
+            )
+
+        # Create segment
+        segment = {
+            "type": "opening_dialogue",
+            "lines": lines,
+            "duration_estimate": len(lines) * 3,  # ~3s per line
+        }
+
+        # Find and remove any existing opening_dialogue segment
+        segments = script.get("segments", [])
+        segments[:] = [s for s in segments if s.get("type") != "opening_dialogue"]
+
+        # Find position after opening_instruction
+        insert_pos = 2  # Default after title + instruction
+        for i, seg in enumerate(segments):
+            if seg.get("type") == "opening_instruction":
+                insert_pos = i + 1
+                break
+
+        segments.insert(insert_pos, segment)
+
     def _validate_and_enhance_script(
         self,
         script: dict,
         level: int,
         lesson_number: int,
         vocab: dict,
+        opening_dialogue: list[dict] = None,
     ) -> dict:
         """
         Validate and enhance the generated script.
@@ -220,6 +374,7 @@ class PimsleurLessonGenerator:
             level: Pimsleur level (1, 2, 3)
             lesson_number: Unit number
             vocab: Vocabulary data
+            opening_dialogue: Opening dialogue from vocabulary bank
 
         Returns:
             Enhanced script dictionary
@@ -229,6 +384,10 @@ class PimsleurLessonGenerator:
         script.setdefault("level", level)
         script.setdefault("segments", [])
         script.setdefault("vocabulary_summary", [])
+
+        # Inject opening dialogue from vocabulary bank (replaces LLM-generated)
+        if opening_dialogue:
+            self._inject_opening_dialogue_segment(script, opening_dialogue)
 
         # Add review unit references
         review_units = self.vocab_manager.get_review_unit_ids(lesson_number)

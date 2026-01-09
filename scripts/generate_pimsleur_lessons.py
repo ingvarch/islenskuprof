@@ -221,7 +221,7 @@ def generate_unit(
         if unit_data:
             script["pimsleur_level"] = level
             script["pimsleur_unit"] = unit_num
-            script["opening_dialogue"] = unit_data.get("opening_dialogue", [])
+            # opening_dialogue is now in segments (with translations)
             script["grammar_notes"] = unit_data.get("grammar_notes", [])
             script["phrases"] = unit_data.get("phrases", [])
 
