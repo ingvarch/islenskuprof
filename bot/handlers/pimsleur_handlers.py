@@ -45,6 +45,7 @@ from bot.pimsleur.lesson_formatter import (
     format_vocabulary_message,
     format_grammar_message,
     format_simple_vocabulary,
+    format_custom_lesson_header,
 )
 
 logger = logging.getLogger(__name__)
@@ -1002,7 +1003,7 @@ async def pimsleur_custom_list_callback(
 async def pimsleur_custom_play_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Play a custom lesson."""
+    """Play a custom lesson with full display data."""
     query = update.callback_query
     await query.answer("Loading custom lesson...")
 
@@ -1037,13 +1038,41 @@ async def pimsleur_custom_play_callback(
         )
         return
 
+    # Extract display data from script
+    display_data = None
+    if lesson.script_json:
+        try:
+            script = json.loads(lesson.script_json)
+            display_data = script.get("display_data")
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse script_json for lesson {lesson_id}")
+
+    # Send display messages if available
+    if display_data:
+        # Message 1: Header with opening dialogue
+        header_msg = format_custom_lesson_header(display_data, lesson.language_code)
+        if header_msg:
+            await query.message.reply_text(header_msg, parse_mode=ParseMode.MARKDOWN)
+
+        # Message 2: Vocabulary and phrases
+        vocab_msg = format_vocabulary_message(display_data, lesson.language_code)
+        if vocab_msg:
+            await query.message.reply_text(vocab_msg, parse_mode=ParseMode.MARKDOWN)
+
+        # Message 3: Grammar notes
+        grammar_msg = format_grammar_message(
+            display_data, lesson.duration_seconds or 900
+        )
+        if grammar_msg:
+            await query.message.reply_text(grammar_msg, parse_mode=ParseMode.MARKDOWN)
+
     # Send audio
     try:
         if lesson.telegram_file_id:
             await query.message.reply_audio(
                 audio=lesson.telegram_file_id,
                 title=lesson.title,
-                caption=f"*{lesson.title}*\nCustom Pimsleur Lesson",
+                caption=f"*{lesson.title}*\nCustom Lesson",
                 parse_mode=ParseMode.MARKDOWN,
             )
         else:
@@ -1053,7 +1082,7 @@ async def pimsleur_custom_play_callback(
                     message = await query.message.reply_audio(
                         audio=audio_file,
                         title=lesson.title,
-                        caption=f"*{lesson.title}*\nCustom Pimsleur Lesson",
+                        caption=f"*{lesson.title}*\nCustom Lesson",
                         parse_mode=ParseMode.MARKDOWN,
                     )
                     # Cache file_id for future use

@@ -217,6 +217,9 @@ class PimsleurLessonGenerator:
             script["source_text_length"] = len(source_text)
             script["custom_vocabulary"] = vocab_data
 
+            # Create display data in the format expected by lesson_formatter
+            script["display_data"] = self._create_display_data_from_vocab(vocab_data)
+
             # Calculate duration
             script["calculated_duration"] = self._estimate_duration(script)
 
@@ -280,6 +283,50 @@ class PimsleurLessonGenerator:
         except Exception as e:
             logger.error(f"[Custom Lesson] Step 1 failed: {e}")
             raise
+
+    def _create_display_data_from_vocab(self, vocab_data: dict) -> dict:
+        """
+        Transform vocabulary data from Step 1 into display format.
+
+        Converts the creative agent output into the format expected
+        by lesson_formatter.py for Telegram message display.
+
+        Args:
+            vocab_data: Vocabulary structure from _generate_custom_vocabulary
+
+        Returns:
+            Display data dict compatible with format_header_message,
+            format_vocabulary_message, and format_grammar_message
+        """
+        # Transform vocabulary: word_target -> word, word_native -> translation
+        vocabulary = []
+        for item in vocab_data.get("vocabulary", []):
+            vocabulary.append(
+                {
+                    "word": item.get("word_target", ""),
+                    "translation": item.get("word_native", ""),
+                    "word_type": item.get("word_type", "word"),
+                    "phonetic": item.get("phonetic", ""),
+                }
+            )
+
+        # Phrases are already in correct format (target, translation)
+        phrases = vocab_data.get("phrases", [])
+
+        # Opening dialogue is already in correct format (target, translation)
+        opening_dialogue = vocab_data.get("opening_dialogue", [])
+
+        # Grammar notes are already strings
+        grammar_notes = vocab_data.get("grammar_notes", [])
+
+        return {
+            "title": vocab_data.get("title", "Custom Lesson"),
+            "theme": vocab_data.get("theme", "custom"),
+            "opening_dialogue": opening_dialogue,
+            "vocabulary": vocabulary,
+            "phrases": phrases,
+            "grammar_notes": grammar_notes,
+        }
 
     def _parse_script_response(self, response: str) -> dict:
         """

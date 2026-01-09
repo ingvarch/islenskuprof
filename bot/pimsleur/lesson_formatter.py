@@ -79,6 +79,40 @@ def format_header_message(
     return "\n".join(lines).strip()
 
 
+def format_custom_lesson_header(data: dict, lang_code: str = "is") -> str:
+    """
+    Format header and dialogue message for custom lessons.
+
+    Similar to format_header_message but without level/unit info.
+
+    Args:
+        data: Display data from custom lesson script
+        lang_code: Language code for flags
+
+    Returns:
+        Formatted message string
+    """
+    target_flag, english_flag = get_language_flags(lang_code)
+
+    lines = [
+        f"*{data.get('title', 'Custom Lesson')}*",
+        f"Theme: {_format_theme(data.get('theme', 'custom'))}",
+        "",
+    ]
+
+    # Opening dialogue
+    if data.get("opening_dialogue"):
+        lines.append("*OPENING DIALOGUE:*")
+        lines.append("")
+
+        for line in data["opening_dialogue"]:
+            lines.append(f"{target_flag} {line.get('target', '')}")
+            lines.append(f"{english_flag} {line.get('translation', '')}")
+            lines.append("")
+
+    return "\n".join(lines).strip()
+
+
 def format_vocabulary_message(data: dict, lang_code: str = "is") -> str:
     """
     Format vocabulary and phrases message (Message 2).
