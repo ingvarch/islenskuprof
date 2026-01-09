@@ -1,6 +1,7 @@
 """
 German language configuration.
 """
+
 import re
 from typing import Dict, List, Tuple, Pattern
 
@@ -34,8 +35,8 @@ class GermanConfig(LanguageConfig):
     @property
     def dialogue_regex_pattern(self) -> Pattern:
         return re.compile(
-            r'(Frau|Mann|FRAU|MANN):\s*(.*?)(?=\n(?:Frau|Mann|FRAU|MANN):|$)',
-            re.DOTALL | re.MULTILINE
+            r"(Frau|Mann|FRAU|MANN):\s*(.*?)(?=\n(?:Frau|Mann|FRAU|MANN):|$)",
+            re.DOTALL | re.MULTILINE,
         )
 
     @property
@@ -159,26 +160,67 @@ class GermanConfig(LanguageConfig):
 
         # Explicit female names (don't follow typical endings)
         female_names = {
-            'karin', 'birgit', 'ingrid', 'astrid', 'sigrid', 'gudrun',
-            'irmgard', 'hildegard', 'gertrud', 'waltraud', 'elfriede',
-            'lieselotte', 'hannelore', 'anneliese', 'margot', 'edith',
-            'ruth', 'elisabeth', 'doris', 'iris', 'agnes', 'ines',
+            "karin",
+            "birgit",
+            "ingrid",
+            "astrid",
+            "sigrid",
+            "gudrun",
+            "irmgard",
+            "hildegard",
+            "gertrud",
+            "waltraud",
+            "elfriede",
+            "lieselotte",
+            "hannelore",
+            "anneliese",
+            "margot",
+            "edith",
+            "ruth",
+            "elisabeth",
+            "doris",
+            "iris",
+            "agnes",
+            "ines",
         }
         if name_lower in female_names:
             return "female"
 
         # Explicit male names (might match female endings)
         male_names = {
-            'andre', 'arne', 'ole', 'janne', 'malte', 'sonne',
-            'andreas', 'tobias', 'matthias', 'elias', 'jonas', 'niklas', 'lukas',
-            'uwe', 'jens', 'hans', 'klaus', 'peter', 'thomas', 'michael',
-            'stefan', 'markus', 'jorg', 'frank', 'ralf', 'bernd', 'dieter',
+            "andre",
+            "arne",
+            "ole",
+            "janne",
+            "malte",
+            "sonne",
+            "andreas",
+            "tobias",
+            "matthias",
+            "elias",
+            "jonas",
+            "niklas",
+            "lukas",
+            "uwe",
+            "jens",
+            "hans",
+            "klaus",
+            "peter",
+            "thomas",
+            "michael",
+            "stefan",
+            "markus",
+            "jorg",
+            "frank",
+            "ralf",
+            "bernd",
+            "dieter",
         }
         if name_lower in male_names:
             return "male"
 
         # Heuristic: common female endings
-        female_endings = ('a', 'e', 'i', 'ie', 'in')
+        female_endings = ("a", "e", "i", "ie", "in")
         return "female" if name_lower.endswith(female_endings) else "male"
 
     def get_fallback_dialogue(self) -> List[Tuple[str, str]]:
@@ -187,7 +229,9 @@ class GermanConfig(LanguageConfig):
             ("Mann", "Guten Tag. Ich mochte einen Termin vereinbaren."),
         ]
 
-    def get_dialogue_prompt(self, topic: str, user_language: str, user_language_level: str) -> str:
+    def get_dialogue_prompt(
+        self, topic: str, user_language: str, user_language_level: str
+    ) -> str:
         female_label = self.speakers["female"].label
         male_label = self.speakers["male"].label
         markers = self.markers
@@ -198,14 +242,14 @@ Create a German dialogue for {user_language_level} level learners.
 Topic: {topic}
 
 === CRITICAL {user_language_level} LEVEL REQUIREMENTS ===
-- Vocabulary: ONLY use the {constraints['vocabulary_limit']} most common German words
-- Sentence length: {constraints['sentence_length']}
-- Grammar: {constraints['grammar']}
-- Structures: {constraints['structures']}
-- Connectors: {constraints['connectors']}
-- FORBIDDEN: {constraints['forbidden']}
+- Vocabulary: ONLY use the {constraints["vocabulary_limit"]} most common German words
+- Sentence length: {constraints["sentence_length"]}
+- Grammar: {constraints["grammar"]}
+- Structures: {constraints["structures"]}
+- Connectors: {constraints["connectors"]}
+- FORBIDDEN: {constraints["forbidden"]}
 
-Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
+Example of appropriate {user_language_level} complexity: {constraints["example_complexity"]}
 
 === CONTENT REQUIREMENTS ===
 * Create a realistic CONVERSATION between TWO people: "{female_label}" (woman) and "{male_label}" (man)
@@ -315,7 +359,9 @@ Before submitting, verify you have included ALL these sections:
 6. GRAMMAR NOTES section (REQUIRED - do not skip!)
 """
 
-    def get_reading_prompt(self, person_data: dict, user_language: str, user_language_level: str) -> str:
+    def get_reading_prompt(
+        self, person_data: dict, user_language: str, user_language_level: str
+    ) -> str:
         markers = self.markers
         constraints = self.get_cefr_constraints(user_language_level)
 
@@ -323,14 +369,14 @@ Before submitting, verify you have included ALL these sections:
 Write a German reading passage (20-25 sentences) for {user_language_level} level learners.
 
 === CRITICAL {user_language_level} LEVEL REQUIREMENTS ===
-- Vocabulary: ONLY use the {constraints['vocabulary_limit']} most common German words
-- Sentence length: {constraints['sentence_length']}
-- Grammar: {constraints['grammar']}
-- Structures: {constraints['structures']}
-- Connectors: {constraints['connectors']}
-- FORBIDDEN: {constraints['forbidden']}
+- Vocabulary: ONLY use the {constraints["vocabulary_limit"]} most common German words
+- Sentence length: {constraints["sentence_length"]}
+- Grammar: {constraints["grammar"]}
+- Structures: {constraints["structures"]}
+- Connectors: {constraints["connectors"]}
+- FORBIDDEN: {constraints["forbidden"]}
 
-Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
+Example of appropriate {user_language_level} complexity: {constraints["example_complexity"]}
 
 === STORY INFORMATION ===
 - Name: {person_data["name"]}

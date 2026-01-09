@@ -2,9 +2,7 @@ import logging
 from telegram import Update
 from telegram.constants import ParseMode
 
-from telegram.ext import (
-    ContextTypes
-)
+from telegram.ext import ContextTypes
 from bot.utils.access_control import restricted
 from bot.utils.user_tracking import track_user_activity
 from bot.utils.message_cleaner import delete_user_command_message
@@ -13,6 +11,7 @@ from bot.utils.translations import get_translation
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
+
 
 @track_user_activity
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -29,7 +28,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     voice_speed = "Normal"
 
     # Get actual settings if available
-    if db_user and hasattr(db_user, 'settings') and db_user.settings:
+    if db_user and hasattr(db_user, "settings") and db_user.settings:
         if db_user.settings.language:
             language = db_user.settings.language.language
         if db_user.settings.language_level:
@@ -61,6 +60,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # Delete the user's command message
     await delete_user_command_message(update, context)
 
+
 @restricted
 @track_user_activity
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -72,12 +72,16 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # Get user's language preference
     db_user = get_user_by_telegram_id(user.id)
     language = "English"  # Default to English if no language preference is set
-    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+    if (
+        db_user
+        and hasattr(db_user, "settings")
+        and db_user.settings
+        and db_user.settings.language
+    ):
         language = db_user.settings.language.language
 
     await update.message.reply_text(
-        get_translation('unknown_command', language),
-        parse_mode=ParseMode.MARKDOWN
+        get_translation("unknown_command", language), parse_mode=ParseMode.MARKDOWN
     )
 
     # Delete the user's command message

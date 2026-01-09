@@ -13,11 +13,17 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Viltu koma með mér á tónleika á laugardagskvöld?", "Would you like to come with me to a concert on Saturday evening?"),
+    (
+        "Viltu koma með mér á tónleika á laugardagskvöld?",
+        "Would you like to come with me to a concert on Saturday evening?",
+    ),
     ("Já, mjög gjarnan! Hvaða hljómsveit?", "Yes, very gladly! Which band?"),
     ("Kaleo spila í Hörpu.", "Kaleo is playing at Harpa."),
     ("Frábært! Hvenær byrjar það?", "Excellent! When does it start?"),
-    ("Klukkan átta. Eigum við að hittast klukkan sjö?", "At eight o'clock. Shall we meet at seven?"),
+    (
+        "Klukkan átta. Eigum við að hittast klukkan sjö?",
+        "At eight o'clock. Shall we meet at seven?",
+    ),
     ("Já, það hentar mér vel.", "Yes, that suits me well."),
 ]
 

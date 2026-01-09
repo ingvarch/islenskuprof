@@ -14,10 +14,19 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Was haben Sie gestern gemacht?", "What did you do yesterday?"),
-    ("Ich bin ins Kino mit meinen Freunden gegangen.", "I went to the cinema with my friends."),
+    (
+        "Ich bin ins Kino mit meinen Freunden gegangen.",
+        "I went to the cinema with my friends.",
+    ),
     ("Was haben Sie gesehen?", "What did you see?"),
-    ("Wir haben einen deutschen Film gesehen. Er war großartig!", "We saw a German film. It was excellent!"),
-    ("Ich habe davon gehört. Empfehlen Sie ihn?", "I heard about it. Do you recommend it?"),
+    (
+        "Wir haben einen deutschen Film gesehen. Er war großartig!",
+        "We saw a German film. It was excellent!",
+    ),
+    (
+        "Ich habe davon gehört. Empfehlen Sie ihn?",
+        "I heard about it. Do you recommend it?",
+    ),
     ("Ja, unbedingt! Sie sollten ihn sehen.", "Yes, definitely! You should see it."),
 ]
 

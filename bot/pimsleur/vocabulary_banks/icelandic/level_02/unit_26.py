@@ -14,11 +14,20 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Hvað ertu að læra?", "What are you studying?"),
-    ("Ég er að læra íslensku á háskólanum.", "I'm studying Icelandic at the university."),
+    (
+        "Ég er að læra íslensku á háskólanum.",
+        "I'm studying Icelandic at the university.",
+    ),
     ("Er það erfitt?", "Is it difficult?"),
-    ("Málfræðin er erfið en orðaforðinn er skemmtilegur.", "The grammar is difficult but the vocabulary is fun."),
+    (
+        "Málfræðin er erfið en orðaforðinn er skemmtilegur.",
+        "The grammar is difficult but the vocabulary is fun.",
+    ),
     ("Hversu oft ertu í tímum?", "How often are you in class?"),
-    ("Þrisvar í viku. Ég þarf líka að æfa heima.", "Three times a week. I also need to practice at home."),
+    (
+        "Þrisvar í viku. Ég þarf líka að æfa heima.",
+        "Three times a week. I also need to practice at home.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

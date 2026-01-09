@@ -81,23 +81,18 @@ def ask_overwrite(filepath: Path, file_type: str) -> bool:
 
 def list_available_units(lang_code: str):
     """List all available units with vocabulary data."""
-    from bot.pimsleur.languages import get_vocabulary, SUPPORTED_LANGUAGES
+    from bot.pimsleur.vocabulary_banks import VocabularyBank
 
-    lang_info = SUPPORTED_LANGUAGES.get(lang_code.replace("is", "icelandic"))
-    if not lang_info:
-        logger.error(f"Unknown language: {lang_code}")
-        return
+    bank = VocabularyBank(lang_code)
 
-    logger.info(f"Available units for {lang_info['name']}:")
+    logger.info(f"Available units for {lang_code}:")
 
-    for level in lang_info.get("levels", []):
-        if lang_code == "is":
-            from bot.pimsleur.languages.icelandic import get_available_units, get_unit
-
-            available = get_available_units(level)
-            logger.info(f"\n  Level {level}: {len(available)} units with content")
-            for unit_num in available:
-                unit = get_unit(level, unit_num)
+    for level in [1, 2, 3]:
+        available = bank.get_available_units(level)
+        logger.info(f"\n  Level {level}: {len(available)} units with content")
+        for unit_num in available:
+            unit = bank.get_unit(level, unit_num)
+            if unit:
                 logger.info(f"    Unit {unit_num:02d}: {unit['title']}")
                 logger.info(f"             Vocabulary: {len(unit['vocabulary'])} words")
 
@@ -130,13 +125,11 @@ def generate_unit(
     from bot.pimsleur.generator import PimsleurLessonGenerator
     from bot.pimsleur.audio_assembler import PimsleurAudioAssembler
 
-    # Get unit data from new vocabulary structure
-    if lang_code == "is":
-        from bot.pimsleur.languages.icelandic import get_unit
+    # Get unit data from vocabulary bank
+    from bot.pimsleur.vocabulary_banks import VocabularyBank
 
-        unit_data = get_unit(level, unit_num)
-    else:
-        unit_data = None
+    vocab_bank = VocabularyBank(lang_code)
+    unit_data = vocab_bank.get_unit(level, unit_num)
 
     if not unit_data or not unit_data.get("vocabulary"):
         logger.warning(f"No vocabulary data for Level {level} Unit {unit_num}")
@@ -192,15 +185,20 @@ def generate_unit(
         # Get review vocabulary from previous units
         for prev_unit in unit_data.get("review_from_units", []):
             if lang_code == "is":
-                prev_data = get_unit(level, prev_unit)
+                from bot.pimsleur.vocabulary_banks import VocabularyBank
+
+                bank = VocabularyBank(lang_code)
+                prev_data = bank.get_unit(level, prev_unit)
                 if prev_data and prev_data.get("vocabulary"):
                     for w in prev_data["vocabulary"][:3]:  # Take 3 words from each
-                        vocab_review.append({
-                            "word_target": w[0],
-                            "word_native": w[1],
-                            "word_type": w[2],
-                            "phonetic": w[3] if len(w) > 3 else "",
-                        })
+                        vocab_review.append(
+                            {
+                                "word_target": w[0],
+                                "word_native": w[1],
+                                "word_type": w[2],
+                                "phonetic": w[3] if len(w) > 3 else "",
+                            }
+                        )
 
     # Generate lesson script
     logger.info("Generating lesson script via LLM...")
@@ -223,7 +221,7 @@ def generate_unit(
         if unit_data:
             script["pimsleur_level"] = level
             script["pimsleur_unit"] = unit_num
-            script["opening_dialogue"] = unit_data.get("opening_dialogue", [])
+            # opening_dialogue is now in segments (with translations)
             script["grammar_notes"] = unit_data.get("grammar_notes", [])
             script["phrases"] = unit_data.get("phrases", [])
 
@@ -300,7 +298,7 @@ def save_unit_to_db(
     unit_num: int,
     script: dict,
     script_path: str,
-    audio_path: str = None,
+    audio_path: str | None = None,
 ):
     """Save generated unit to database."""
     from bot.db.database import db_session
@@ -311,11 +309,15 @@ def save_unit_to_db(
 
     with db_session() as session:
         # Check if lesson already exists
-        existing = session.query(PimsleurLesson).filter_by(
-            language_code=lang_code,
-            level=level_str,
-            lesson_number=unit_num,
-        ).first()
+        existing = (
+            session.query(PimsleurLesson)
+            .filter_by(
+                language_code=lang_code,
+                level=level_str,
+                lesson_number=unit_num,
+            )
+            .first()
+        )
 
         if existing:
             # Update existing
@@ -342,9 +344,7 @@ def save_unit_to_db(
                 vocabulary_json=json.dumps(
                     script.get("vocabulary_summary", []), ensure_ascii=False
                 ),
-                review_from_lessons=json.dumps(
-                    script.get("review_from_lessons", [])
-                ),
+                review_from_lessons=json.dumps(script.get("review_from_lessons", [])),
                 is_generated=audio_path is not None,
             )
             session.add(lesson)
@@ -446,10 +446,11 @@ def main():
     if args.all:
         # Generate only units with vocabulary data
         if args.lang == "is":
-            from bot.pimsleur.languages.icelandic import get_available_units
+            from bot.pimsleur.vocabulary_banks import VocabularyBank
 
+            bank = VocabularyBank(args.lang)
             for level in [1]:  # Currently only level 1
-                available = get_available_units(level)
+                available = bank.get_available_units(level)
                 for unit_num in available:
                     units_to_generate.append((level, unit_num))
     elif args.unit:

@@ -9,7 +9,12 @@ UNIT_INFO = {
     "unit": 27,
     "level": 1,
     "title": "Survival Review",
-    "categories": ["review_survival", "survival_skills", "food_basic", "directions_basic"],
+    "categories": [
+        "review_survival",
+        "survival_skills",
+        "food_basic",
+        "directions_basic",
+    ],
 }
 
 # Opening dialogue - combining survival scenarios

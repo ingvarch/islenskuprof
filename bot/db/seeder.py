@@ -7,12 +7,13 @@ based on the TARGET_LANGUAGES environment variable.
 Supports multiple target languages simultaneously. Data is seeded with language_code
 to enable per-user language selection.
 """
+
 import logging
 import sqlalchemy as sa
 from sqlalchemy import func
-from bot.db.database import get_db_session, db_session
+from bot.db.database import db_session
 from bot.db.models import Name, City, Job, Activity, Topic, TargetLanguage
-from bot.languages import get_language_config, get_all_language_configs
+from bot.languages import get_all_language_configs
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,11 @@ def seed_names(session, names, language_code: str):
         language_code: ISO language code (e.g., 'de', 'is')
     """
     for first_name, last_name in names:
-        session.add(Name(first_name=first_name, last_name=last_name, language_code=language_code))
+        session.add(
+            Name(
+                first_name=first_name, last_name=last_name, language_code=language_code
+            )
+        )
     logger.info(f"Added {len(names)} names for {language_code} to database")
 
 
@@ -84,9 +89,13 @@ def seed_activities(session, weekend_activities, plan_activities, language_code:
         language_code: ISO language code (e.g., 'de', 'is')
     """
     for activity in weekend_activities:
-        session.add(Activity(activity=activity, type="weekend", language_code=language_code))
+        session.add(
+            Activity(activity=activity, type="weekend", language_code=language_code)
+        )
     for activity in plan_activities:
-        session.add(Activity(activity=activity, type="plan", language_code=language_code))
+        session.add(
+            Activity(activity=activity, type="plan", language_code=language_code)
+        )
     total = len(weekend_activities) + len(plan_activities)
     logger.info(f"Added {total} activities for {language_code} to database")
 
@@ -111,13 +120,25 @@ def reset_sequences(session):
     This is needed when data was inserted without using sequences.
     """
     # Whitelist of allowed table names to prevent SQL injection
-    ALLOWED_TABLES = frozenset(['names', 'cities', 'jobs', 'activities', 'topic', 'persons', 'target_languages'])
+    ALLOWED_TABLES = frozenset(
+        [
+            "names",
+            "cities",
+            "jobs",
+            "activities",
+            "topic",
+            "persons",
+            "target_languages",
+        ]
+    )
 
     for table in ALLOWED_TABLES:
         try:
             # Using text() with explicit table validation for safety
             session.execute(
-                sa.text(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}")
+                sa.text(
+                    f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), COALESCE(MAX(id), 1)) FROM {table}"
+                )
             )
             logger.debug(f"Reset sequence for table {table}")
         except Exception as e:
@@ -134,14 +155,20 @@ def seed_target_languages(session, lang_configs):
         lang_configs: List of LanguageConfig instances
     """
     for lang_config in lang_configs:
-        existing = session.query(TargetLanguage).filter_by(code=lang_config.code).first()
+        existing = (
+            session.query(TargetLanguage).filter_by(code=lang_config.code).first()
+        )
         if not existing:
-            session.add(TargetLanguage(
-                code=lang_config.code,
-                name=lang_config.name,
-                native_name=lang_config.native_name
-            ))
-            logger.info(f"Added target language: {lang_config.name} ({lang_config.code})")
+            session.add(
+                TargetLanguage(
+                    code=lang_config.code,
+                    name=lang_config.name,
+                    native_name=lang_config.native_name,
+                )
+            )
+            logger.info(
+                f"Added target language: {lang_config.name} ({lang_config.code})"
+            )
 
 
 def has_language_data(session, model, language_code: str) -> bool:
@@ -156,7 +183,12 @@ def has_language_data(session, model, language_code: str) -> bool:
     Returns:
         True if data exists for this language, False otherwise
     """
-    return session.query(func.count(model.id)).filter_by(language_code=language_code).scalar() > 0
+    return (
+        session.query(func.count(model.id))
+        .filter_by(language_code=language_code)
+        .scalar()
+        > 0
+    )
 
 
 def seed_database_if_empty():
@@ -203,7 +235,12 @@ def seed_database_if_empty():
                     tables_seeded.append("jobs")
 
                 if not has_language_data(session, Activity, code):
-                    seed_activities(session, seed_data.weekend_activities, seed_data.plan_activities, code)
+                    seed_activities(
+                        session,
+                        seed_data.weekend_activities,
+                        seed_data.plan_activities,
+                        code,
+                    )
                     tables_seeded.append("activities")
 
                 if not has_language_data(session, Topic, code):
@@ -211,9 +248,13 @@ def seed_database_if_empty():
                     tables_seeded.append("topics")
 
                 if tables_seeded:
-                    logger.info(f"Seeded tables for {lang_config.name}: {', '.join(tables_seeded)}")
+                    logger.info(
+                        f"Seeded tables for {lang_config.name}: {', '.join(tables_seeded)}"
+                    )
                 else:
-                    logger.info(f"All seed data tables already populated for {lang_config.name}")
+                    logger.info(
+                        f"All seed data tables already populated for {lang_config.name}"
+                    )
 
             logger.info("Database seeding completed successfully")
     except Exception as e:
@@ -235,7 +276,9 @@ def clear_and_reseed_database():
         return
 
     language_names = [lc.name for lc in lang_configs]
-    logger.warning(f"Clearing and reseeding database for: {', '.join(language_names)}...")
+    logger.warning(
+        f"Clearing and reseeding database for: {', '.join(language_names)}..."
+    )
 
     try:
         with db_session() as session:
@@ -258,10 +301,17 @@ def clear_and_reseed_database():
                 seed_names(session, seed_data.names, code)
                 seed_cities(session, seed_data.cities, code)
                 seed_jobs(session, seed_data.jobs, code)
-                seed_activities(session, seed_data.weekend_activities, seed_data.plan_activities, code)
+                seed_activities(
+                    session,
+                    seed_data.weekend_activities,
+                    seed_data.plan_activities,
+                    code,
+                )
                 seed_topics(session, seed_data.topics, code)
 
-            logger.info(f"Database cleared and reseeded for: {', '.join(language_names)}")
+            logger.info(
+                f"Database cleared and reseeded for: {', '.join(language_names)}"
+            )
     except Exception as e:
         logger.error(f"Error clearing and reseeding database: {e}")
         raise

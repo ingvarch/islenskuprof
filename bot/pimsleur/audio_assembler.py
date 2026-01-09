@@ -73,6 +73,7 @@ class PimsleurAudioAssembler:
         """Lazy-load VoiceMaker service."""
         if self._voicemaker is None:
             from bot.voicemaker_service import VoiceMakerService
+
             self._voicemaker = VoiceMakerService()
         return self._voicemaker
 
@@ -86,6 +87,7 @@ class PimsleurAudioAssembler:
         try:
             import pyrubberband  # noqa: F401
             import soundfile  # noqa: F401
+
             logger.info("PyRubberBand available for high-quality time-stretching")
             return True
         except ImportError as e:
@@ -116,7 +118,6 @@ class PimsleurAudioAssembler:
         try:
             import pyrubberband as pyrb
             import soundfile as sf
-            import numpy as np
 
             # Export to temporary WAV for processing
             temp_wav = os.path.join(self.temp_dir, "stretch_temp.wav")
@@ -246,7 +247,7 @@ class PimsleurAudioAssembler:
             # Log statistics
             duration_sec = len(merged) / 1000
             logger.info(
-                f"Generated audio: {duration_sec:.1f}s ({duration_sec/60:.1f} min), "
+                f"Generated audio: {duration_sec:.1f}s ({duration_sec / 60:.1f} min), "
                 f"file size: {os.path.getsize(output_path) / 1024 / 1024:.2f} MB"
             )
 
@@ -344,9 +345,9 @@ class PimsleurAudioAssembler:
 
         # Resolve language-specific native speakers
         if speaker == "native_female":
-            speaker = f"native_female"
+            speaker = "native_female"
         elif speaker == "native_male":
-            speaker = f"native_male"
+            speaker = "native_male"
 
         # Get voice config
         voice_config = self.voices.get(speaker, self.voices["narrator"])
@@ -389,7 +390,9 @@ class PimsleurAudioAssembler:
         output_file = os.path.join(self.temp_dir, f"segment_{index}.mp3")
 
         # Determine speed strategy based on configuration
-        use_rubberband = self.speed_config["use_rubberband"] and self._rubberband_available
+        use_rubberband = (
+            self.speed_config["use_rubberband"] and self._rubberband_available
+        )
         tts_speed = self.speed_config["speech_speed"]
         stretch_rate = self.speed_config["stretch_rate"]
 

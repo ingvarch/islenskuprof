@@ -46,7 +46,11 @@ VOCABULARY = [
 PHRASES = [
     ("Wie lautet Ihre Telefonnummer?", "What is your phone number?", "formal question"),
     ("Können Sie mich anrufen?", "Can you call me?", "polite request"),
-    ("Ich schicke Ihnen eine Nachricht.", "I'll send you a message.", "common response"),
+    (
+        "Ich schicke Ihnen eine Nachricht.",
+        "I'll send you a message.",
+        "common response",
+    ),
     ("Bitte wiederholen Sie das.", "Please repeat.", "asking for clarification"),
     ("Ich habe kein Telefon.", "I don't have a phone.", "negation"),
 ]

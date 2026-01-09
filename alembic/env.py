@@ -1,6 +1,7 @@
 """
 Alembic environment script.
 """
+
 import os
 import sys
 import logging
@@ -24,8 +25,8 @@ fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from bot.db.database import Base
-from bot.db.models import User
+from bot.db.database import Base  # noqa: E402
+
 target_metadata = Base.metadata
 
 # Get database connection string from environment variable
@@ -36,6 +37,7 @@ if not DB_DSN:
 
 # Set the database URL in the config
 config.set_main_option("sqlalchemy.url", DB_DSN)
+
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
@@ -75,9 +77,7 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

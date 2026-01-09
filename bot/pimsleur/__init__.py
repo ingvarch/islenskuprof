@@ -8,30 +8,41 @@ This module implements the Pimsleur language learning method with:
 - 30-minute audio lesson format
 """
 
+
 # Lazy imports to avoid circular dependencies
 def get_lesson_generator():
     """Get PimsleurLessonGenerator class."""
     from bot.pimsleur.generator import PimsleurLessonGenerator
+
     return PimsleurLessonGenerator
 
 
 def get_audio_assembler():
     """Get PimsleurAudioAssembler class."""
     from bot.pimsleur.audio_assembler import PimsleurAudioAssembler
+
     return PimsleurAudioAssembler
 
 
 def get_vocabulary_manager():
     """Get VocabularyProgressionManager class."""
     from bot.pimsleur.vocabulary_manager import VocabularyProgressionManager
+
     return VocabularyProgressionManager
 
 
 # Export error classes directly (no dependencies)
-from bot.pimsleur.error_handling import (
+from bot.pimsleur.error_handling import (  # noqa: E402
     PimsleurError,
     LessonNotFoundError,
     LessonLockedError,
+)
+
+# Export input validator
+from bot.pimsleur.input_validator import (  # noqa: E402
+    validate_user_input,
+    sanitize_user_input,
+    InputValidator,
 )
 
 __all__ = [
@@ -41,4 +52,7 @@ __all__ = [
     "PimsleurError",
     "LessonNotFoundError",
     "LessonLockedError",
+    "validate_user_input",
+    "sanitize_user_input",
+    "InputValidator",
 ]

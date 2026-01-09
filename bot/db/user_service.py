@@ -1,12 +1,19 @@
 """
 User service module for database operations.
 """
+
 import logging
-from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 import sqlalchemy.orm
-from bot.db.database import get_db_session, db_session
-from bot.db.models import User, Language, UserSettings, AudioSpeed, LanguageLevel, TargetLanguage
+from bot.db.database import db_session
+from bot.db.models import (
+    User,
+    Language,
+    UserSettings,
+    AudioSpeed,
+    LanguageLevel,
+    TargetLanguage,
+)
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -17,7 +24,9 @@ DEFAULT_AUDIO_SPEED_ID = 3  # Fallback ID for "Normal" speed
 
 def _get_default_audio_speed_id(session):
     """Get the default audio speed ID, with fallback to constant."""
-    audio_speed = session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
+    audio_speed = (
+        session.query(AudioSpeed).filter(AudioSpeed.description == "Normal").first()
+    )
     return audio_speed.id if audio_speed else DEFAULT_AUDIO_SPEED_ID
 
 
@@ -33,7 +42,9 @@ def _get_or_create_user_settings(session, user_id, **kwargs):
     Returns:
         UserSettings: The user settings object
     """
-    settings = session.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    settings = (
+        session.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    )
     if settings:
         return settings
 
@@ -43,7 +54,7 @@ def _get_or_create_user_settings(session, user_id, **kwargs):
         user_id=user_id,
         audio_speed_id=default_audio_speed_id,
         language_id=None,
-        **kwargs
+        **kwargs,
     )
     session.add(new_settings)
     return new_settings
@@ -78,7 +89,10 @@ def _update_user_setting(telegram_id, field_name, value, log_name=None):
         logger.error(f"Error updating {log_name} for user {telegram_id}: {e}")
         return False
 
-def get_or_create_user(telegram_id, username=None, first_name=None, last_name=None, is_premium=False):
+
+def get_or_create_user(
+    telegram_id, username=None, first_name=None, last_name=None, is_premium=False
+):
     """
     Get an existing user or create a new one if not exists.
 
@@ -118,10 +132,14 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
                 return user
 
             # Create new user
-            english_language = session.query(Language).filter(Language.code == 'en').first()
+            english_language = (
+                session.query(Language).filter(Language.code == "en").first()
+            )
             if not english_language:
-                logger.warning("English language not found in the database, creating it")
-                english_language = Language(code='en', language='English')
+                logger.warning(
+                    "English language not found in the database, creating it"
+                )
+                english_language = Language(code="en", language="English")
                 session.add(english_language)
                 session.flush()
 
@@ -130,30 +148,38 @@ def get_or_create_user(telegram_id, username=None, first_name=None, last_name=No
                 username=username,
                 first_name=first_name,
                 last_name=last_name,
-                is_premium=is_premium
+                is_premium=is_premium,
             )
             session.add(user)
             session.flush()
             logger.info(f"Created new user with telegram_id {telegram_id}")
 
             # Get the default language level (A2)
-            default_language_level = session.query(LanguageLevel).filter(LanguageLevel.level == "A2").first()
-            default_language_level_id = default_language_level.id if default_language_level else None
+            default_language_level = (
+                session.query(LanguageLevel).filter(LanguageLevel.level == "A2").first()
+            )
+            default_language_level_id = (
+                default_language_level.id if default_language_level else None
+            )
             if not default_language_level:
                 logger.warning("A2 language level not found in the database")
 
             # Create user settings with defaults
             _get_or_create_user_settings(
-                session, user.id,
+                session,
+                user.id,
                 language_id=english_language.id,
-                language_level_id=default_language_level_id
+                language_level_id=default_language_level_id,
             )
-            logger.info(f"Created user settings for new user {telegram_id} with default language")
+            logger.info(
+                f"Created user settings for new user {telegram_id} with default language"
+            )
 
             return user
     except SQLAlchemyError as e:
         logger.error(f"Error getting or creating user: {e}")
         raise
+
 
 def update_user_last_contact(telegram_id):
     """
@@ -192,12 +218,25 @@ def get_user_by_telegram_id(telegram_id):
     try:
         with db_session(auto_commit=False) as session:
             # Eagerly load relationships to avoid DetachedInstanceError
-            user = session.query(User).options(
-                sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language),
-                sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.audio_speed),
-                sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.language_level),
-                sqlalchemy.orm.joinedload(User.settings).joinedload(UserSettings.target_language)
-            ).filter(User.telegram_id == telegram_id).first()
+            user = (
+                session.query(User)
+                .options(
+                    sqlalchemy.orm.joinedload(User.settings).joinedload(
+                        UserSettings.language
+                    ),
+                    sqlalchemy.orm.joinedload(User.settings).joinedload(
+                        UserSettings.audio_speed
+                    ),
+                    sqlalchemy.orm.joinedload(User.settings).joinedload(
+                        UserSettings.language_level
+                    ),
+                    sqlalchemy.orm.joinedload(User.settings).joinedload(
+                        UserSettings.target_language
+                    ),
+                )
+                .filter(User.telegram_id == telegram_id)
+                .first()
+            )
             return user
     except SQLAlchemyError as e:
         logger.error(f"Error getting user by telegram_id {telegram_id}: {e}")
@@ -206,7 +245,9 @@ def get_user_by_telegram_id(telegram_id):
 
 def update_user_language(telegram_id, language_id):
     """Update the language preference for a user."""
-    return _update_user_setting(telegram_id, "language_id", language_id, "language preference")
+    return _update_user_setting(
+        telegram_id, "language_id", language_id, "language preference"
+    )
 
 
 def _get_all(model, order_by=None, error_msg="Error getting records"):
@@ -239,16 +280,26 @@ def get_all_languages():
 
 def get_all_audio_speeds():
     """Get all available audio speeds."""
-    return _get_all(AudioSpeed, order_by=AudioSpeed.id, error_msg="Error getting all audio speeds")
+    return _get_all(
+        AudioSpeed, order_by=AudioSpeed.id, error_msg="Error getting all audio speeds"
+    )
 
 
 def get_all_language_levels():
     """Get all available language levels."""
-    return _get_all(LanguageLevel, order_by=LanguageLevel.id, error_msg="Error getting all language levels")
+    return _get_all(
+        LanguageLevel,
+        order_by=LanguageLevel.id,
+        error_msg="Error getting all language levels",
+    )
+
 
 def update_user_audio_speed(telegram_id, audio_speed_id):
     """Update the audio speed setting for a user."""
-    return _update_user_setting(telegram_id, "audio_speed_id", audio_speed_id, "audio speed")
+    return _update_user_setting(
+        telegram_id, "audio_speed_id", audio_speed_id, "audio speed"
+    )
+
 
 def get_user_audio_speed(telegram_id):
     """
@@ -263,11 +314,13 @@ def get_user_audio_speed(telegram_id):
     try:
         with db_session(auto_commit=False) as session:
             # Single JOIN query instead of 3 sequential queries
-            result = session.query(AudioSpeed.speed).join(
-                UserSettings, AudioSpeed.id == UserSettings.audio_speed_id
-            ).join(
-                User, UserSettings.user_id == User.id
-            ).filter(User.telegram_id == telegram_id).first()
+            result = (
+                session.query(AudioSpeed.speed)
+                .join(UserSettings, AudioSpeed.id == UserSettings.audio_speed_id)
+                .join(User, UserSettings.user_id == User.id)
+                .filter(User.telegram_id == telegram_id)
+                .first()
+            )
 
             if result:
                 return result[0]
@@ -281,7 +334,9 @@ def get_user_audio_speed(telegram_id):
 
 def update_user_language_level(telegram_id, language_level_id):
     """Update the language level setting for a user."""
-    return _update_user_setting(telegram_id, "language_level_id", language_level_id, "language level")
+    return _update_user_setting(
+        telegram_id, "language_level_id", language_level_id, "language level"
+    )
 
 
 def update_user_last_section(telegram_id, section):
@@ -291,7 +346,11 @@ def update_user_last_section(telegram_id, section):
 
 def get_all_target_languages():
     """Get all available target languages for learning."""
-    return _get_all(TargetLanguage, order_by=TargetLanguage.id, error_msg="Error getting all target languages")
+    return _get_all(
+        TargetLanguage,
+        order_by=TargetLanguage.id,
+        error_msg="Error getting all target languages",
+    )
 
 
 def get_target_language_by_id(target_language_id):
@@ -306,7 +365,9 @@ def get_target_language_by_id(target_language_id):
     """
     try:
         with db_session(auto_commit=False) as session:
-            return session.query(TargetLanguage).filter_by(id=target_language_id).first()
+            return (
+                session.query(TargetLanguage).filter_by(id=target_language_id).first()
+            )
     except SQLAlchemyError as e:
         logger.error(f"Error getting target language by ID {target_language_id}: {e}")
         return None
@@ -314,7 +375,9 @@ def get_target_language_by_id(target_language_id):
 
 def update_user_target_language(telegram_id, target_language_id):
     """Update the target language for a user."""
-    return _update_user_setting(telegram_id, "target_language_id", target_language_id, "target language")
+    return _update_user_setting(
+        telegram_id, "target_language_id", target_language_id, "target language"
+    )
 
 
 def get_user_background_effects(telegram_id):
@@ -330,9 +393,12 @@ def get_user_background_effects(telegram_id):
     try:
         with db_session(auto_commit=False) as session:
             # Single JOIN query instead of 2 sequential queries
-            result = session.query(UserSettings.background_effects).join(
-                User, UserSettings.user_id == User.id
-            ).filter(User.telegram_id == telegram_id).first()
+            result = (
+                session.query(UserSettings.background_effects)
+                .join(User, UserSettings.user_id == User.id)
+                .filter(User.telegram_id == telegram_id)
+                .first()
+            )
 
             if result and result[0]:
                 return result[0]
@@ -345,4 +411,6 @@ def get_user_background_effects(telegram_id):
 
 def update_user_background_effects(telegram_id, preset_value):
     """Update the background effects setting for a user."""
-    return _update_user_setting(telegram_id, "background_effects", preset_value, "background effects")
+    return _update_user_setting(
+        telegram_id, "background_effects", preset_value, "background effects"
+    )

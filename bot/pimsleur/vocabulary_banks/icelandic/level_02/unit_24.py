@@ -14,10 +14,16 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Góðan daginn, hvað get ég gert fyrir þig?", "Good day, what can I do for you?"),
-    ("Mér líður ekki vel. Ég er með höfuðverk.", "I don't feel well. I have a headache."),
+    (
+        "Mér líður ekki vel. Ég er með höfuðverk.",
+        "I don't feel well. I have a headache.",
+    ),
     ("Hversu lengi hefur þú verið veik?", "How long have you been sick?"),
     ("Síðan í gær. Ég er líka með hita.", "Since yesterday. I also have a fever."),
-    ("Ég ætla að skoða þig. Opnaðu munninn.", "I'm going to examine you. Open your mouth."),
+    (
+        "Ég ætla að skoða þig. Opnaðu munninn.",
+        "I'm going to examine you. Open your mouth.",
+    ),
     ("Þú þarft að hvíla þig og taka lyf.", "You need to rest and take medicine."),
 ]
 

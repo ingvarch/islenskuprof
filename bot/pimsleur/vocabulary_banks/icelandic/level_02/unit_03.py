@@ -17,7 +17,10 @@ OPENING_DIALOGUE = [
     ("Mér finnst það frábært!", "I think it's wonderful!"),
     ("Ég held að það verði rigning á morgun.", "I think it will rain tomorrow."),
     ("Ertu viss um það?", "Are you sure about that?"),
-    ("Nei, ekki alveg, en ég tel það líklegt.", "No, not quite, but I consider it likely."),
+    (
+        "Nei, ekki alveg, en ég tel það líklegt.",
+        "No, not quite, but I consider it likely.",
+    ),
     ("Ég er sammála þér.", "I agree with you."),
 ]
 

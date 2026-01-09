@@ -47,7 +47,11 @@ VOCABULARY = [
 
 # Key phrases and expressions
 PHRASES = [
-    ("Was machen Sie beruflich?", "What do you do for work?", "asking about occupation"),
+    (
+        "Was machen Sie beruflich?",
+        "What do you do for work?",
+        "asking about occupation",
+    ),
     ("Ich bin bei der Arbeit", "I'm at work", "location expression"),
     ("Ich habe eine Besprechung", "I have a meeting", "work situation"),
     ("Ich habe viel zu tun", "I have a lot to do", "being busy"),

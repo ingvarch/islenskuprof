@@ -17,7 +17,10 @@ OPENING_DIALOGUE = [
     ("Já, ég vildi opna bankareikning.", "Yes, I would like to open a bank account."),
     ("Hefur þú skilríki meðferðis?", "Do you have ID with you?"),
     ("Já, hér er vegabréfið mitt.", "Yes, here is my passport."),
-    ("Viltu debetkort með reikningnum?", "Would you like a debit card with the account?"),
+    (
+        "Viltu debetkort með reikningnum?",
+        "Would you like a debit card with the account?",
+    ),
     ("Já, takk. Hvað kostar það?", "Yes, please. How much does it cost?"),
 ]
 
@@ -48,7 +51,11 @@ VOCABULARY = [
 # Key phrases and expressions
 PHRASES = [
     ("Get ég aðstoðað?", "Can I help you?", "service greeting"),
-    ("Ég vildi opna...", "I would like to open...", "polite request with past subjunctive"),
+    (
+        "Ég vildi opna...",
+        "I would like to open...",
+        "polite request with past subjunctive",
+    ),
     ("Hvað kostar það?", "How much does it cost?", "asking price"),
     ("Hér er...", "Here is...", "presenting something"),
     ("Hefur þú...?", "Do you have...?", "possession question"),

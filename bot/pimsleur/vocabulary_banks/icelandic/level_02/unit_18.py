@@ -16,7 +16,10 @@ OPENING_DIALOGUE = [
     ("Hvernig er í Reykjavík?", "What's it like in Reykjavik?"),
     ("Það er mjög fallegt þar.", "It's very beautiful there."),
     ("Er borgin stór?", "Is the city big?"),
-    ("Nei, hún er frekar lítil en mjög fjörleg.", "No, it's rather small but very lively."),
+    (
+        "Nei, hún er frekar lítil en mjög fjörleg.",
+        "No, it's rather small but very lively.",
+    ),
     ("Hvernig er veðrið þar?", "What's the weather like there?"),
     ("Það er oft vindur og kalt.", "It's often windy and cold."),
 ]

@@ -13,7 +13,12 @@ Level 3: B1-B2 (Fluent German) - 500 words
 LEVEL_CEFR_MAPPING = {
     1: {"primary": "A1", "secondary": "A2", "name": "Beginner", "word_target": 500},
     2: {"primary": "A2", "secondary": "B1", "name": "Intermediate", "word_target": 500},
-    3: {"primary": "B1", "secondary": "B2", "name": "Upper Intermediate", "word_target": 500},
+    3: {
+        "primary": "B1",
+        "secondary": "B2",
+        "name": "Upper Intermediate",
+        "word_target": 500,
+    },
 }
 
 # Unit themes for all 90 units
@@ -178,7 +183,6 @@ CATEGORY_DESCRIPTIONS = {
     "likes_dislikes": "Preferences, opinions",
     "health_basic": "Basic health, body parts",
     "emergency": "Emergency vocabulary",
-
     # Level 2 categories
     "directions_complex": "Complex directions, navigation",
     "transactions": "Banking, services, official matters",
@@ -206,7 +210,6 @@ CATEGORY_DESCRIPTIONS = {
     "travel_planning": "Planning trips",
     "accommodations": "Accommodation vocabulary",
     "activities": "Activities, hobbies",
-
     # Level 3 categories
     "hypotheticals": "Hypothetical situations",
     "subjunctive": "Subjunctive mood",

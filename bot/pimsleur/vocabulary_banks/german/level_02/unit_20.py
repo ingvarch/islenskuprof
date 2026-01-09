@@ -15,9 +15,15 @@ UNIT_INFO = {
 OPENING_DIALOGUE = [
     ("Hast du die Nachrichten gehört?", "Did you hear the news?"),
     ("Nein, was ist passiert?", "No, what happened?"),
-    ("Es gab einen Vulkanausbruch bei Reykjanes.", "There was a volcanic eruption in Reykjanes."),
+    (
+        "Es gab einen Vulkanausbruch bei Reykjanes.",
+        "There was a volcanic eruption in Reykjanes.",
+    ),
     ("Absolut unglaublich!", "Absolutely incredible!"),
-    ("Ja, es war heute Morgen in den Nachrichten.", "Yes, it was on the news this morning."),
+    (
+        "Ja, es war heute Morgen in den Nachrichten.",
+        "Yes, it was on the news this morning.",
+    ),
     ("Weißt du mehr darüber?", "Do you know more about this?"),
 ]
 

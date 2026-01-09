@@ -11,10 +11,9 @@ Includes a multi-step wizard for custom lesson creation with:
 import asyncio
 import json
 import logging
-import time
+from datetime import date
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
 from telegram.ext import ContextTypes
@@ -26,25 +25,30 @@ from bot.utils.user_tracking import track_user_activity
 from bot.db.user_service import get_user_by_telegram_id
 from bot.db.pimsleur_service import (
     get_lesson,
-    get_lessons_for_level,
-    get_or_create_user_progress,
-    get_completed_lessons,
+    get_level_unlock_status,
     is_lesson_unlocked,
     mark_lesson_completed,
     get_progress_summary,
     cache_telegram_file_id,
     cache_custom_lesson_file_id,
-    create_custom_lesson_request,
     get_user_custom_lessons,
     get_custom_lesson_by_id,
+    get_custom_lesson_count,
     update_custom_lesson_status,
-    # New wizard functions
     create_custom_lesson_with_settings,
     update_custom_lesson_generation_status,
     delete_custom_lesson,
     retry_custom_lesson,
 )
 from bot.pimsleur.text_analyzer import TextAnalyzer
+from bot.pimsleur.vocabulary_manager import VocabularyProgressionManager
+from bot.pimsleur.lesson_formatter import (
+    format_header_message,
+    format_vocabulary_message,
+    format_grammar_message,
+    format_simple_vocabulary,
+    format_custom_lesson_header,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +79,7 @@ def _level_from_db_format(level: str) -> str:
 
 class WizardState(str, Enum):
     """States for the custom lesson creation wizard."""
+
     IDLE = "idle"
     AWAITING_TEXT = "awaiting_text"
     TEXT_ANALYSIS = "text_analysis"
@@ -136,9 +141,9 @@ def _format_progress_bar(percent: int, width: int = 10) -> str:
 
 
 def _format_vocabulary_preview(vocabulary: list[dict], limit: int = 15) -> str:
-    """Format vocabulary list for display."""
+    """Format vocabulary list for display in a code block."""
     if not vocabulary:
-        return "_No vocabulary extracted_"
+        return "```\nNo vocabulary extracted\n```"
 
     lines = []
     for item in vocabulary[:limit]:
@@ -148,9 +153,10 @@ def _format_vocabulary_preview(vocabulary: list[dict], limit: int = 15) -> str:
         lines.append(f"- {word} ({count}x){freq_marker}")
 
     if len(vocabulary) > limit:
-        lines.append(f"_...and {len(vocabulary) - limit} more_")
+        lines.append(f"...and {len(vocabulary) - limit} more")
 
-    return "\n".join(lines)
+    return "```\n" + "\n".join(lines) + "\n```"
+
 
 # Callback data prefixes - Standard lesson flow
 PIMSLEUR_MENU = "pimsleur_menu"
@@ -171,6 +177,11 @@ WIZARD_USE_TITLE = "pimsleur_wiz_use_title"
 WIZARD_FOCUS_PREFIX = "pimsleur_wiz_focus_"
 WIZARD_VOICE_PREFIX = "pimsleur_wiz_voice_"
 WIZARD_DIFF_PREFIX = "pimsleur_wiz_diff_"
+
+# Valid values for wizard settings (for validation)
+VALID_FOCUS_VALUES = {"vocabulary", "pronunciation", "dialogue"}
+VALID_VOICE_VALUES = {"female", "male", "both"}
+VALID_DIFFICULTY_VALUES = {"1", "2", "3", "auto"}
 WIZARD_CONFIRM = "pimsleur_wiz_confirm"
 WIZARD_RETRY_PREFIX = "pimsleur_wiz_retry_"
 WIZARD_DELETE_PREFIX = "pimsleur_wiz_delete_"
@@ -189,7 +200,7 @@ def _format_progress_text(progress: dict) -> str:
     if not progress.get("started"):
         return "You haven't started any lessons yet.\nChoose a level to begin!"
 
-    text = f"*Current Progress*\n"
+    text = "*Current Progress*\n"
     text += f"Level: {progress['level']}\n"
     text += f"Next Lesson: {progress['current_lesson']}\n"
     text += f"Completed: {progress['completed_count']} lessons\n"
@@ -205,7 +216,9 @@ def _format_progress_text(progress: dict) -> str:
     return text
 
 
-def _build_main_menu_keyboard(progress: dict, db_user_id: int, target_lang: str) -> InlineKeyboardMarkup:
+def _build_main_menu_keyboard(
+    progress: dict, db_user_id: int, target_lang: str
+) -> InlineKeyboardMarkup:
     """Build the main Pimsleur menu keyboard."""
     keyboard = []
 
@@ -213,31 +226,40 @@ def _build_main_menu_keyboard(progress: dict, db_user_id: int, target_lang: str)
     if progress.get("started") and progress.get("current_lesson", 1) <= 30:
         level = progress["level"]
         lesson_num = progress["current_lesson"]
-        keyboard.append([InlineKeyboardButton(
-            f"Continue: {level} Lesson {lesson_num}",
-            callback_data=f"{PIMSLEUR_LESSON_PREFIX}{level}_{lesson_num}"
-        )])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"Continue: {level} Lesson {lesson_num}",
+                    callback_data=f"{PIMSLEUR_LESSON_PREFIX}{level}_{lesson_num}",
+                )
+            ]
+        )
 
     # Level selection buttons
-    keyboard.append([
-        InlineKeyboardButton("Level 1", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}1"),
-        InlineKeyboardButton("Level 2", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}2"),
-        InlineKeyboardButton("Level 3", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}3"),
-    ])
+    keyboard.append(
+        [
+            InlineKeyboardButton("Level 1", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}1"),
+            InlineKeyboardButton("Level 2", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}2"),
+            InlineKeyboardButton("Level 3", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}3"),
+        ]
+    )
 
     # Custom lesson option
-    keyboard.append([InlineKeyboardButton(
-        "Create Custom Lesson",
-        callback_data=PIMSLEUR_CUSTOM
-    )])
+    keyboard.append(
+        [InlineKeyboardButton("Create Custom Lesson", callback_data=PIMSLEUR_CUSTOM)]
+    )
 
     # My custom lessons (if any exist)
     custom_lessons = get_user_custom_lessons(db_user_id, target_lang, status="ready")
     if custom_lessons:
-        keyboard.append([InlineKeyboardButton(
-            f"My Custom Lessons ({len(custom_lessons)})",
-            callback_data=PIMSLEUR_CUSTOM_LIST
-        )])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"My Custom Lessons ({len(custom_lessons)})",
+                    callback_data=PIMSLEUR_CUSTOM_LIST,
+                )
+            ]
+        )
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -267,7 +289,9 @@ async def pimsleur_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
 
 
-async def pimsleur_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pimsleur_menu_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Handle return to main menu."""
     query = update.callback_query
     await query.answer()
@@ -286,7 +310,9 @@ async def pimsleur_menu_callback(update: Update, context: ContextTypes.DEFAULT_T
     )
 
 
-async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pimsleur_level_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Show lessons grid for a specific level."""
     query = update.callback_query
     await query.answer()
@@ -296,41 +322,35 @@ async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_
     db_user = get_user_by_telegram_id(user.id)
     target_lang = _get_target_language(db_user)
 
-    # Get completed lessons
-    completed = get_completed_lessons(db_user.id, target_lang)
-
-    # All 30 units available for each level
-    available_unit_nums = range(1, 31)
-
-    # Get generated lessons from database (convert level to DB format)
-    db_level = _level_to_db_format(level)
-    available_lessons = get_lessons_for_level(target_lang, db_level, generated_only=True)
-    generated_nums = {l.lesson_number for l in available_lessons}
+    # OPTIMIZED: Get all status info in 2 queries instead of 32
+    status = get_level_unlock_status(db_user.id, target_lang, level)
+    completed = status["completed_set"]
+    generated_nums = status["generated_set"]
 
     # Build lesson grid dynamically (5 buttons per row)
     keyboard = []
     row_buttons = []
-    for unit_num in available_unit_nums:
+    for unit_num in range(1, 31):
         is_completed = unit_num in completed
         is_generated = unit_num in generated_nums
-        is_unlocked = is_lesson_unlocked(db_user.id, target_lang, level, unit_num)
+        # Calculate unlock status in memory (no DB query)
+        is_unlocked = unit_num == 1 or (unit_num - 1) in completed
 
         if is_completed:
             emoji = "\u2713"  # Checkmark for completed
         elif is_unlocked and is_generated:
             emoji = ""  # Available - no emoji
         else:
-            emoji = "\U0001F512"  # Lock emoji for locked
+            emoji = "\U0001f512"  # Lock emoji for locked
 
         if is_unlocked and is_generated:
             callback = f"{PIMSLEUR_LESSON_PREFIX}{level}_{unit_num}"
         else:
             callback = PIMSLEUR_LOCKED
 
-        row_buttons.append(InlineKeyboardButton(
-            f"{emoji}{unit_num}",
-            callback_data=callback
-        ))
+        row_buttons.append(
+            InlineKeyboardButton(f"{emoji}{unit_num}", callback_data=callback)
+        )
 
         # 5 buttons per row
         if len(row_buttons) == 5:
@@ -345,7 +365,9 @@ async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_
     keyboard.append([InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU)])
 
     level_names = {"1": "Beginner", "2": "Elementary", "3": "Intermediate"}
-    units_text = f"{len(available_unit_nums)} units available" if available_unit_nums else "No units yet"
+    units_text = (
+        f"{len(generated_nums)} units available" if generated_nums else "No units yet"
+    )
     try:
         await query.edit_message_text(
             f"*Level {level} - {level_names.get(level, '')}*\n\n"
@@ -359,7 +381,9 @@ async def pimsleur_level_callback(update: Update, context: ContextTypes.DEFAULT_
             raise
 
 
-async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pimsleur_lesson_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Deliver a Pimsleur lesson."""
     query = update.callback_query
     await query.answer("Loading lesson...")
@@ -385,11 +409,16 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
     # Check if lesson is unlocked
     if not is_lesson_unlocked(db_user.id, target_lang, level, lesson_num):
         await query.edit_message_text(
-            f"Lesson {lesson_num} is locked.\n"
-            f"Complete the previous lessons first!",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}{level}")
-            ]]),
+            f"Lesson {lesson_num} is locked.\nComplete the previous lessons first!",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "Back", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}{level}"
+                        )
+                    ]
+                ]
+            ),
         )
         return
 
@@ -401,29 +430,32 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
         await query.edit_message_text(
             f"Sorry, Level {level} Unit {lesson_num} is not yet available.\n"
             f"Please try another lesson.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}{level}")
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "Back", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}{level}"
+                        )
+                    ]
+                ]
+            ),
         )
         return
 
-    # Send lesson info
-    duration_min = lesson.duration_seconds // 60
-    # Escape underscores in description for Markdown
-    description = (lesson.description or '').replace('_', ' ')
-    await query.edit_message_text(
-        f"*Level {level} Unit {lesson_num}*\n"
-        f"*{lesson.title}*\n\n"
-        f"Duration: {duration_min} minutes\n"
-        f"{description}\n\n"
-        "Sending audio...",
-        parse_mode=ParseMode.MARKDOWN,
-    )
+    # Try to get rich display data from vocabulary banks
+    numeric_level = int(level) if level.isdigit() else 1
+    vocab_manager = VocabularyProgressionManager(language_code=target_lang)
+    display_data = vocab_manager.get_lesson_display_data(numeric_level, lesson_num)
 
-    # Send audio file
     try:
+        # Update message to show loading
+        await query.edit_message_text(
+            f"*Level {level} Unit {lesson_num}*\n*{lesson.title}*\n\nSending audio...",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+        # 1. Send audio file FIRST
         if lesson.telegram_file_id:
-            # Use cached file_id for fast delivery
             message = await context.bot.send_audio(
                 chat_id=update.effective_chat.id,
                 audio=lesson.telegram_file_id,
@@ -431,7 +463,6 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
                 performer="Islenskuprof Pimsleur",
             )
         else:
-            # Upload from file path
             with open(lesson.audio_file_path, "rb") as audio_file:
                 message = await context.bot.send_audio(
                     chat_id=update.effective_chat.id,
@@ -439,35 +470,66 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
                     title=f"{level} L{lesson_num}: {lesson.title}",
                     performer="Islenskuprof Pimsleur",
                 )
-                # Cache the file_id
                 if message.audio and message.audio.file_id:
                     cache_telegram_file_id(lesson.id, message.audio.file_id)
 
-        # Send vocabulary summary
-        vocab = json.loads(lesson.vocabulary_json) if lesson.vocabulary_json else []
-        if vocab:
-            vocab_text = "*Vocabulary in this lesson:*\n"
-            for item in vocab[:15]:  # Limit to 15 items
-                word = item.get("word", item.get("word_target", ""))
-                translation = item.get("translation", item.get("word_native", ""))
-                if word and translation:
-                    vocab_text += f"- {word}: {translation}\n"
-
+        # 2. Send lesson info messages
+        if display_data:
+            # Rich format: Header + Dialogue
+            header_msg = format_header_message(
+                display_data, numeric_level, lesson_num, target_lang
+            )
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=vocab_text,
+                text=header_msg,
                 parse_mode=ParseMode.MARKDOWN,
             )
 
-        # Send completion button
-        keyboard = [[InlineKeyboardButton(
-            "Mark as Complete",
-            callback_data=f"{PIMSLEUR_COMPLETE_PREFIX}{level}_{lesson_num}_{lesson.id}"
-        )]]
-        keyboard.append([InlineKeyboardButton(
-            "Back to Lessons",
-            callback_data=f"{PIMSLEUR_LEVEL_PREFIX}{level}"
-        )])
+            # Vocabulary + Phrases
+            vocab_msg = format_vocabulary_message(display_data, target_lang)
+            if vocab_msg:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=vocab_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+
+            # Grammar + Meta
+            grammar_msg = format_grammar_message(display_data, lesson.duration_seconds)
+            if grammar_msg:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=grammar_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+        else:
+            # Fallback: simple format when no vocabulary bank exists
+            vocab = json.loads(lesson.vocabulary_json) if lesson.vocabulary_json else []
+            if vocab:
+                vocab_text = format_simple_vocabulary(vocab)
+                if vocab_text:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=vocab_text,
+                        parse_mode=ParseMode.MARKDOWN,
+                    )
+
+        # 3. Send completion button
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "Mark as Complete",
+                    callback_data=f"{PIMSLEUR_COMPLETE_PREFIX}{level}_{lesson_num}_{lesson.id}",
+                )
+            ]
+        ]
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "Back to Lessons", callback_data=f"{PIMSLEUR_LEVEL_PREFIX}{level}"
+                )
+            ]
+        )
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -476,14 +538,16 @@ async def pimsleur_lesson_callback(update: Update, context: ContextTypes.DEFAULT
         )
 
     except Exception as e:
-        logger.error(f"Error sending lesson audio: {e}", exc_info=True)
+        logger.error(f"Error sending lesson: {e}", exc_info=True)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Sorry, there was an error sending the lesson audio. Please try again later.",
+            text="Sorry, there was an error sending the lesson. Please try again later.",
         )
 
 
-async def pimsleur_complete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pimsleur_complete_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Mark a lesson as completed."""
     query = update.callback_query
 
@@ -518,10 +582,14 @@ async def pimsleur_complete_callback(update: Update, context: ContextTypes.DEFAU
                 f"*{level} Lesson {lesson_num} completed!*\n\n"
                 f"Great job! Lesson {next_lesson} is now unlocked."
             )
-            keyboard = [[InlineKeyboardButton(
-                f"Start Lesson {next_lesson}",
-                callback_data=f"{PIMSLEUR_LESSON_PREFIX}{level}_{next_lesson}"
-            )]]
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        f"Start Lesson {next_lesson}",
+                        callback_data=f"{PIMSLEUR_LESSON_PREFIX}{level}_{next_lesson}",
+                    )
+                ]
+            ]
         else:
             text = (
                 f"*{level} Lesson {lesson_num} completed!*\n\n"
@@ -529,10 +597,9 @@ async def pimsleur_complete_callback(update: Update, context: ContextTypes.DEFAU
             )
             keyboard = []
 
-        keyboard.append([InlineKeyboardButton(
-            "Back to Menu",
-            callback_data=PIMSLEUR_MENU
-        )])
+        keyboard.append(
+            [InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)]
+        )
 
         await query.edit_message_text(
             text,
@@ -545,26 +612,33 @@ async def pimsleur_complete_callback(update: Update, context: ContextTypes.DEFAU
         await query.answer(f"Error: {e}", show_alert=True)
 
 
-async def pimsleur_locked_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pimsleur_locked_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Handle clicks on locked lessons."""
     query = update.callback_query
     await query.answer(
-        "This lesson is locked. Complete the previous lessons first!",
-        show_alert=True
+        "This lesson is locked. Complete the previous lessons first!", show_alert=True
     )
 
 
-async def pimsleur_custom_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pimsleur_custom_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Start custom lesson creation wizard - Step 1: Request text input."""
     query = update.callback_query
     await query.answer()
 
     # Check for existing wizard in progress
     wizard = _get_wizard_data(context)
-    if wizard["state"] not in (WizardState.IDLE, WizardState.COMPLETED, WizardState.FAILED):
+    if wizard["state"] not in (
+        WizardState.IDLE,
+        WizardState.COMPLETED,
+        WizardState.FAILED,
+    ):
         await query.answer(
             "You already have a lesson creation in progress. Cancel it first.",
-            show_alert=True
+            show_alert=True,
         )
         return
 
@@ -582,9 +656,9 @@ async def pimsleur_custom_callback(update: Update, context: ContextTypes.DEFAULT
         "- Song lyrics\n"
         "- Dialogues or conversations\n\n"
         "_Reply with your text or tap Cancel._",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)
-        ]]),
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)]]
+        ),
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -599,6 +673,7 @@ async def _generate_custom_lesson_background(
     language_code: str,
     source_text: str,
     title: str,
+    difficulty_level: str = "1",
 ) -> None:
     """
     Background task to generate a custom Pimsleur lesson.
@@ -610,6 +685,7 @@ async def _generate_custom_lesson_background(
         language_code: Language code
         source_text: User-provided text
         title: Lesson title
+        difficulty_level: Difficulty level (1, 2, or 3)
     """
     from bot.languages import get_language_config_by_code
     from bot.pimsleur.generator import PimsleurLessonGenerator
@@ -628,7 +704,7 @@ async def _generate_custom_lesson_background(
         logger.info(f"Generating script for custom lesson {lesson_id}")
         generator = PimsleurLessonGenerator(lang_config)
         script = await asyncio.to_thread(
-            generator.generate_custom_lesson_script, source_text
+            generator.generate_custom_lesson_script, source_text, difficulty_level
         )
 
         # Save script
@@ -657,7 +733,9 @@ async def _generate_custom_lesson_background(
             script_json=script_json,
             audio_path=str(audio_path),
             duration_seconds=duration,
-            vocabulary_json=json.dumps(script.get("vocabulary_summary", []), ensure_ascii=False),
+            vocabulary_json=json.dumps(
+                script.get("vocabulary_summary", []), ensure_ascii=False
+            ),
         )
 
         logger.info(f"Custom lesson {lesson_id} generated successfully")
@@ -666,7 +744,7 @@ async def _generate_custom_lesson_background(
         await bot.send_message(
             chat_id=telegram_user_id,
             text=f"Your custom lesson *{title}* is ready!\n\n"
-                 f"Use /pimsleur and go to 'My Custom Lessons' to access it.",
+            f"Use /pimsleur and go to 'My Custom Lessons' to access it.",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -680,11 +758,13 @@ async def _generate_custom_lesson_background(
         await bot.send_message(
             chat_id=telegram_user_id,
             text=f"Sorry, failed to generate your custom lesson.\n"
-                 f"Error: {str(e)[:100]}",
+            f"Error: {str(e)[:100]}",
         )
 
 
-async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+async def handle_pimsleur_text_input(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> bool:
     """
     Handle text input for custom lesson wizard - Step 2: Analyze text.
 
@@ -705,9 +785,9 @@ async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAU
         _clear_wizard_data(context)
         await update.message.reply_text(
             "Custom lesson creation cancelled.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)]]
+            ),
         )
         return True
 
@@ -716,18 +796,18 @@ async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAU
     if word_count < 50:
         await update.message.reply_text(
             f"Text is too short ({word_count} words). Please provide at least 50 words.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)]]
+            ),
         )
         return True
 
     if word_count > 1000:
         await update.message.reply_text(
             f"Text is too long ({word_count} words). Please keep it under 1000 words.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL)]]
+            ),
         )
         return True
 
@@ -740,25 +820,29 @@ async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAU
     # Analyze text
     analyzer = TextAnalyzer(target_lang)
     analysis = analyzer.analyze(text)
-    suggested_title = analyzer.generate_title(text)
+
+    # Generate default title: #N - DD-MM-YYYY
+    lesson_counts = get_custom_lesson_count(db_user.id, target_lang)
+    next_number = lesson_counts.get("total", 0) + 1
+    today = date.today().strftime("%d-%m-%Y")
+    default_title = f"#{next_number} - {today}"
 
     # Update wizard state
     wizard = _get_wizard_data(context)
     wizard["state"] = WizardState.TEXT_ANALYSIS
     wizard["source_text"] = text
     wizard["analysis"] = analysis
-    wizard["title"] = suggested_title
+    wizard["title"] = default_title
 
     # Show analysis results (Step 2)
     stats_text = (
-        f"*Text Analysis*\n\n"
-        f"*Statistics:*\n"
-        f"- {analysis['word_count']} words total\n"
-        f"- {analysis['unique_words']} unique words\n"
-        f"- ~{analysis['estimated_lesson_words']} words for lesson\n"
-        f"- Detected level: {analysis['detected_difficulty']}\n\n"
-        f"*Suggested title:*\n"
-        f"_{suggested_title}_"
+        f"📊 *Text Analysis*\n\n"
+        f"📝 {analysis['word_count']} words total\n"
+        f"🔤 {analysis['unique_words']} unique words\n"
+        f"📚 ~{analysis['estimated_lesson_words']} words for lesson\n"
+        f"📈 Difficulty level: {analysis['detected_difficulty']}\n\n"
+        f"*Default title:*\n"
+        f"`{default_title}`"
     )
 
     keyboard = [
@@ -776,7 +860,9 @@ async def handle_pimsleur_text_input(update: Update, context: ContextTypes.DEFAU
     return True
 
 
-async def _handle_title_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+async def _handle_title_input(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> bool:
     """Handle custom title input from user."""
     text = update.message.text.strip()
 
@@ -787,9 +873,9 @@ async def _handle_title_input(update: Update, context: ContextTypes.DEFAULT_TYPE
         wizard["state"] = WizardState.TEXT_ANALYSIS
         await update.message.reply_text(
             "Title change cancelled.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)]]
+            ),
         )
         return True
 
@@ -812,18 +898,19 @@ async def _handle_title_input(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["awaiting_title_input"] = False
 
     await update.message.reply_text(
-        f"*Title updated:* {text}\n\n"
-        "Tap Continue to proceed to settings.",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)
-        ]]),
+        f"*Title updated:* {text}\n\nTap Continue to proceed to settings.",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)]]
+        ),
         parse_mode=ParseMode.MARKDOWN,
     )
 
     return True
 
 
-async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pimsleur_custom_list_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Show list of user's custom lessons with status-appropriate actions."""
     query = update.callback_query
     await query.answer()
@@ -840,10 +927,16 @@ async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DE
             await query.edit_message_text(
                 "You don't have any custom lessons yet.\n\n"
                 "Use 'Create Custom Lesson' to generate one from your text!",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("Create Custom Lesson", callback_data=PIMSLEUR_CUSTOM),
-                    InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU),
-                ]]),
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "Create Custom Lesson", callback_data=PIMSLEUR_CUSTOM
+                            ),
+                            InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU),
+                        ]
+                    ]
+                ),
             )
         except BadRequest as e:
             if "Message is not modified" not in str(e):
@@ -860,37 +953,51 @@ async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DE
             "failed": "\u274c",  # x
         }.get(lesson.status, "\u2753")  # question
 
-        title_display = lesson.title[:25] + "..." if len(lesson.title) > 25 else lesson.title
+        title_display = (
+            lesson.title[:25] + "..." if len(lesson.title) > 25 else lesson.title
+        )
 
         if lesson.status == "ready":
             # Play button for ready lessons
-            keyboard.append([InlineKeyboardButton(
-                f"{status_emoji} {title_display}",
-                callback_data=f"pimsleur_custom_play_{lesson.id}",
-            )])
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        f"{status_emoji} {title_display}",
+                        callback_data=f"pimsleur_custom_play_{lesson.id}",
+                    )
+                ]
+            )
         elif lesson.status == "failed":
             # Retry and Delete for failed lessons
-            keyboard.append([
-                InlineKeyboardButton(
-                    f"{status_emoji} {title_display}",
-                    callback_data=f"{WIZARD_RETRY_PREFIX}{lesson.id}",
-                ),
-                InlineKeyboardButton(
-                    "\U0001f5d1",  # wastebasket
-                    callback_data=f"{WIZARD_DELETE_PREFIX}{lesson.id}",
-                ),
-            ])
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        f"{status_emoji} {title_display}",
+                        callback_data=f"{WIZARD_RETRY_PREFIX}{lesson.id}",
+                    ),
+                    InlineKeyboardButton(
+                        "\U0001f5d1",  # wastebasket
+                        callback_data=f"{WIZARD_DELETE_PREFIX}{lesson.id}",
+                    ),
+                ]
+            )
         else:
             # Pending/generating - just show status
-            keyboard.append([InlineKeyboardButton(
-                f"{status_emoji} {title_display}",
-                callback_data=PIMSLEUR_CUSTOM_LIST,  # Refresh
-            )])
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        f"{status_emoji} {title_display}",
+                        callback_data=PIMSLEUR_CUSTOM_LIST,  # Refresh
+                    )
+                ]
+            )
 
-    keyboard.append([
-        InlineKeyboardButton("Create New", callback_data=PIMSLEUR_CUSTOM),
-        InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU),
-    ])
+    keyboard.append(
+        [
+            InlineKeyboardButton("Create New", callback_data=PIMSLEUR_CUSTOM),
+            InlineKeyboardButton("Back", callback_data=PIMSLEUR_MENU),
+        ]
+    )
 
     try:
         await query.edit_message_text(
@@ -906,8 +1013,10 @@ async def pimsleur_custom_list_callback(update: Update, context: ContextTypes.DE
             raise
 
 
-async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Play a custom lesson."""
+async def pimsleur_custom_play_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Play a custom lesson with full display data."""
     query = update.callback_query
     await query.answer("Loading custom lesson...")
 
@@ -927,65 +1036,119 @@ async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DE
     if not lesson:
         await query.edit_message_text(
             "Lesson not found.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)]]
+            ),
         )
         return
 
     if lesson.status != "ready":
         await query.edit_message_text(
             f"Lesson is not ready yet (status: {lesson.status}).",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)]]
+            ),
         )
         return
 
-    # Send audio
+    # Extract display data from script
+    display_data = None
+    if lesson.script_json:
+        try:
+            script = json.loads(lesson.script_json)
+            display_data = script.get("display_data")
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse script_json for lesson {lesson_id}")
+
+    chat_id = update.effective_chat.id
+
     try:
+        # Update message to show loading
+        await query.edit_message_text(
+            f"*{lesson.title}*\n\nSending audio...",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+        # 1. Send audio file FIRST (same as pre-built lessons)
         if lesson.telegram_file_id:
-            await query.message.reply_audio(
+            await context.bot.send_audio(
+                chat_id=chat_id,
                 audio=lesson.telegram_file_id,
                 title=lesson.title,
-                caption=f"*{lesson.title}*\nCustom Pimsleur Lesson",
-                parse_mode=ParseMode.MARKDOWN,
+                performer="Custom Lesson",
             )
         else:
             audio_path = Path(lesson.audio_file_path)
             if audio_path.exists():
                 with open(audio_path, "rb") as audio_file:
-                    message = await query.message.reply_audio(
+                    message = await context.bot.send_audio(
+                        chat_id=chat_id,
                         audio=audio_file,
                         title=lesson.title,
-                        caption=f"*{lesson.title}*\nCustom Pimsleur Lesson",
-                        parse_mode=ParseMode.MARKDOWN,
+                        performer="Custom Lesson",
                     )
                     # Cache file_id for future use
-                    if message.audio:
+                    if message.audio and message.audio.file_id:
                         cache_custom_lesson_file_id(lesson_id, message.audio.file_id)
             else:
                 logger.error(f"Audio file not found: {audio_path}")
-                await query.message.reply_text(
-                    "Audio file not found. Please try again later."
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text="Audio file not found. Please try again later.",
                 )
                 return
 
-        await query.edit_message_text(
-            f"*{lesson.title}*\n\nEnjoy your custom lesson!",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back to Custom Lessons", callback_data=PIMSLEUR_CUSTOM_LIST)
-            ]]),
-            parse_mode=ParseMode.MARKDOWN,
+        # 2. Send display messages if available
+        if display_data:
+            # Header with opening dialogue
+            header_msg = format_custom_lesson_header(display_data, lesson.language_code)
+            if header_msg:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=header_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+
+            # Vocabulary and phrases
+            vocab_msg = format_vocabulary_message(display_data, lesson.language_code)
+            if vocab_msg:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=vocab_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+
+            # Grammar notes
+            grammar_msg = format_grammar_message(
+                display_data, lesson.duration_seconds or 900
+            )
+            if grammar_msg:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=grammar_msg,
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+
+        # 3. Send completion button
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Enjoy your custom lesson!",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "Back to Custom Lessons", callback_data=PIMSLEUR_CUSTOM_LIST
+                        )
+                    ]
+                ]
+            ),
         )
 
     except Exception as e:
         logger.error(f"Error sending custom lesson audio: {e}", exc_info=True)
-        await query.edit_message_text(
-            "Error loading lesson. Please try again later.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back", callback_data=PIMSLEUR_CUSTOM_LIST)
-            ]]),
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Sorry, there was an error sending the lesson. Please try again later.",
         )
 
 
@@ -994,7 +1157,9 @@ async def pimsleur_custom_play_callback(update: Update, context: ContextTypes.DE
 # ============================================================================
 
 
-async def wizard_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_cancel_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Cancel the custom lesson wizard."""
     query = update.callback_query
     await query.answer()
@@ -1003,13 +1168,15 @@ async def wizard_cancel_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     await query.edit_message_text(
         "Custom lesson creation cancelled.",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)
-        ]]),
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)]]
+        ),
     )
 
 
-async def wizard_view_vocab_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_view_vocab_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Show vocabulary preview - Step 3."""
     query = update.callback_query
     await query.answer()
@@ -1024,18 +1191,22 @@ async def wizard_view_vocab_callback(update: Update, context: ContextTypes.DEFAU
         f"*Vocabulary Preview*\n\n"
         f"Words to be included in the lesson:\n\n"
         f"{vocab_text}\n\n"
-        f"_* = appears frequently_",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Back", callback_data=WIZARD_BACK)],
-            [InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)],
-        ]),
+        f"_\\* = appears frequently_",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("Back", callback_data=WIZARD_BACK)],
+                [InlineKeyboardButton("Continue", callback_data=WIZARD_CONTINUE)],
+            ]
+        ),
         parse_mode=ParseMode.MARKDOWN,
     )
 
     wizard["state"] = WizardState.VOCABULARY_PREVIEW
 
 
-async def wizard_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_back_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Go back to previous wizard step."""
     query = update.callback_query
     await query.answer()
@@ -1049,15 +1220,15 @@ async def wizard_back_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         wizard["state"] = WizardState.TEXT_ANALYSIS
         analysis = wizard.get("analysis", {})
 
+        current_title = wizard.get("title", "Untitled")
         stats_text = (
-            f"*Text Analysis*\n\n"
-            f"*Statistics:*\n"
-            f"- {analysis.get('word_count', 0)} words total\n"
-            f"- {analysis.get('unique_words', 0)} unique words\n"
-            f"- ~{analysis.get('estimated_lesson_words', 15)} words for lesson\n"
-            f"- Detected level: {analysis.get('detected_difficulty', '1')}\n\n"
-            f"*Suggested title:*\n"
-            f"_{wizard.get('title', 'Untitled')}_"
+            f"📊 *Text Analysis*\n\n"
+            f"📝 {analysis.get('word_count', 0)} words total\n"
+            f"🔤 {analysis.get('unique_words', 0)} unique words\n"
+            f"📚 ~{analysis.get('estimated_lesson_words', 15)} words for lesson\n"
+            f"📈 Difficulty level: {analysis.get('detected_difficulty', '1')}\n\n"
+            f"*Default title:*\n"
+            f"`{current_title}`"
         )
 
         keyboard = [
@@ -1081,9 +1252,9 @@ async def wizard_back_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         # Default: go to menu
         await query.edit_message_text(
             "Returning to menu...",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)
-            ]]),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Back to Menu", callback_data=PIMSLEUR_MENU)]]
+            ),
         )
 
 
@@ -1095,16 +1266,24 @@ async def _show_title_step(query, wizard: dict) -> None:
         f"*Lesson Title*\n\n"
         f"Suggested: _{title}_\n\n"
         f"Would you like to use this title or enter your own?",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Use This Title", callback_data=WIZARD_USE_TITLE)],
-            [InlineKeyboardButton("Edit Title", callback_data=WIZARD_EDIT_TITLE)],
-            [InlineKeyboardButton("Back", callback_data=WIZARD_BACK)],
-        ]),
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "Use This Title", callback_data=WIZARD_USE_TITLE
+                    )
+                ],
+                [InlineKeyboardButton("Edit Title", callback_data=WIZARD_EDIT_TITLE)],
+                [InlineKeyboardButton("Back", callback_data=WIZARD_BACK)],
+            ]
+        ),
         parse_mode=ParseMode.MARKDOWN,
     )
 
 
-async def wizard_continue_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_continue_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Continue to next wizard step."""
     query = update.callback_query
     await query.answer()
@@ -1125,7 +1304,9 @@ async def wizard_continue_callback(update: Update, context: ContextTypes.DEFAULT
         await query.answer("Please start again.", show_alert=True)
 
 
-async def wizard_use_title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_use_title_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Use the suggested title and continue to settings."""
     query = update.callback_query
     await query.answer()
@@ -1134,7 +1315,9 @@ async def wizard_use_title_callback(update: Update, context: ContextTypes.DEFAUL
     await _show_settings_step(query, wizard)
 
 
-async def wizard_edit_title_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_edit_title_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Switch to title input mode."""
     query = update.callback_query
     await query.answer()
@@ -1155,13 +1338,11 @@ async def _show_settings_step(query, wizard: dict) -> None:
     """Show the settings step."""
     wizard["state"] = WizardState.SETTINGS
     settings = wizard.get("settings", {})
-    analysis = wizard.get("analysis", {})
 
     # Current settings display
     focus = settings.get("focus", "vocabulary")
     voice = settings.get("voice", "both")
     difficulty = settings.get("difficulty", "auto")
-    detected_diff = analysis.get("detected_difficulty", "1")
 
     # Focus options
     focus_display = {
@@ -1186,9 +1367,9 @@ async def _show_settings_step(query, wizard: dict) -> None:
         label = focus_display[f]
         if f == focus:
             label = f"\u2713 {label}"  # checkmark
-        focus_row.append(InlineKeyboardButton(
-            label, callback_data=f"{WIZARD_FOCUS_PREFIX}{f}"
-        ))
+        focus_row.append(
+            InlineKeyboardButton(label, callback_data=f"{WIZARD_FOCUS_PREFIX}{f}")
+        )
     keyboard.append(focus_row)
 
     # Voice row
@@ -1197,31 +1378,33 @@ async def _show_settings_step(query, wizard: dict) -> None:
         label = voice_display[v]
         if v == voice:
             label = f"\u2713 {label}"
-        voice_row.append(InlineKeyboardButton(
-            label, callback_data=f"{WIZARD_VOICE_PREFIX}{v}"
-        ))
+        voice_row.append(
+            InlineKeyboardButton(label, callback_data=f"{WIZARD_VOICE_PREFIX}{v}")
+        )
     keyboard.append(voice_row)
 
     # Difficulty row
     diff_row = []
     diff_labels = {"1": "L1", "2": "L2", "3": "L3"}
     for d in ["1", "2", "3", "auto"]:
-        label = diff_labels.get(d, d) if d != "auto" else f"Auto"
+        label = diff_labels.get(d, d) if d != "auto" else "Auto"
         if d == difficulty:
             label = f"\u2713 {label}"
-        diff_row.append(InlineKeyboardButton(
-            label, callback_data=f"{WIZARD_DIFF_PREFIX}{d}"
-        ))
+        diff_row.append(
+            InlineKeyboardButton(label, callback_data=f"{WIZARD_DIFF_PREFIX}{d}")
+        )
     keyboard.append(diff_row)
 
     # Action buttons
-    keyboard.append([
-        InlineKeyboardButton("\u2705 Create Lesson", callback_data=WIZARD_CONFIRM)
-    ])
-    keyboard.append([
-        InlineKeyboardButton("Back", callback_data=WIZARD_BACK),
-        InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL),
-    ])
+    keyboard.append(
+        [InlineKeyboardButton("\u2705 Create Lesson", callback_data=WIZARD_CONFIRM)]
+    )
+    keyboard.append(
+        [
+            InlineKeyboardButton("Back", callback_data=WIZARD_BACK),
+            InlineKeyboardButton("Cancel", callback_data=WIZARD_CANCEL),
+        ]
+    )
 
     await query.edit_message_text(
         f"*Lesson Settings*\n\n"
@@ -1235,10 +1418,17 @@ async def _show_settings_step(query, wizard: dict) -> None:
     )
 
 
-async def wizard_focus_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_focus_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Update focus setting."""
     query = update.callback_query
     focus = query.data.replace(WIZARD_FOCUS_PREFIX, "")
+
+    if focus not in VALID_FOCUS_VALUES:
+        logger.warning(f"Invalid focus value received: {focus}")
+        await query.answer("Invalid option", show_alert=True)
+        return
 
     wizard = _get_wizard_data(context)
     wizard["settings"]["focus"] = focus
@@ -1246,10 +1436,17 @@ async def wizard_focus_callback(update: Update, context: ContextTypes.DEFAULT_TY
     await _show_settings_step(query, wizard)
 
 
-async def wizard_voice_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_voice_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Update voice setting."""
     query = update.callback_query
     voice = query.data.replace(WIZARD_VOICE_PREFIX, "")
+
+    if voice not in VALID_VOICE_VALUES:
+        logger.warning(f"Invalid voice value received: {voice}")
+        await query.answer("Invalid option", show_alert=True)
+        return
 
     wizard = _get_wizard_data(context)
     wizard["settings"]["voice"] = voice
@@ -1257,10 +1454,17 @@ async def wizard_voice_callback(update: Update, context: ContextTypes.DEFAULT_TY
     await _show_settings_step(query, wizard)
 
 
-async def wizard_difficulty_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_difficulty_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Update difficulty setting."""
     query = update.callback_query
     difficulty = query.data.replace(WIZARD_DIFF_PREFIX, "")
+
+    if difficulty not in VALID_DIFFICULTY_VALUES:
+        logger.warning(f"Invalid difficulty value received: {difficulty}")
+        await query.answer("Invalid option", show_alert=True)
+        return
 
     wizard = _get_wizard_data(context)
     wizard["settings"]["difficulty"] = difficulty
@@ -1268,7 +1472,9 @@ async def wizard_difficulty_callback(update: Update, context: ContextTypes.DEFAU
     await _show_settings_step(query, wizard)
 
 
-async def wizard_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_confirm_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Confirm and start lesson generation."""
     query = update.callback_query
     await query.answer("Starting generation...")
@@ -1327,6 +1533,7 @@ async def wizard_confirm_callback(update: Update, context: ContextTypes.DEFAULT_
             language_code=target_lang,
             source_text=wizard.get("source_text", ""),
             title=wizard.get("title", "Custom Lesson"),
+            difficulty_level=difficulty,
             settings=settings,
             user_data=context.user_data,
         )
@@ -1342,6 +1549,7 @@ async def _generate_custom_lesson_with_progress(
     language_code: str,
     source_text: str,
     title: str,
+    difficulty_level: str,
     settings: dict,
     user_data: dict,
 ) -> None:
@@ -1384,7 +1592,7 @@ async def _generate_custom_lesson_with_progress(
         await update_progress("generating_script")
         generator = PimsleurLessonGenerator(lang_config)
         script = await asyncio.to_thread(
-            generator.generate_custom_lesson_script, source_text
+            generator.generate_custom_lesson_script, source_text, difficulty_level
         )
 
         await update_progress("vocabulary")
@@ -1413,7 +1621,9 @@ async def _generate_custom_lesson_with_progress(
             script_json=script_json,
             audio_path=str(audio_path),
             duration_seconds=duration,
-            vocabulary_json=json.dumps(script.get("vocabulary_summary", []), ensure_ascii=False),
+            vocabulary_json=json.dumps(
+                script.get("vocabulary_summary", []), ensure_ascii=False
+            ),
         )
 
         await update_progress("complete")
@@ -1433,21 +1643,28 @@ async def _generate_custom_lesson_with_progress(
                 f"\u23f1 {duration_min} minutes\n\n"
                 f"Tap below to listen:"
             ),
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(
-                    "\u25b6\ufe0f Play Now",
-                    callback_data=f"pimsleur_custom_play_{lesson_id}"
-                )],
-                [InlineKeyboardButton(
-                    "My Custom Lessons",
-                    callback_data=PIMSLEUR_CUSTOM_LIST
-                )],
-            ]),
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "\u25b6\ufe0f Play Now",
+                            callback_data=f"pimsleur_custom_play_{lesson_id}",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "My Custom Lessons", callback_data=PIMSLEUR_CUSTOM_LIST
+                        )
+                    ],
+                ]
+            ),
             parse_mode=ParseMode.MARKDOWN,
         )
 
     except Exception as e:
-        logger.error(f"Failed to generate custom lesson {lesson_id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to generate custom lesson {lesson_id}: {e}", exc_info=True
+        )
 
         # Update wizard state
         if "custom_wizard" in user_data:
@@ -1455,9 +1672,7 @@ async def _generate_custom_lesson_with_progress(
             user_data["custom_wizard"]["error"] = str(e)
 
         update_custom_lesson_generation_status(
-            lesson_id,
-            status="failed",
-            error_message=str(e)[:500]
+            lesson_id, status="failed", error_message=str(e)[:500]
         )
 
         # Error message with retry option
@@ -1469,21 +1684,28 @@ async def _generate_custom_lesson_with_progress(
                 f"Error: {str(e)[:200]}\n\n"
                 f"You can retry or delete this lesson from 'My Custom Lessons'."
             ),
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(
-                    "\U0001f504 Retry",
-                    callback_data=f"{WIZARD_RETRY_PREFIX}{lesson_id}"
-                )],
-                [InlineKeyboardButton(
-                    "My Custom Lessons",
-                    callback_data=PIMSLEUR_CUSTOM_LIST
-                )],
-            ]),
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "\U0001f504 Retry",
+                            callback_data=f"{WIZARD_RETRY_PREFIX}{lesson_id}",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "My Custom Lessons", callback_data=PIMSLEUR_CUSTOM_LIST
+                        )
+                    ],
+                ]
+            ),
             parse_mode=ParseMode.MARKDOWN,
         )
 
 
-async def wizard_retry_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_retry_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Retry a failed lesson generation."""
     query = update.callback_query
 
@@ -1526,6 +1748,7 @@ async def wizard_retry_callback(update: Update, context: ContextTypes.DEFAULT_TY
             language_code=target_lang,
             source_text=lesson.source_text,
             title=lesson.title,
+            difficulty_level=lesson.difficulty_level,
             settings={
                 "focus": lesson.focus,
                 "voice": lesson.voice_preference,
@@ -1536,7 +1759,9 @@ async def wizard_retry_callback(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 
-async def wizard_delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def wizard_delete_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Delete a custom lesson."""
     query = update.callback_query
 
@@ -1559,7 +1784,9 @@ async def wizard_delete_callback(update: Update, context: ContextTypes.DEFAULT_T
 
 
 # Handler dispatcher for all pimsleur callbacks
-async def pimsleur_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pimsleur_callback_handler(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Route pimsleur callbacks to appropriate handlers."""
     query = update.callback_query
     data = query.data

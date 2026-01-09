@@ -15,7 +15,10 @@ UNIT_INFO = {
 # Opening dialogue - practical scenario combining recent units
 OPENING_DIALOGUE = [
     ("Hvað gerðir þú í gær?", "What did you do yesterday?"),
-    ("Ég fór til læknis. Mér leið ekki vel.", "I went to the doctor. I didn't feel well."),
+    (
+        "Ég fór til læknis. Mér leið ekki vel.",
+        "I went to the doctor. I didn't feel well.",
+    ),
     ("Ertu í lagi núna?", "Are you okay now?"),
     ("Já, mér líður miklu betur.", "Yes, I feel much better."),
     ("Hvað ætlar þú að gera á morgun?", "What are you going to do tomorrow?"),

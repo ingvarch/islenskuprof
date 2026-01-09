@@ -2,20 +2,22 @@
 """
 Test script for the person generator.
 """
+
 import logging
 import os
 import sys
 
 # Set up logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
     handlers=[
         logging.StreamHandler(),
-    ]
+    ],
 )
 
 logger = logging.getLogger(__name__)
+
 
 def main():
     """Test the person generator."""
@@ -29,6 +31,7 @@ def main():
     # Initialize the database
     try:
         from bot.db.database import init_db
+
         logger.info("Initializing database")
         init_db()
         logger.info("Database initialized successfully")
@@ -39,6 +42,7 @@ def main():
     # Clear and fill persons table
     try:
         from bot.db.person_generator import clear_and_fill_persons_table
+
         logger.info("Clearing and filling persons table")
         clear_and_fill_persons_table()
         logger.info("Persons table cleared and filled with random data")
@@ -50,6 +54,7 @@ def main():
     try:
         from bot.db.database import get_db_session
         from bot.db.models import Person
+
         session = get_db_session()
         count = session.query(Person).count()
         logger.info(f"Found {count} persons in the database")
@@ -65,6 +70,7 @@ def main():
         session.close()
 
     logger.info("All tests passed")
+
 
 if __name__ == "__main__":
     main()

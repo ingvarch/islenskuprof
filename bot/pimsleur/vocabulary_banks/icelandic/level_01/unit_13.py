@@ -13,7 +13,10 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Afsakið, hvernig kemst ég til Lækjartorgs?", "Excuse me, how do I get to Lækjartorg?"),
+    (
+        "Afsakið, hvernig kemst ég til Lækjartorgs?",
+        "Excuse me, how do I get to Lækjartorg?",
+    ),
     ("Þú getur tekið strætó.", "You can take a bus."),
     ("Hvaða strætó?", "Which bus?"),
     ("Númer fimm, stoppið er þarna.", "Number five, the stop is over there."),

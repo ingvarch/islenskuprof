@@ -17,7 +17,10 @@ OPENING_DIALOGUE = [
     ("Was ist los?", "What's wrong?"),
     ("Mein Zimmer ist zu kalt.", "My room is too cold."),
     ("Ich lasse das sofort reparieren.", "I'll have that fixed right away."),
-    ("Danke. Und die Dusche funktioniert nicht.", "Thank you. And the shower doesn't work."),
+    (
+        "Danke. Und die Dusche funktioniert nicht.",
+        "Thank you. And the shower doesn't work.",
+    ),
     ("Ich bitte vielmals um Entschuldigung.", "I sincerely apologize."),
 ]
 
@@ -50,7 +53,11 @@ PHRASES = [
     ("Es funktioniert nicht", "It doesn't work", "reporting malfunction"),
     ("Es ist kaputt", "It's broken", "describing broken item"),
     ("Können Sie das reparieren?", "Can you fix this?", "requesting repair"),
-    ("Ich möchte den Geschäftsführer sprechen", "I want to speak to a manager", "escalation"),
+    (
+        "Ich möchte den Geschäftsführer sprechen",
+        "I want to speak to a manager",
+        "escalation",
+    ),
 ]
 
 # Grammar points covered

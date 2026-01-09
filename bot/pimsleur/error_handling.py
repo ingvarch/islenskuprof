@@ -5,11 +5,13 @@ Custom exceptions for Pimsleur module.
 
 class PimsleurError(Exception):
     """Base exception for Pimsleur module."""
+
     pass
 
 
 class LessonNotFoundError(PimsleurError):
     """Lesson does not exist or is not generated."""
+
     pass
 
 

@@ -10,13 +10,6 @@ Note: Uses "Spaced Audio Course" instead of trademark names.
 
 import json
 
-from bot.pimsleur.config import (
-    COURSE_BRAND_NAME,
-    OPENING_TITLE_FORMAT,
-    CLOSING_SUMMARY_FORMAT,
-    LEVEL_CEFR_MAPPING,
-    CEFR_GUIDELINES,
-)
 
 PIMSLEUR_LESSON_SYSTEM_PROMPT = """You are an expert language curriculum designer specializing in the spaced repetition audio method for language learning.
 
@@ -142,8 +135,11 @@ PIMSLEUR_LESSON_USER_PROMPT = """Create a spaced repetition audio lesson script 
 - Theme: {theme}
 - Target Duration: 1800 seconds (30 minutes)
 
-## OPENING DIALOGUE
+## OPENING DIALOGUE (for reference - will be injected automatically)
 {opening_dialogue_json}
+
+NOTE: Do NOT generate an opening_dialogue segment. It will be added automatically after opening_instruction.
+Start your segments with: opening_title -> opening_instruction -> first word introduction
 
 ## VOCABULARY TO INTRODUCE (NEW)
 {new_vocabulary_json}
@@ -180,11 +176,7 @@ opening_instruction (use native language for units 11+):
 {{"type": "opening_instruction", "speaker": "narrator", "language": "en", "text": "Listen to this {target_language} conversation.", "duration_estimate": 3}}
 For units 11+: {{"type": "native_instruction", "speaker": "native_female", "language": "{lang_code}", "text": "Hlustaðu á þetta samtal.", "duration_estimate": 2}}
 
-opening_dialogue (multi-line conversation):
-{{"type": "opening_dialogue", "lines": [
-  {{"speaker": "native_female", "text": "First line in {lang_code}"}},
-  {{"speaker": "native_male", "text": "Response in {lang_code}"}}
-], "duration_estimate": 15}}
+(opening_dialogue is injected automatically - do not generate this segment)
 
 ### 2. NEW WORD INTRODUCTION (MANDATORY SEQUENCE - ~60 seconds per word)
 
@@ -452,7 +444,9 @@ def get_lesson_generation_prompt(
     if opening_dialogue:
         dialogue_json = json.dumps(opening_dialogue, indent=2, ensure_ascii=False)
     else:
-        dialogue_json = "[]  // No opening dialogue provided - create one based on vocabulary"
+        dialogue_json = (
+            "[]  // No opening dialogue provided - create one based on vocabulary"
+        )
 
     # Build additional context section
     additional_context = ""
@@ -475,7 +469,9 @@ def get_lesson_generation_prompt(
         next_lesson=lesson_number + 1,
         opening_dialogue_json=dialogue_json,
         new_vocabulary_json=json.dumps(new_vocabulary, indent=2, ensure_ascii=False),
-        review_vocabulary_json=json.dumps(review_vocabulary, indent=2, ensure_ascii=False),
+        review_vocabulary_json=json.dumps(
+            review_vocabulary, indent=2, ensure_ascii=False
+        ),
     )
 
     # Append additional context if present
@@ -508,3 +504,114 @@ def get_custom_lesson_prompt(
     )
 
     return PIMSLEUR_LESSON_SYSTEM_PROMPT, user_prompt
+
+
+# =============================================================================
+# STEP 1: Creative Agent - Generate vocabulary structure from user input
+# =============================================================================
+
+CUSTOM_VOCABULARY_SYSTEM_PROMPT = """You are a creative language teacher specializing in {target_language}.
+
+Your task is to take user-provided words or text and create a coherent, realistic lesson structure.
+You excel at finding creative connections between unrelated words and building natural dialogues.
+
+Key skills:
+- Creating realistic scenarios (cafe, shop, hotel, street conversation, etc.)
+- Building natural dialogues that incorporate given vocabulary
+- Identifying grammar patterns and creating helpful notes
+- Providing accurate translations and phonetic guides
+
+Always respond with valid JSON only. No markdown, no explanations."""
+
+
+CUSTOM_VOCABULARY_USER_PROMPT = """Create a vocabulary lesson structure from the following user input.
+
+## USER INPUT ({target_language})
+{source_text}
+
+## YOUR TASK
+
+1. **Analyze the input**: Identify 8-12 key words/phrases to teach
+2. **Create a scenario**: Choose a realistic situation where these words could be used together
+3. **Write an opening dialogue**: 4-6 lines using the vocabulary naturally
+4. **Extract vocabulary**: List each word with translation, type, and phonetic guide
+5. **Create phrases**: 3-5 useful phrases combining the vocabulary
+6. **Add grammar notes**: 2-4 relevant grammar points
+
+## CREATIVE GUIDELINES
+
+- If words seem unrelated, find a creative scenario that connects them
+- The dialogue should feel natural, not forced
+- Prioritize the most useful/common words if there are too many
+- Add 1-2 essential connecting words if needed (yes, no, please, thank you)
+
+## OUTPUT FORMAT (JSON only)
+
+{{
+  "title": "Descriptive lesson title in English",
+  "theme": "scenario_theme",
+  "opening_dialogue": [
+    {{"target": "{target_language} line 1", "translation": "English translation"}},
+    {{"target": "{target_language} line 2", "translation": "English translation"}}
+  ],
+  "vocabulary": [
+    {{
+      "word_target": "word in {target_language}",
+      "word_native": "English translation",
+      "word_type": "noun|verb|adjective|adverb|phrase|pronoun",
+      "phonetic": "pronunciation guide"
+    }}
+  ],
+  "phrases": [
+    {{
+      "target": "phrase in {target_language}",
+      "translation": "English translation",
+      "context": "when to use this phrase"
+    }}
+  ],
+  "grammar_notes": [
+    "Grammar point 1",
+    "Grammar point 2"
+  ]
+}}
+
+## EXAMPLES
+
+Example input: "kaffi, brauð, borð, stóll"
+Example scenario: "At a café" - customer ordering and finding a seat
+
+Example input: "hestur, rauður, stór, hlaupa"
+Example scenario: "At a farm" - describing animals and their actions
+
+Generate the vocabulary structure now. Output ONLY valid JSON."""
+
+
+def get_custom_vocabulary_prompt(
+    target_language: str,
+    lang_code: str,
+    source_text: str,
+) -> tuple[str, str]:
+    """
+    Generate prompts for Step 1: Creative vocabulary structure generation.
+
+    This is the first step of the two-step custom lesson process.
+    It takes user input and creates a vocabulary bank-like structure.
+
+    Args:
+        target_language: Full language name (e.g., "Icelandic")
+        lang_code: ISO language code (e.g., "is")
+        source_text: User-provided words or text
+
+    Returns:
+        Tuple of (system_prompt, user_prompt)
+    """
+    system_prompt = CUSTOM_VOCABULARY_SYSTEM_PROMPT.format(
+        target_language=target_language,
+    )
+
+    user_prompt = CUSTOM_VOCABULARY_USER_PROMPT.format(
+        target_language=target_language,
+        source_text=source_text,
+    )
+
+    return system_prompt, user_prompt

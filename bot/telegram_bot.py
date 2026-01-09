@@ -1,7 +1,9 @@
 """
 Telegram bot implementation module.
 """
+
 import logging
+from typing import Optional
 
 from telegram.ext import (
     Application,
@@ -11,18 +13,9 @@ from telegram.ext import (
     filters,
 )
 from bot.utils.commands import register_bot_commands
-from bot.handlers.basic_handlers import (
-    start_command,
-    unknown_command
-)
-from bot.handlers.section_handlers import (
-    understanding_command,
-    communication_command
-)
-from bot.handlers.settings_handlers import (
-    settings_command,
-    settings_callback_handler
-)
+from bot.handlers.basic_handlers import start_command, unknown_command
+from bot.handlers.section_handlers import understanding_command, communication_command
+from bot.handlers.settings_handlers import settings_command, settings_callback_handler
 from bot.handlers.pimsleur_handlers import (
     pimsleur_command,
     pimsleur_callback_handler,
@@ -32,19 +25,29 @@ from bot.handlers.pimsleur_handlers import (
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
-def create_bot(token: str) -> Application:
+
+def create_bot(token: str, redis_url: Optional[str] = None) -> Application:
     """
     Create and configure the Telegram bot.
 
     Args:
         token: Telegram bot token from BotFather
+        redis_url: Optional Redis URL for state persistence
 
     Returns:
         Configured Application instance
     """
-    # Create the Application
+    # Create the Application with optional persistence
     logger.info("Creating Telegram bot application")
-    application = Application.builder().token(token).concurrent_updates(8).build()
+    builder = Application.builder().token(token).concurrent_updates(8)
+
+    if redis_url:
+        from bot.persistence import RedisPersistence
+
+        persistence = RedisPersistence(redis_url)
+        builder = builder.persistence(persistence)
+
+    application = builder.build()
 
     # Add command handlers
     logger.debug("Adding command handlers")
@@ -55,16 +58,20 @@ def create_bot(token: str) -> Application:
     application.add_handler(CommandHandler("pimsleur", pimsleur_command))
 
     # Add callback query handler for Pimsleur (before generic handlers)
-    application.add_handler(CallbackQueryHandler(
-        pimsleur_callback_handler, pattern="^pimsleur_"
-    ))
+    application.add_handler(
+        CallbackQueryHandler(pimsleur_callback_handler, pattern="^pimsleur_")
+    )
 
     # Add callback query handler for settings with explicit pattern
     # This will only handle callback queries that start with 'lang_'
-    application.add_handler(CallbackQueryHandler(settings_callback_handler, pattern="lang_*"))
+    application.add_handler(
+        CallbackQueryHandler(settings_callback_handler, pattern="lang_*")
+    )
 
     # Also add a handler for exact match 'lang_menu'
-    application.add_handler(CallbackQueryHandler(settings_callback_handler, pattern="^lang_menu$"))
+    application.add_handler(
+        CallbackQueryHandler(settings_callback_handler, pattern="^lang_menu$")
+    )
 
     # Add a generic callback handler for any other patterns
     application.add_handler(CallbackQueryHandler(settings_callback_handler))
@@ -77,10 +84,9 @@ def create_bot(token: str) -> Application:
             # Not a Pimsleur text input, let other handlers process it
             pass
 
-    application.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        pimsleur_text_wrapper
-    ), group=1)
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, pimsleur_text_wrapper), group=1
+    )
 
     # Add handler for unknown commands - should be added last
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))

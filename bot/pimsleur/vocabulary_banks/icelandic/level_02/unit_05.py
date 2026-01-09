@@ -18,7 +18,10 @@ OPENING_DIALOGUE = [
     ("Ertu ennþá að lesa hana?", "Are you still reading it?"),
     ("Nei, ég er búin að lesa hana.", "No, I've finished reading it."),
     ("Var hún góð?", "Was it good?"),
-    ("Já, ég var að lesa í tvær klukkustundir án þess að taka pásu!", "Yes, I was reading for two hours without taking a break!"),
+    (
+        "Já, ég var að lesa í tvær klukkustundir án þess að taka pásu!",
+        "Yes, I was reading for two hours without taking a break!",
+    ),
 ]
 
 # New vocabulary introduced in this unit
@@ -47,7 +50,11 @@ VOCABULARY = [
 
 # Key phrases and expressions
 PHRASES = [
-    ("Ég var að + infinitive", "I was doing (progressive)", "past continuous construction"),
+    (
+        "Ég var að + infinitive",
+        "I was doing (progressive)",
+        "past continuous construction",
+    ),
     ("Ég er búin/búinn að...", "I have finished...", "completed action"),
     ("Án þess að...", "Without doing...", "negative purpose clause"),
     ("Þegar ég...", "When I...", "temporal clause"),

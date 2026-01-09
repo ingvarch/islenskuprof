@@ -13,12 +13,24 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Herzlichen Glückwunsch! Du hast die zweite Stufe abgeschlossen.", "Congratulations! You have completed the second level."),
-    ("Vielen Dank! Es war schwierig aber spaßig.", "Thank you very much! It was difficult but fun."),
+    (
+        "Herzlichen Glückwunsch! Du hast die zweite Stufe abgeschlossen.",
+        "Congratulations! You have completed the second level.",
+    ),
+    (
+        "Vielen Dank! Es war schwierig aber spaßig.",
+        "Thank you very much! It was difficult but fun.",
+    ),
     ("Was hast du am meisten gelernt?", "What did you learn the most?"),
-    ("Ich habe viel über das tägliche Leben und Kommunikation gelernt.", "I learned a lot about daily life and communication."),
+    (
+        "Ich habe viel über das tägliche Leben und Kommunikation gelernt.",
+        "I learned a lot about daily life and communication.",
+    ),
     ("Bist du bereit für die dritte Stufe?", "Are you ready for the third level?"),
-    ("Ja, ich freue mich darauf weiterzumachen!", "Yes, I'm looking forward to continuing!"),
+    (
+        "Ja, ich freue mich darauf weiterzumachen!",
+        "Yes, I'm looking forward to continuing!",
+    ),
 ]
 
 # New vocabulary introduced in this unit
@@ -45,11 +57,27 @@ VOCABULARY = [
 
 # Key phrases and expressions
 PHRASES = [
-    ("Herzlichen Glückwunsch zum Erfolg!", "Congratulations on the success!", "celebration"),
+    (
+        "Herzlichen Glückwunsch zum Erfolg!",
+        "Congratulations on the success!",
+        "celebration",
+    ),
     ("Ich bin stolz auf mich", "I'm proud of myself", "self-congratulation"),
-    ("Ich freue mich darauf weiterzumachen", "I look forward to continuing", "future intention"),
-    ("Was hast du am meisten gelernt?", "What did you learn the most?", "reflection question"),
-    ("Ich habe große Fortschritte gemacht", "I have made great progress", "self-assessment"),
+    (
+        "Ich freue mich darauf weiterzumachen",
+        "I look forward to continuing",
+        "future intention",
+    ),
+    (
+        "Was hast du am meisten gelernt?",
+        "What did you learn the most?",
+        "reflection question",
+    ),
+    (
+        "Ich habe große Fortschritte gemacht",
+        "I have made great progress",
+        "self-assessment",
+    ),
     ("Danke für den Unterricht!", "Thanks for the teaching!", "gratitude"),
 ]
 

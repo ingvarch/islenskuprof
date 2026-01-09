@@ -10,7 +10,6 @@ These prompts ensure quality vocabulary selection by:
 
 import json
 import logging
-from typing import Optional
 
 from bot.pimsleur.config import CEFR_GUIDELINES, LEVEL_CEFR_MAPPING
 
@@ -55,19 +54,17 @@ LANGUAGE_GUIDELINES = {
 - Use standard Icelandic spelling with proper characters (þ, ð, á, é, í, ó, ú, ý, æ, ö)
 - Include both singular and plural forms for key nouns
 - Examples: "afsakið" -> "AHF-sa-kith", "þú" -> "thoo", "ég" -> "yeh" """,
-
     "German": """### German-Specific Guidelines
 - Include gender markers for nouns: (m) der, (f) die, (n) das
 - Include plural forms for nouns
 - Use standard German spelling with proper characters (ä, ö, ü, ß)
 - Note case changes when relevant (nominative, accusative, dative, genitive)
 - Examples: "Entschuldigung" -> "ent-SHOOL-di-goong", "sprechen" -> "SHPREH-khen" """,
-
     "default": """### Language-Specific Guidelines
 - Include gender markers if applicable
 - Use standard spelling with proper diacritics
 - Include plural forms for nouns where relevant
-- Note grammatical forms when they affect meaning"""
+- Note grammatical forms when they affect meaning""",
 }
 
 
@@ -140,16 +137,16 @@ def _format_cefr_guidelines(cefr: str) -> str:
     info = CEFR_GUIDELINES.get(cefr, CEFR_GUIDELINES.get("A1"))
 
     guidelines = f"""
-CEFR Level: {cefr} - {info['description']}
+CEFR Level: {cefr} - {info["description"]}
 
 Include vocabulary that has these characteristics:
-{chr(10).join(f'- {c}' for c in info['characteristics'])}
+{chr(10).join(f"- {c}" for c in info["characteristics"])}
 
 AVOID vocabulary that is:
-{chr(10).join(f'- {a}' for a in info['avoid'])}
+{chr(10).join(f"- {a}" for a in info["avoid"])}
 
-Word length guidance: {info['word_length']}
-Frequency guidance: {info['frequency']}
+Word length guidance: {info["word_length"]}
+Frequency guidance: {info["frequency"]}
 """
     return guidelines
 
@@ -232,7 +229,10 @@ def _get_unit_theme(language_code: str, level: int, unit: int) -> tuple[str, str
     """Get unit theme, with fallback for unsupported languages."""
     try:
         if language_code == "is":
-            from bot.pimsleur.vocabulary_banks.icelandic.categories import get_unit_theme
+            from bot.pimsleur.vocabulary_banks.icelandic.categories import (
+                get_unit_theme,
+            )
+
             return get_unit_theme(level, unit)
     except ImportError:
         pass
@@ -270,6 +270,7 @@ def generate_unit_vocabulary(
     """
     if ai_service is None:
         from bot.openrouter_service import OpenRouterService
+
         ai_service = OpenRouterService()
 
     # Get language name

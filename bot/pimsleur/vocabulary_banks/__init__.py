@@ -17,10 +17,32 @@ LANGUAGE_MODULES = {
     "de": "german",
 }
 
+# Module-level cache (shared across all instances, persists for process lifetime)
+# Structure: {language_code: {cache_key: unit_data}}
+_VOCABULARY_CACHE: dict[str, dict] = {}
+
+
+def clear_vocabulary_cache(language_code: str | None = None) -> None:
+    """
+    Clear vocabulary cache globally or for a specific language.
+
+    Args:
+        language_code: If provided, clear only that language's cache.
+                      If None, clear entire cache.
+    """
+    global _VOCABULARY_CACHE
+    if language_code:
+        _VOCABULARY_CACHE.pop(language_code, None)
+    else:
+        _VOCABULARY_CACHE.clear()
+
 
 class VocabularyBank:
     """
     Manages vocabulary loading with LLM fallback.
+
+    Uses module-level cache to avoid re-importing vocabulary modules
+    on every request. Cache persists for the process lifetime.
 
     Usage:
         bank = VocabularyBank("is")  # Icelandic
@@ -35,7 +57,10 @@ class VocabularyBank:
             language_code: ISO language code (e.g., "is" for Icelandic)
         """
         self.language_code = language_code
-        self._cache = {}
+        # Use shared module-level cache keyed by language
+        if language_code not in _VOCABULARY_CACHE:
+            _VOCABULARY_CACHE[language_code] = {}
+        self._cache = _VOCABULARY_CACHE[language_code]
 
     def get_unit(self, level: int, unit: int) -> Optional[dict]:
         """
@@ -71,9 +96,7 @@ class VocabularyBank:
     def _load_from_bank(self, level: int, unit: int) -> Optional[dict]:
         """Load vocabulary from bank file."""
         try:
-            module_name = LANGUAGE_MODULES.get(
-                self.language_code, self.language_code
-            )
+            module_name = LANGUAGE_MODULES.get(self.language_code, self.language_code)
             module_path = (
                 f"bot.pimsleur.vocabulary_banks.{module_name}"
                 f".level_{level:02d}.unit_{unit:02d}"

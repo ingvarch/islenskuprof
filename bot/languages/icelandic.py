@@ -1,6 +1,7 @@
 """
 Icelandic language configuration.
 """
+
 import re
 from typing import Dict, List, Tuple, Pattern
 
@@ -35,8 +36,8 @@ class IcelandicConfig(LanguageConfig):
     def dialogue_regex_pattern(self) -> Pattern:
         # Match both ASCII "Madur" and proper Icelandic "Maður" (with ð)
         return re.compile(
-            r'(Kona|Maður|Madur|KONA|MAÐUR|MADUR):\s*(.*?)(?=\n(?:Kona|Maður|Madur|KONA|MAÐUR|MADUR):|$)',
-            re.DOTALL | re.MULTILINE
+            r"(Kona|Maður|Madur|KONA|MAÐUR|MADUR):\s*(.*?)(?=\n(?:Kona|Maður|Madur|KONA|MAÐUR|MADUR):|$)",
+            re.DOTALL | re.MULTILINE,
         )
 
     @property
@@ -154,7 +155,7 @@ class IcelandicConfig(LanguageConfig):
 
     def detect_gender(self, first_name: str) -> str:
         """Icelandic names ending in 'a' are typically female."""
-        return "female" if first_name.lower().endswith('a') else "male"
+        return "female" if first_name.lower().endswith("a") else "male"
 
     def normalize_speaker(self, speaker: str) -> str:
         """
@@ -178,7 +179,9 @@ class IcelandicConfig(LanguageConfig):
             ("Maður", "Godan dag. Eg tharf ad breyta timanum minum."),
         ]
 
-    def get_dialogue_prompt(self, topic: str, user_language: str, user_language_level: str) -> str:
+    def get_dialogue_prompt(
+        self, topic: str, user_language: str, user_language_level: str
+    ) -> str:
         female_label = self.speakers["female"].label
         male_label = self.speakers["male"].label
         markers = self.markers
@@ -189,14 +192,14 @@ Create an Icelandic dialogue for {user_language_level} level learners.
 Topic: {topic}
 
 === CRITICAL {user_language_level} LEVEL REQUIREMENTS ===
-- Vocabulary: ONLY use the {constraints['vocabulary_limit']} most common Icelandic words
-- Sentence length: {constraints['sentence_length']}
-- Grammar: {constraints['grammar']}
-- Structures: {constraints['structures']}
-- Connectors: {constraints['connectors']}
-- FORBIDDEN: {constraints['forbidden']}
+- Vocabulary: ONLY use the {constraints["vocabulary_limit"]} most common Icelandic words
+- Sentence length: {constraints["sentence_length"]}
+- Grammar: {constraints["grammar"]}
+- Structures: {constraints["structures"]}
+- Connectors: {constraints["connectors"]}
+- FORBIDDEN: {constraints["forbidden"]}
 
-Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
+Example of appropriate {user_language_level} complexity: {constraints["example_complexity"]}
 
 === CONTENT REQUIREMENTS ===
 * Create a realistic CONVERSATION between TWO people: "{female_label}" (woman) and "{male_label}" (man)
@@ -306,7 +309,9 @@ Before submitting, verify you have included ALL these sections:
 6. GRAMMAR NOTES section (REQUIRED - do not skip!)
 """
 
-    def get_reading_prompt(self, person_data: dict, user_language: str, user_language_level: str) -> str:
+    def get_reading_prompt(
+        self, person_data: dict, user_language: str, user_language_level: str
+    ) -> str:
         markers = self.markers
         constraints = self.get_cefr_constraints(user_language_level)
 
@@ -314,14 +319,14 @@ Before submitting, verify you have included ALL these sections:
 Write an Icelandic reading passage (20-25 sentences) for {user_language_level} level learners.
 
 === CRITICAL {user_language_level} LEVEL REQUIREMENTS ===
-- Vocabulary: ONLY use the {constraints['vocabulary_limit']} most common Icelandic words
-- Sentence length: {constraints['sentence_length']}
-- Grammar: {constraints['grammar']}
-- Structures: {constraints['structures']}
-- Connectors: {constraints['connectors']}
-- FORBIDDEN: {constraints['forbidden']}
+- Vocabulary: ONLY use the {constraints["vocabulary_limit"]} most common Icelandic words
+- Sentence length: {constraints["sentence_length"]}
+- Grammar: {constraints["grammar"]}
+- Structures: {constraints["structures"]}
+- Connectors: {constraints["connectors"]}
+- FORBIDDEN: {constraints["forbidden"]}
 
-Example of appropriate {user_language_level} complexity: {constraints['example_complexity']}
+Example of appropriate {user_language_level} complexity: {constraints["example_complexity"]}
 
 === STORY INFORMATION ===
 - Name: {person_data["name"]}

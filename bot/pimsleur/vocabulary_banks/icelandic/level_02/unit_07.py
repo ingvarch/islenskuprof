@@ -13,7 +13,10 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Vilt þú fara á veitingastað eða elda heima?", "Do you want to go to a restaurant or cook at home?"),
+    (
+        "Vilt þú fara á veitingastað eða elda heima?",
+        "Do you want to go to a restaurant or cook at home?",
+    ),
     ("Ég myndi frekar elda heima.", "I'd rather cook at home."),
     ("Af hverju?", "Why?"),
     ("Ég vil helst borða hollari mat.", "I prefer to eat healthier food."),

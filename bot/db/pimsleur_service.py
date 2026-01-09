@@ -9,20 +9,17 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from bot.db.database import get_db_session, db_session
+from bot.db.database import db_session
 from bot.db.models import (
     PimsleurLesson,
-    PimsleurVocabulary,
-    PimsleurLessonVocabulary,
     UserPimsleurProgress,
     PimsleurCustomLesson,
-    User,
 )
 
 logger = logging.getLogger(__name__)
 
 # Valid status values for custom lessons
-VALID_CUSTOM_LESSON_STATUSES = frozenset(['pending', 'generating', 'ready', 'failed'])
+VALID_CUSTOM_LESSON_STATUSES = frozenset(["pending", "generating", "ready", "failed"])
 
 
 # ============================================================================
@@ -49,18 +46,26 @@ def get_lesson(
         PimsleurLesson or None
     """
     if session is not None:
-        return session.query(PimsleurLesson).filter_by(
-            language_code=language_code,
-            level=level,
-            lesson_number=lesson_number,
-        ).first()
+        return (
+            session.query(PimsleurLesson)
+            .filter_by(
+                language_code=language_code,
+                level=level,
+                lesson_number=lesson_number,
+            )
+            .first()
+        )
 
     with db_session(auto_commit=False) as new_session:
-        return new_session.query(PimsleurLesson).filter_by(
-            language_code=language_code,
-            level=level,
-            lesson_number=lesson_number,
-        ).first()
+        return (
+            new_session.query(PimsleurLesson)
+            .filter_by(
+                language_code=language_code,
+                level=level,
+                lesson_number=lesson_number,
+            )
+            .first()
+        )
 
 
 def get_lessons_for_level(
@@ -128,10 +133,14 @@ def get_user_progress(
         UserPimsleurProgress or None
     """
     with db_session(auto_commit=False) as session:
-        return session.query(UserPimsleurProgress).filter_by(
-            user_id=user_id,
-            language_code=language_code,
-        ).first()
+        return (
+            session.query(UserPimsleurProgress)
+            .filter_by(
+                user_id=user_id,
+                language_code=language_code,
+            )
+            .first()
+        )
 
 
 def get_or_create_user_progress(
@@ -149,10 +158,14 @@ def get_or_create_user_progress(
         UserPimsleurProgress object
     """
     with db_session() as session:
-        progress = session.query(UserPimsleurProgress).filter_by(
-            user_id=user_id,
-            language_code=language_code,
-        ).first()
+        progress = (
+            session.query(UserPimsleurProgress)
+            .filter_by(
+                user_id=user_id,
+                language_code=language_code,
+            )
+            .first()
+        )
 
         if not progress:
             progress = UserPimsleurProgress(
@@ -188,11 +201,71 @@ def get_completed_lessons(user_id: int, language_code: str) -> list[int]:
         return []
 
 
+def get_level_unlock_status(
+    user_id: int,
+    language_code: str,
+    level: str,
+) -> dict:
+    """
+    Get all unlock status info for a level in 2 queries instead of 32.
+
+    This is an optimized batch function that replaces the N+1 query pattern
+    of calling is_lesson_unlocked() for each unit in a loop.
+
+    Args:
+        user_id: Database user ID
+        language_code: Language code
+        level: Pimsleur level (1, 2, 3)
+
+    Returns:
+        Dictionary with:
+        - completed_set: set of completed lesson numbers
+        - generated_set: set of generated lesson numbers
+    """
+    with db_session(auto_commit=False) as session:
+        # Query 1: User progress
+        progress = (
+            session.query(UserPimsleurProgress)
+            .filter_by(
+                user_id=user_id,
+                language_code=language_code,
+            )
+            .first()
+        )
+
+        # Query 2: Generated lessons for this level
+        db_level = f"L{level}" if not level.startswith("L") else level
+        generated = (
+            session.query(PimsleurLesson.lesson_number)
+            .filter_by(
+                language_code=language_code,
+                level=db_level,
+                is_generated=True,
+            )
+            .all()
+        )
+        generated_set = {row[0] for row in generated}
+
+        # Parse completed lessons once
+        completed_set = set()
+        if progress and progress.completed_lessons:
+            try:
+                completed_set = set(json.loads(progress.completed_lessons))
+            except json.JSONDecodeError:
+                pass
+
+        return {
+            "completed_set": completed_set,
+            "generated_set": generated_set,
+        }
+
+
 def is_lesson_unlocked(
     user_id: int,
     language_code: str,
     level: str,
     lesson_number: int,
+    completed_set: set[int] | None = None,
 ) -> bool:
     """
     Check if a lesson is unlocked for a user.
@@ -207,6 +280,7 @@ def is_lesson_unlocked(
         language_code: Language code
         level: Pimsleur level (1, 2, 3)
         lesson_number: Lesson number
+        completed_set: Optional pre-fetched completed lessons set (avoids DB query)
 
     Returns:
         True if lesson is unlocked
@@ -215,19 +289,14 @@ def is_lesson_unlocked(
     if level == "1" and lesson_number == 1:
         return True
 
-    completed = get_completed_lessons(user_id, language_code)
-
-    # For lesson N, need lessons 1 to N-1 completed in same level
-    # We track lessons as "level_number" keys
-    level_completed = [
-        n for n in completed
-        if 1 <= n <= 30  # Same level lessons
-    ]
+    # Use pre-fetched set if provided, otherwise query DB
+    if completed_set is None:
+        completed_set = set(get_completed_lessons(user_id, language_code))
 
     if lesson_number > 1:
         # Check if previous lesson in this level is completed
         required = lesson_number - 1
-        if required not in level_completed:
+        if required not in completed_set:
             return False
 
     return True
@@ -252,10 +321,14 @@ def mark_lesson_completed(
     """
     try:
         with db_session() as session:
-            progress = session.query(UserPimsleurProgress).filter_by(
-                user_id=user_id,
-                language_code=language_code,
-            ).first()
+            progress = (
+                session.query(UserPimsleurProgress)
+                .filter_by(
+                    user_id=user_id,
+                    language_code=language_code,
+                )
+                .first()
+            )
 
             if not progress:
                 progress = UserPimsleurProgress(
@@ -294,7 +367,9 @@ def mark_lesson_completed(
             # Add lesson duration to total time
             lesson = session.get(PimsleurLesson, lesson_id)
             if lesson:
-                progress.total_time_seconds = (progress.total_time_seconds or 0) + lesson.duration_seconds
+                progress.total_time_seconds = (
+                    progress.total_time_seconds or 0
+                ) + lesson.duration_seconds
 
             progress.updated_at = datetime.utcnow()
 
@@ -338,7 +413,9 @@ def get_progress_summary(user_id: int, language_code: str) -> dict:
         "completed_count": len(completed),
         "streak": progress.streak_count,
         "total_time_minutes": progress.total_time_seconds // 60,
-        "last_completed": progress.last_completed_at.isoformat() if progress.last_completed_at else None,
+        "last_completed": progress.last_completed_at.isoformat()
+        if progress.last_completed_at
+        else None,
     }
 
 
@@ -430,7 +507,9 @@ def update_custom_lesson_status(
         ValueError: If status is not a valid value
     """
     if status not in VALID_CUSTOM_LESSON_STATUSES:
-        raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(VALID_CUSTOM_LESSON_STATUSES)}")
+        raise ValueError(
+            f"Invalid status '{status}'. Must be one of: {', '.join(VALID_CUSTOM_LESSON_STATUSES)}"
+        )
 
     try:
         with db_session() as session:
@@ -625,7 +704,9 @@ def delete_custom_lesson(lesson_id: int, user_id: int) -> bool:
                 session.delete(lesson)
                 logger.info(f"Deleted custom lesson {lesson_id} for user {user_id}")
                 return True
-            logger.warning(f"Custom lesson {lesson_id} not found or not owned by user {user_id}")
+            logger.warning(
+                f"Custom lesson {lesson_id} not found or not owned by user {user_id}"
+            )
             return False
     except Exception as e:
         logger.error(f"Failed to delete custom lesson: {e}")
@@ -647,11 +728,15 @@ def retry_custom_lesson(lesson_id: int, user_id: int) -> Optional[PimsleurCustom
         with db_session() as session:
             lesson = session.get(PimsleurCustomLesson, lesson_id)
             if not lesson or lesson.user_id != user_id:
-                logger.warning(f"Custom lesson {lesson_id} not found or not owned by user {user_id}")
+                logger.warning(
+                    f"Custom lesson {lesson_id} not found or not owned by user {user_id}"
+                )
                 return None
 
             if lesson.status != "failed":
-                logger.warning(f"Cannot retry lesson {lesson_id} with status {lesson.status}")
+                logger.warning(
+                    f"Cannot retry lesson {lesson_id} with status {lesson.status}"
+                )
                 return None
 
             # Reset to pending state
@@ -689,10 +774,14 @@ def get_custom_lesson_count(user_id: int, language_code: str) -> dict:
         Dictionary with counts by status
     """
     with db_session(auto_commit=False) as session:
-        lessons = session.query(PimsleurCustomLesson).filter_by(
-            user_id=user_id,
-            language_code=language_code,
-        ).all()
+        lessons = (
+            session.query(PimsleurCustomLesson)
+            .filter_by(
+                user_id=user_id,
+                language_code=language_code,
+            )
+            .all()
+        )
 
         counts = {"total": 0, "pending": 0, "generating": 0, "ready": 0, "failed": 0}
         for lesson in lessons:
@@ -701,3 +790,41 @@ def get_custom_lesson_count(user_id: int, language_code: str) -> dict:
                 counts[lesson.status] += 1
 
         return counts
+
+
+def recover_orphaned_generating_lessons(timeout_minutes: int = 15) -> int:
+    """
+    Reset lessons stuck in 'generating' status to 'failed'.
+
+    This should be called on bot startup to recover lessons that were
+    interrupted by a restart during generation.
+
+    Args:
+        timeout_minutes: Consider lessons stuck if generating for longer than this
+
+    Returns:
+        Number of lessons recovered
+    """
+    with db_session() as session:
+        cutoff = datetime.utcnow() - timedelta(minutes=timeout_minutes)
+
+        stuck_lessons = (
+            session.query(PimsleurCustomLesson)
+            .filter(
+                PimsleurCustomLesson.status == "generating",
+                PimsleurCustomLesson.generation_started_at < cutoff,
+            )
+            .all()
+        )
+
+        recovered_count = 0
+        for lesson in stuck_lessons:
+            lesson.status = "failed"
+            lesson.error_message = "Generation interrupted by restart"
+            lesson.updated_at = datetime.utcnow()
+            recovered_count += 1
+            logger.info(
+                f"Recovered orphaned lesson {lesson.id} (user {lesson.user_id})"
+            )
+
+        return recovered_count

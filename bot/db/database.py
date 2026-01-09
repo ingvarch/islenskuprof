@@ -1,10 +1,11 @@
 """
 Database connection module for the Telegram bot.
 """
+
 import os
 import logging
 from contextlib import contextmanager
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 
@@ -21,10 +22,10 @@ if not DB_DSN:
 logger.info("Creating database engine")
 engine = create_engine(
     DB_DSN,
-    pool_size=5,           # Number of connections to keep in pool
-    max_overflow=10,       # Additional connections allowed when pool is exhausted
-    pool_recycle=3600,     # Recycle connections after 1 hour (prevents stale connections)
-    pool_pre_ping=True     # Test connection health before using
+    pool_size=5,  # Number of connections to keep in pool
+    max_overflow=10,  # Additional connections allowed when pool is exhausted
+    pool_recycle=3600,  # Recycle connections after 1 hour (prevents stale connections)
+    pool_pre_ping=True,  # Test connection health before using
 )
 
 # Create session factory
@@ -35,6 +36,7 @@ Session = scoped_session(SessionFactory)
 
 # Create base class for models
 Base = declarative_base()
+
 
 def get_db_session():
     """
@@ -78,6 +80,7 @@ def db_session(auto_commit: bool = True):
     finally:
         Session.remove()  # Proper cleanup for scoped_session
 
+
 def init_db():
     """
     Initialize the database.
@@ -85,11 +88,27 @@ def init_db():
     logger.info("Initializing database")
     try:
         # Import models to ensure they are registered with the Base
-        from bot.db import models
-        
+
         # Create tables if they don't exist
         Base.metadata.create_all(bind=engine)
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         raise
+
+
+def check_db_connection() -> bool:
+    """
+    Check if the database connection is working.
+
+    Returns:
+        True if connection is successful, False otherwise
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("PostgreSQL connection: OK")
+        return True
+    except Exception as e:
+        logger.error(f"PostgreSQL connection: FAILED - {e}")
+        return False

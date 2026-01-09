@@ -13,10 +13,19 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Til hamingju! Þú hefur lokið öðru stigi.", "Congratulations! You have completed the second level."),
-    ("Takk kærlega! Það var erfitt en skemmtilegt.", "Thank you very much! It was difficult but fun."),
+    (
+        "Til hamingju! Þú hefur lokið öðru stigi.",
+        "Congratulations! You have completed the second level.",
+    ),
+    (
+        "Takk kærlega! Það var erfitt en skemmtilegt.",
+        "Thank you very much! It was difficult but fun.",
+    ),
     ("Hvað lærðir þú mest?", "What did you learn the most?"),
-    ("Ég lærði mikið um daglegt líf og samskipti.", "I learned a lot about daily life and communication."),
+    (
+        "Ég lærði mikið um daglegt líf og samskipti.",
+        "I learned a lot about daily life and communication.",
+    ),
     ("Ertu tilbúin fyrir þriðja stig?", "Are you ready for the third level?"),
     ("Já, ég hlakka til að halda áfram!", "Yes, I'm looking forward to continuing!"),
 ]
@@ -49,7 +58,11 @@ VOCABULARY = [
 PHRASES = [
     ("Til hamingju með árangurinn!", "Congratulations on the success!", "celebration"),
     ("Ég er stolt af mér", "I'm proud of myself", "self-congratulation"),
-    ("Ég hlakka til að halda áfram", "I look forward to continuing", "future intention"),
+    (
+        "Ég hlakka til að halda áfram",
+        "I look forward to continuing",
+        "future intention",
+    ),
     ("Hvað lærðir þú mest?", "What did you learn the most?", "reflection question"),
     ("Ég hef gert miklar framfarir", "I have made great progress", "self-assessment"),
     ("Takk fyrir kennsluna!", "Thanks for the teaching!", "gratitude"),

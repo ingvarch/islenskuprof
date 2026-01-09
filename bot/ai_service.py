@@ -1,14 +1,18 @@
 """
 Module for handling AI API interactions.
 """
+
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional
+
 
 class AIService(ABC):
     """Base class for AI services."""
 
     @abstractmethod
-    def generate_content(self, prompt: Optional[str] = None, language_level: str = "A2") -> str:
+    def generate_content(
+        self, prompt: Optional[str] = None, language_level: str = "A2"
+    ) -> str:
         """
         Generate language learning content using AI.
 
@@ -35,7 +39,9 @@ class AIService(ABC):
         pass
 
     @abstractmethod
-    def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None) -> str:
+    def generate_audio_for_dialogue(
+        self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None
+    ) -> str:
         """
         Generate audio files for each line in the dialogue and merge them into a single file.
 
@@ -48,6 +54,7 @@ class AIService(ABC):
         """
         pass
 
+
 def get_ai_service():
     """
     Get the AI service instance.
@@ -56,4 +63,5 @@ def get_ai_service():
         AIService: An instance of OpenRouterService
     """
     from bot.openrouter_service import OpenRouterService
+
     return OpenRouterService()

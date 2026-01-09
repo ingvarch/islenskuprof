@@ -1,6 +1,7 @@
 """
 Module for fetching random communication entries from the database.
 """
+
 import logging
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
@@ -23,9 +24,13 @@ def get_random_communication():
     try:
         with db_session(auto_commit=False) as session:
             # Get a random communication entry with topic eagerly loaded (single query)
-            entry = session.query(Communication).options(
-                joinedload(Communication.topic)
-            ).order_by(func.random()).limit(1).first()
+            entry = (
+                session.query(Communication)
+                .options(joinedload(Communication.topic))
+                .order_by(func.random())
+                .limit(1)
+                .first()
+            )
 
             if not entry:
                 logger.error("No communication entries found in database")
@@ -39,7 +44,7 @@ def get_random_communication():
                 "topic_id": entry.topic_id,
                 "topic_name": entry.topic.name if entry.topic else None,
                 "image_url": entry.image_url,
-                "description": entry.description
+                "description": entry.description,
             }
     except Exception as e:
         logger.error(f"Error fetching random communication entry: {e}")

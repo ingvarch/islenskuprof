@@ -13,7 +13,10 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Entschuldigung, wie komme ich zum Alexanderplatz?", "Excuse me, how do I get to Alexanderplatz?"),
+    (
+        "Entschuldigung, wie komme ich zum Alexanderplatz?",
+        "Excuse me, how do I get to Alexanderplatz?",
+    ),
     ("Sie können den Bus nehmen.", "You can take a bus."),
     ("Welchen Bus?", "Which bus?"),
     ("Nummer fünf, die Haltestelle ist dort.", "Number five, the stop is over there."),

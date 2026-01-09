@@ -14,12 +14,24 @@ UNIT_INFO = {
 
 # Opening dialogue - comprehensive final scenario
 OPENING_DIALOGUE = [
-    ("Guten Tag! Ich heiße Jonas. Wie heißen Sie?", "Good day! My name is Jonas. What's your name?"),
-    ("Hallo, Jonas. Ich heiße Sarah. Ich bin Amerikanerin.", "Hello, Jonas. My name is Sarah. I'm American."),
+    (
+        "Guten Tag! Ich heiße Jonas. Wie heißen Sie?",
+        "Good day! My name is Jonas. What's your name?",
+    ),
+    (
+        "Hallo, Jonas. Ich heiße Sarah. Ich bin Amerikanerin.",
+        "Hello, Jonas. My name is Sarah. I'm American.",
+    ),
     ("Sprechen Sie Deutsch?", "Do you speak German?"),
     ("Ja, ich spreche ein bisschen Deutsch.", "Yes, I speak a little German."),
-    ("Großartig! Wann sind Sie nach Deutschland gekommen?", "Great! When did you come to Germany?"),
-    ("Ich bin gestern gekommen. Ich werde zwei Wochen hier sein.", "I came yesterday. I'm going to be here for two weeks."),
+    (
+        "Großartig! Wann sind Sie nach Deutschland gekommen?",
+        "Great! When did you come to Germany?",
+    ),
+    (
+        "Ich bin gestern gekommen. Ich werde zwei Wochen hier sein.",
+        "I came yesterday. I'm going to be here for two weeks.",
+    ),
 ]
 
 # Comprehensive review vocabulary
@@ -46,8 +58,16 @@ VOCABULARY = [
 
 # Essential phrases summary
 PHRASES = [
-    ("Ich verstehe nicht. Können Sie wiederholen?", "I don't understand. Can you repeat?", "survival"),
-    ("Wo ist...? / Was kostet...?", "Where is...? / How much does...cost?", "practical"),
+    (
+        "Ich verstehe nicht. Können Sie wiederholen?",
+        "I don't understand. Can you repeat?",
+        "survival",
+    ),
+    (
+        "Wo ist...? / Was kostet...?",
+        "Where is...? / How much does...cost?",
+        "practical",
+    ),
     ("Das gefällt mir.", "I like this.", "preferences"),
     ("Ich werde gehen.", "I'm going to go.", "future"),
     ("Danke und auf Wiedersehen!", "Thank you and goodbye!", "closing"),

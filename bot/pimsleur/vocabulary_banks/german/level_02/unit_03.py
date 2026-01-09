@@ -17,7 +17,10 @@ OPENING_DIALOGUE = [
     ("Ich finde es wunderbar!", "I think it's wonderful!"),
     ("Ich glaube, es wird morgen regnen.", "I think it will rain tomorrow."),
     ("Sind Sie sicher?", "Are you sure about that?"),
-    ("Nein, nicht ganz, aber ich halte es für wahrscheinlich.", "No, not quite, but I consider it likely."),
+    (
+        "Nein, nicht ganz, aber ich halte es für wahrscheinlich.",
+        "No, not quite, but I consider it likely.",
+    ),
     ("Ich stimme Ihnen zu.", "I agree with you."),
 ]
 

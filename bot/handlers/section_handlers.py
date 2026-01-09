@@ -58,9 +58,11 @@ def get_lang_config_for_user(db_user):
     # Fall back to default language
     return get_language_config()
 
+
 # Dictionary to track ongoing requests per user and command type
 # Key: (user_id, command_type), Value: True if processing
 ongoing_requests = {}
+
 
 async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -> None:
     """
@@ -85,7 +87,7 @@ async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -
 
     # Split into individual questions
     # Look for patterns like "1. Question" or "1) Question" or just numbered lines
-    questions = re.split(r'\n\s*\d+[\.\)]\s+|\n\s*\d+\.\s+|\n\s*\d+\s+', questions_text)
+    questions = re.split(r"\n\s*\d+[\.\)]\s+|\n\s*\d+\.\s+|\n\s*\d+\s+", questions_text)
     questions = [q.strip() for q in questions if q.strip()]
 
     if not questions:
@@ -95,7 +97,7 @@ async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -
     # Process each question
     for question in questions:
         # Split the question into the question text and options
-        lines = question.split('\n')
+        lines = question.split("\n")
         if not lines:
             continue
 
@@ -110,24 +112,26 @@ async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -
                 continue
 
             # Remove option markers like a), b), c) or A), B), C)
-            option_match = re.match(r'^[a-zA-Z]\)\s*(.+)$', line)
+            option_match = re.match(r"^[a-zA-Z]\)\s*(.+)$", line)
             if option_match:
                 option_text = option_match.group(1).strip()
             else:
                 option_text = line
 
             # Check if this option is marked as correct with (CORRECT) marker
-            is_correct = False
             if "(CORRECT)" in option_text:
-                is_correct = True
                 option_text = option_text.replace("(CORRECT)", "").strip()
-                correct_option_id = len(options)  # Current position will be the correct answer
+                correct_option_id = len(
+                    options
+                )  # Current position will be the correct answer
 
             options.append(option_text)
 
         if options:
             # Shuffle the options while keeping track of correct answer
-            combined = list(zip(options, [i == correct_option_id for i in range(len(options))]))
+            combined = list(
+                zip(options, [i == correct_option_id for i in range(len(options))])
+            )
             random.shuffle(combined)
             options, correct_positions = zip(*combined)
             options = list(options)
@@ -139,8 +143,9 @@ async def parse_and_send_quiz_polls(update: Update, content: str, marker: str) -
                 options=options,
                 type=Poll.QUIZ,
                 correct_option_id=correct_option_id,
-                is_anonymous=False
+                is_anonymous=False,
             )
+
 
 @restricted
 @track_user_activity
@@ -154,14 +159,19 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     lang_config = get_lang_config_for_user(db_user)
     target_lang_code = lang_config.code
 
-    logger.info(f"User {user.id} requested section_01 ({lang_config.name} language test)")
+    logger.info(
+        f"User {user.id} requested section_01 ({lang_config.name} language test)"
+    )
 
     # Get user's UI language preference
     user_language = "English"  # Default to English if no language preference is set
     if db_user and db_user.settings and db_user.settings.language:
         user_language = db_user.settings.language.language
 
-    msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
+    msg = await update.message.reply_text(
+        f"```\n{get_translation('starting', user_language)}\n```",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
 
     stop_event = asyncio.Event()
     spinner_task_func, start_step, complete_step = create_spinner()
@@ -186,18 +196,30 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         complete_step()
 
         # Get prompt from language configuration
-        custom_prompt = lang_config.get_dialogue_prompt(topic, user_language, user_language_level)
+        custom_prompt = lang_config.get_dialogue_prompt(
+            topic, user_language, user_language_level
+        )
 
         start_step(get_translation("generating_content", user_language, topic=topic))
-        content = await asyncio.to_thread(ai_service.generate_content, custom_prompt, user_language_level, lang_config)
+        content = await asyncio.to_thread(
+            ai_service.generate_content, custom_prompt, user_language_level, lang_config
+        )
         complete_step()
 
         start_step(get_translation("extracting_dialogue", user_language))
-        dialogue_lines = await asyncio.to_thread(ai_service.extract_dialogue, content, lang_config)
+        dialogue_lines = await asyncio.to_thread(
+            ai_service.extract_dialogue, content, lang_config
+        )
         complete_step()
 
         start_step(get_translation("starting_audio", user_language))
-        audio_path = await asyncio.to_thread(ai_service.generate_audio_for_dialogue, dialogue_lines, user.id, lang_config, user_language_level)
+        audio_path = await asyncio.to_thread(
+            ai_service.generate_audio_for_dialogue,
+            dialogue_lines,
+            user.id,
+            lang_config,
+            user_language_level,
+        )
         complete_step()
 
         start_step(get_translation("merging_audio", user_language))
@@ -236,25 +258,33 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             # Send audio file
             with open(audio_path, "rb") as audio_file:
-                await update.message.reply_audio(audio_file, title=f"{lang_config.name} Dialogue")
+                await update.message.reply_audio(
+                    audio_file, title=f"{lang_config.name} Dialogue"
+                )
 
             # Send questions as quiz polls
             await parse_and_send_quiz_polls(update, content, dialogue_end_marker)
 
             # Send vocabulary part if it exists
             if vocabulary_part:
-                await update.message.reply_text(vocabulary_part, parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(
+                    vocabulary_part, parse_mode=ParseMode.MARKDOWN
+                )
         else:
             # Fallback if splitting fails
             logger.warning("Failed to split content, sending as a single message")
             try:
                 await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
             except Exception as md_error:
-                logger.warning(f"Markdown parsing failed, sending as plain text: {md_error}")
+                logger.warning(
+                    f"Markdown parsing failed, sending as plain text: {md_error}"
+                )
                 await update.message.reply_text(content)
 
             with open(audio_path, "rb") as audio_file:
-                await update.message.reply_audio(audio_file, title=f"{lang_config.name} Dialogue")
+                await update.message.reply_audio(
+                    audio_file, title=f"{lang_config.name} Dialogue"
+                )
 
         audio_path_obj = Path(audio_path)
         if audio_path_obj.exists():
@@ -268,11 +298,17 @@ async def dialogue_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except Exception as e:
         stop_event.set()
         await spinner
-        logger.error(f"Error in section_01 command for user {user.id}: {e}", exc_info=True)
-        await update.message.reply_text(get_translation("error_occurred", user_language, error=str(e)), parse_mode=ParseMode.MARKDOWN)
+        logger.error(
+            f"Error in section_01 command for user {user.id}: {e}", exc_info=True
+        )
+        await update.message.reply_text(
+            get_translation("error_occurred", user_language, error=str(e)),
+            parse_mode=ParseMode.MARKDOWN,
+        )
 
         # Delete the user's command message even if an error occurred
         await delete_user_command_message(update, context)
+
 
 @restricted
 @track_user_activity
@@ -286,14 +322,19 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     lang_config = get_lang_config_for_user(db_user)
     target_lang_code = lang_config.code
 
-    logger.info(f"User {user.id} requested section_02 ({lang_config.name} Reading Section)")
+    logger.info(
+        f"User {user.id} requested section_02 ({lang_config.name} Reading Section)"
+    )
 
     # Get user's UI language preference
     user_language = "English"  # Default to English if no language preference is set
     if db_user and db_user.settings and db_user.settings.language:
         user_language = db_user.settings.language.language
 
-    msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
+    msg = await update.message.reply_text(
+        f"```\n{get_translation('starting', user_language)}\n```",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
 
     stop_event = asyncio.Event()
     spinner_task_func, start_step, complete_step = create_spinner()
@@ -317,11 +358,19 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         complete_step()
 
         # Format the prompt with the person data
-        start_step(get_translation("generating_content", user_language, topic=person_data['name']))
+        start_step(
+            get_translation(
+                "generating_content", user_language, topic=person_data["name"]
+            )
+        )
 
         # Get prompt from language configuration
-        custom_prompt = lang_config.get_reading_prompt(person_data, user_language, user_language_level)
-        content = await asyncio.to_thread(ai_service.generate_content, custom_prompt, user_language_level, lang_config)
+        custom_prompt = lang_config.get_reading_prompt(
+            person_data, user_language, user_language_level
+        )
+        content = await asyncio.to_thread(
+            ai_service.generate_content, custom_prompt, user_language_level, lang_config
+        )
         complete_step()
 
         stop_event.set()
@@ -358,14 +407,18 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
             # Send vocabulary part if it exists
             if vocabulary_part:
-                await update.message.reply_text(vocabulary_part, parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(
+                    vocabulary_part, parse_mode=ParseMode.MARKDOWN
+                )
         else:
             # Fallback if splitting fails
             logger.warning("Failed to split content, sending as a single message")
             try:
                 await update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
             except Exception as md_error:
-                logger.warning(f"Markdown parsing failed, sending as plain text: {md_error}")
+                logger.warning(
+                    f"Markdown parsing failed, sending as plain text: {md_error}"
+                )
                 await update.message.reply_text(content)
 
         logger.info(f"Successfully sent reading comprehension to user {user.id}")
@@ -376,15 +429,23 @@ async def about_story(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception as e:
         stop_event.set()
         await spinner
-        logger.error(f"Error in section_02 command for user {user.id}: {e}", exc_info=True)
-        await update.message.reply_text(get_translation("error_occurred", user_language, error=str(e)), parse_mode=ParseMode.MARKDOWN)
+        logger.error(
+            f"Error in section_02 command for user {user.id}: {e}", exc_info=True
+        )
+        await update.message.reply_text(
+            get_translation("error_occurred", user_language, error=str(e)),
+            parse_mode=ParseMode.MARKDOWN,
+        )
 
         # Delete the user's command message even if an error occurred
         await delete_user_command_message(update, context)
 
+
 @restricted
 @track_user_activity
-async def understanding_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def understanding_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Handle the /understanding command by alternating between listening and reading sections for each user."""
     user = update.effective_user
     logger.info(f"User {user.id} requested understanding command")
@@ -394,7 +455,12 @@ async def understanding_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     # Get user's language preference
     user_language = "English"  # Default to English if no language preference is set
-    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+    if (
+        db_user
+        and hasattr(db_user, "settings")
+        and db_user.settings
+        and db_user.settings.language
+    ):
         user_language = db_user.settings.language.language
 
     # Check if user already has an ongoing request
@@ -403,7 +469,7 @@ async def understanding_command(update: Update, context: ContextTypes.DEFAULT_TY
         # Send popup message
         await update.message.reply_text(
             get_translation("already_processing", user_language),
-            parse_mode=ParseMode.MARKDOWN
+            parse_mode=ParseMode.MARKDOWN,
         )
         return
 
@@ -412,29 +478,39 @@ async def understanding_command(update: Update, context: ContextTypes.DEFAULT_TY
         ongoing_requests[(user.id, "understanding")] = True
 
         # Determine which section to show based on last selection
-        if not db_user or not db_user.settings or not db_user.settings.last_section or db_user.settings.last_section == 'reading':
+        if (
+            not db_user
+            or not db_user.settings
+            or not db_user.settings.last_section
+            or db_user.settings.last_section == "reading"
+        ):
             # If no previous selection or last was reading, show listening
             logger.info(f"Selected listening section for user {user.id} (alternating)")
             await dialogue_story(update, context)
             # Update the last section
             from bot.db.user_service import update_user_last_section
-            update_user_last_section(user.id, 'listening')
+
+            update_user_last_section(user.id, "listening")
         else:
             # If last was listening, show reading
             logger.info(f"Selected reading section for user {user.id} (alternating)")
             await about_story(update, context)
             # Update the last section
             from bot.db.user_service import update_user_last_section
-            update_user_last_section(user.id, 'reading')
+
+            update_user_last_section(user.id, "reading")
     finally:
         # Remove user from ongoing requests, even if an error occurred
         if (user.id, "understanding") in ongoing_requests:
             del ongoing_requests[(user.id, "understanding")]
             logger.info(f"Removed user {user.id} from ongoing understanding requests")
 
+
 @restricted
 @track_user_activity
-async def communication_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def communication_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     user = update.effective_user
 
     # Get user from database
@@ -447,7 +523,12 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     # Get user's UI language preference
     user_language = "English"  # Default to English if no language preference is set
-    if db_user and hasattr(db_user, 'settings') and db_user.settings and db_user.settings.language:
+    if (
+        db_user
+        and hasattr(db_user, "settings")
+        and db_user.settings
+        and db_user.settings.language
+    ):
         user_language = db_user.settings.language.language
 
     # Check if user already has an ongoing request
@@ -456,14 +537,17 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
         # Send popup message
         await update.message.reply_text(
             get_translation("already_processing", user_language),
-            parse_mode=ParseMode.MARKDOWN
+            parse_mode=ParseMode.MARKDOWN,
         )
         return
 
     # Mark user as having an ongoing request
     ongoing_requests[(user.id, "communication")] = True
 
-    msg = await update.message.reply_text(f"```\n{get_translation('starting', user_language)}\n```", parse_mode=ParseMode.MARKDOWN_V2)
+    msg = await update.message.reply_text(
+        f"```\n{get_translation('starting', user_language)}\n```",
+        parse_mode=ParseMode.MARKDOWN_V2,
+    )
 
     stop_event = asyncio.Event()
     spinner_task_func, start_step, complete_step = create_spinner()
@@ -490,8 +574,10 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(description, parse_mode=ParseMode.MARKDOWN)
 
         # Check if the image_url is a local path or a URL
-        caption = get_translation("write_paragraph", user_language, target_language=lang_config.name)
-        if image_url.startswith(('http://', 'https://')):
+        caption = get_translation(
+            "write_paragraph", user_language, target_language=lang_config.name
+        )
+        if image_url.startswith(("http://", "https://")):
             # It's a URL, send it directly
             await update.message.reply_photo(image_url, caption=caption)
         else:
@@ -507,8 +593,13 @@ async def communication_command(update: Update, context: ContextTypes.DEFAULT_TY
     except Exception as e:
         stop_event.set()
         await spinner
-        logger.error(f"Error in communication command for user {user.id}: {e}", exc_info=True)
-        await update.message.reply_text(get_translation("error_occurred", user_language, error=str(e)), parse_mode=ParseMode.MARKDOWN)
+        logger.error(
+            f"Error in communication command for user {user.id}: {e}", exc_info=True
+        )
+        await update.message.reply_text(
+            get_translation("error_occurred", user_language, error=str(e)),
+            parse_mode=ParseMode.MARKDOWN,
+        )
 
         # Delete the user's command message even if an error occurred
         await delete_user_command_message(update, context)

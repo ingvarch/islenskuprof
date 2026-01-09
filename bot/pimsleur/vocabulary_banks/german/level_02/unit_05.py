@@ -13,12 +13,18 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Was haben Sie gemacht, als ich angerufen habe?", "What were you doing when I called?"),
+    (
+        "Was haben Sie gemacht, als ich angerufen habe?",
+        "What were you doing when I called?",
+    ),
     ("Ich habe ein Buch gelesen.", "I was reading a book."),
     ("Lesen Sie es noch?", "Are you still reading it?"),
     ("Nein, ich habe es fertig gelesen.", "No, I've finished reading it."),
     ("War es gut?", "Was it good?"),
-    ("Ja, ich habe zwei Stunden lang gelesen, ohne Pause zu machen!", "Yes, I was reading for two hours without taking a break!"),
+    (
+        "Ja, ich habe zwei Stunden lang gelesen, ohne Pause zu machen!",
+        "Yes, I was reading for two hours without taking a break!",
+    ),
 ]
 
 # New vocabulary introduced in this unit
@@ -46,7 +52,11 @@ VOCABULARY = [
 
 # Key phrases and expressions
 PHRASES = [
-    ("Ich habe... gemacht", "I was doing (progressive)", "past continuous construction"),
+    (
+        "Ich habe... gemacht",
+        "I was doing (progressive)",
+        "past continuous construction",
+    ),
     ("Ich habe... fertig", "I have finished...", "completed action"),
     ("Ohne zu...", "Without doing...", "negative purpose clause"),
     ("Als ich...", "When I...", "temporal clause"),
