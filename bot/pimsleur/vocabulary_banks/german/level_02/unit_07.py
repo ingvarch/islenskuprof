@@ -13,7 +13,10 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Wollen Sie ins Restaurant gehen oder zu Hause kochen?", "Do you want to go to a restaurant or cook at home?"),
+    (
+        "Wollen Sie ins Restaurant gehen oder zu Hause kochen?",
+        "Do you want to go to a restaurant or cook at home?",
+    ),
     ("Ich würde lieber zu Hause kochen.", "I'd rather cook at home."),
     ("Warum?", "Why?"),
     ("Ich möchte am liebsten gesünderes Essen.", "I prefer to eat healthier food."),
@@ -48,7 +51,11 @@ VOCABULARY = [
 # Key phrases and expressions
 PHRASES = [
     ("Ich würde lieber...", "I would rather...", "expressing preference"),
-    ("Ich möchte am liebsten...", "I prefer to... / I'd most like to...", "strong preference"),
+    (
+        "Ich möchte am liebsten...",
+        "I prefer to... / I'd most like to...",
+        "strong preference",
+    ),
     ("Warum?", "Why?", "asking for reason"),
     ("Ich freue mich darauf!", "I'm looking forward to it!", "expressing anticipation"),
     ("...oder...?", "...or...?", "offering alternatives"),

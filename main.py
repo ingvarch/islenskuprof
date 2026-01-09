@@ -2,21 +2,21 @@
 """
 Main entry point for the Telegram bot application.
 """
+
 import os
 import logging
 from pathlib import Path
 from bot.telegram_bot import create_bot
 from bot.db.database import init_db
-from run_migrations import run_migrations
 from bot.languages import get_language_config
 
 # Set up logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
     handlers=[
         logging.StreamHandler(),
-    ]
+    ],
 )
 
 # Reduce logging level for some noisy libraries
@@ -24,6 +24,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telegram").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
+
 
 def main():
     """Main function to start the bot."""
@@ -83,10 +84,12 @@ def main():
 
         # Seed database with language-specific data if tables are empty
         from bot.db.seeder import seed_database_if_empty
+
         seed_database_if_empty()
 
         # Clear and fill persons table
         from bot.db.person_generator import clear_and_fill_persons_table
+
         clear_and_fill_persons_table()
         logger.info("Persons table cleared and filled with random data")
     except Exception as e:
@@ -101,6 +104,7 @@ def main():
     bot.run_polling()
 
     logger.info("Bot has stopped")
+
 
 if __name__ == "__main__":
     main()

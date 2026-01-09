@@ -28,7 +28,12 @@ VOCABULARY = [
     ("bitten", "to ask, request", "verb", "BIT-ten"),
     ("brauchen", "to need", "verb", "BROWKH-en"),
     ("möglich", "possible", "adjective", "MUHUKH-likh"),
-    ("selbstverständlich", "by all means, certainly", "adverb", "zelpst-fer-SHTENT-likh"),
+    (
+        "selbstverständlich",
+        "by all means, certainly",
+        "adverb",
+        "zelpst-fer-SHTENT-likh",
+    ),
     ("bitte", "kindly, please", "adverb", "BIT-te"),
     ("Gefallen", "favor", "noun", "ge-FAL-len"),
     ("Bitte", "request", "noun", "BIT-te"),

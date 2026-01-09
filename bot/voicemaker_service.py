@@ -1,6 +1,7 @@
 """
 Module for handling VoiceMaker TTS API interactions.
 """
+
 import os
 import logging
 import tempfile
@@ -152,7 +153,9 @@ class VoiceMakerService:
         if voxfx:
             api_url = VOICEMAKER_VOXFX_API_URL
             payload["VoxFx"] = voxfx
-            logger.info(f"Using VoxFX endpoint with preset: {voxfx['presetId']}, dryWet: {voxfx['dryWet']}")
+            logger.info(
+                f"Using VoxFX endpoint with preset: {voxfx['presetId']}, dryWet: {voxfx['dryWet']}"
+            )
         else:
             api_url = VOICEMAKER_API_URL
 
@@ -164,7 +167,9 @@ class VoiceMakerService:
         last_error = None
         for retry in range(self.max_retries):
             try:
-                logger.debug(f"Sending TTS request to VoiceMaker: voice={voice_id}, text='{text[:50]}...'")
+                logger.debug(
+                    f"Sending TTS request to VoiceMaker: voice={voice_id}, text='{text[:50]}...'"
+                )
 
                 response = requests.post(
                     api_url,
@@ -189,13 +194,15 @@ class VoiceMakerService:
                 audio_response = requests.get(audio_url, timeout=60)
                 audio_response.raise_for_status()
 
-                logger.debug(f"Successfully generated {len(audio_response.content)} bytes of audio")
+                logger.debug(
+                    f"Successfully generated {len(audio_response.content)} bytes of audio"
+                )
                 return audio_response.content
 
             except requests.exceptions.RequestException as e:
                 last_error = e
                 if retry < self.max_retries - 1:
-                    delay = self.base_delay * (2 ** retry)
+                    delay = self.base_delay * (2**retry)
                     logger.warning(
                         f"VoiceMaker request failed (attempt {retry + 1}/{self.max_retries}): {e}. "
                         f"Retrying in {delay}s..."
@@ -233,7 +240,9 @@ class VoiceMakerService:
         if lang_config is None:
             lang_config = get_language_config()
 
-        logger.info(f"Generating audio for {len(dialogue_lines)} dialogue lines using VoiceMaker")
+        logger.info(
+            f"Generating audio for {len(dialogue_lines)} dialogue lines using VoiceMaker"
+        )
         temp_dir = tempfile.mkdtemp()
         logger.debug(f"Created temporary directory: {temp_dir}")
         temp_files = []
@@ -256,17 +265,31 @@ class VoiceMakerService:
             preset_key = VOXFX_PRESETS_BY_LEVEL.get(language_level)
             if preset_key and preset_key in VOXFX_PRESETS:
                 preset_data = VOXFX_PRESETS[preset_key]
-                voxfx_preset = {"presetId": preset_data["presetId"], "dryWet": preset_data["dryWet"]}
-                logger.info(f"Auto mode: using VoxFX preset '{preset_key}' for {language_level} level")
+                voxfx_preset = {
+                    "presetId": preset_data["presetId"],
+                    "dryWet": preset_data["dryWet"],
+                }
+                logger.info(
+                    f"Auto mode: using VoxFX preset '{preset_key}' for {language_level} level"
+                )
             else:
-                logger.info(f"Auto mode: no VoxFX preset for {language_level} level (clean audio)")
+                logger.info(
+                    f"Auto mode: no VoxFX preset for {language_level} level (clean audio)"
+                )
         elif background_effects_setting in VOXFX_PRESETS:
             # Specific preset selected
             preset_data = VOXFX_PRESETS[background_effects_setting]
-            voxfx_preset = {"presetId": preset_data["presetId"], "dryWet": preset_data["dryWet"]}
-            logger.info(f"Using user-selected VoxFX preset: {background_effects_setting}")
+            voxfx_preset = {
+                "presetId": preset_data["presetId"],
+                "dryWet": preset_data["dryWet"],
+            }
+            logger.info(
+                f"Using user-selected VoxFX preset: {background_effects_setting}"
+            )
         else:
-            logger.warning(f"Unknown background effects setting: {background_effects_setting}, using no effects")
+            logger.warning(
+                f"Unknown background effects setting: {background_effects_setting}, using no effects"
+            )
 
         # Convert speed to VoiceMaker format (-100 to 100)
         # user_audio_speed is typically 0.5 to 2.0, where 1.0 is normal
@@ -288,7 +311,9 @@ class VoiceMakerService:
                 settings = voice_settings.get(speaker, voice_settings[female_label])
                 voice_id = settings["voice"]
 
-                logger.info(f"Generating audio for line {i+1}: {speaker} - '{text[:30]}...' using voice '{voice_id}'")
+                logger.info(
+                    f"Generating audio for line {i + 1}: {speaker} - '{text[:30]}...' using voice '{voice_id}'"
+                )
 
                 file_path = os.path.join(temp_dir, f"part_{i}.mp3")
 
@@ -308,14 +333,16 @@ class VoiceMakerService:
                     temp_files.append(file_path)
 
                 except Exception as e:
-                    logger.error(f"Error generating audio for line {i+1}: {e}")
+                    logger.error(f"Error generating audio for line {i + 1}: {e}")
                     raise
 
             # Merge audio files
             logger.info("Merging individual audio files")
             merged_audio = AudioSegment.empty()
             for i, file_path in enumerate(temp_files):
-                logger.debug(f"Adding audio file {i+1}/{len(temp_files)} to merged audio")
+                logger.debug(
+                    f"Adding audio file {i + 1}/{len(temp_files)} to merged audio"
+                )
                 audio_segment = AudioSegment.from_file(file_path)
                 merged_audio += audio_segment
 

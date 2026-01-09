@@ -8,7 +8,6 @@ from typing import Optional
 
 from bot.openrouter_service import OpenRouterService
 from bot.pimsleur.config import (
-    PAUSE_SYLLABLE,
     PAUSE_LEARNING,
     PAUSE_REPETITION,
     PAUSE_THINKING,
@@ -82,10 +81,14 @@ class PimsleurLessonGenerator:
             title = self.vocab_manager.get_unit_title(numeric_level, lesson_number)
 
         # Get opening dialogue (critical for real Pimsleur pattern)
-        opening_dialogue = self.vocab_manager.get_opening_dialogue(numeric_level, lesson_number)
+        opening_dialogue = self.vocab_manager.get_opening_dialogue(
+            numeric_level, lesson_number
+        )
 
         # Get grammar notes and phrases for context
-        grammar_notes = self.vocab_manager.get_grammar_notes(numeric_level, lesson_number)
+        grammar_notes = self.vocab_manager.get_grammar_notes(
+            numeric_level, lesson_number
+        )
         phrases = self.vocab_manager.get_phrases(numeric_level, lesson_number)
 
         logger.info(
@@ -254,10 +257,14 @@ class PimsleurLessonGenerator:
         if "closing_summary" not in segment_types_present:
             missing_critical.append("closing_summary")
         if "syllable_practice" not in segment_types_present:
-            logger.warning("Script may be missing backward build-up (no syllable_practice)")
+            logger.warning(
+                "Script may be missing backward build-up (no syllable_practice)"
+            )
 
         if missing_critical:
-            logger.warning(f"Script missing critical Pimsleur elements: {missing_critical}")
+            logger.warning(
+                f"Script missing critical Pimsleur elements: {missing_critical}"
+            )
 
         # Check for instruction language evolution (units 11+ should have native instructions)
         has_native_instruction = "native_instruction" in segment_types_present
@@ -281,7 +288,8 @@ class PimsleurLessonGenerator:
             "has_closing": "closing_summary" in segment_types_present,
             "has_backward_buildup": "syllable_practice" in segment_types_present,
             "has_native_instructions": has_native_instruction,
-            "expected_native_instructions": lesson_number >= NATIVE_INSTRUCTION_START_UNIT,
+            "expected_native_instructions": lesson_number
+            >= NATIVE_INSTRUCTION_START_UNIT,
         }
 
         return script
@@ -332,19 +340,33 @@ class PimsleurLessonGenerator:
                 total += segment.get("duration_estimate", 8)
 
             elif seg_type in (
-                "native_model", "model_answer", "context_application",
-                "review_in_context", "native_instruction", "grammar_drill"
+                "native_model",
+                "model_answer",
+                "context_application",
+                "review_in_context",
+                "native_instruction",
+                "grammar_drill",
             ):
                 # Native speaker segments
                 total += segment.get("duration_estimate", 3)
 
             elif seg_type in (
-                "instruction", "comprehension_question", "prompt_for_composition",
-                "prompt_for_question", "repeat_after", "grammar_explanation",
-                "cultural_note", "opening_title", "opening_instruction",
-                "opening_context", "opening_preview", "recall_question",
-                "scenario_setup", "gender_explanation",
-                "closing_summary", "closing_instructions"
+                "instruction",
+                "comprehension_question",
+                "prompt_for_composition",
+                "prompt_for_question",
+                "repeat_after",
+                "grammar_explanation",
+                "cultural_note",
+                "opening_title",
+                "opening_instruction",
+                "opening_context",
+                "opening_preview",
+                "recall_question",
+                "scenario_setup",
+                "gender_explanation",
+                "closing_summary",
+                "closing_instructions",
             ):
                 # Narrator segments - typically longer
                 total += segment.get("duration_estimate", 4)
@@ -396,7 +418,9 @@ class PimsleurLessonGenerator:
 
         # Count Pimsleur-specific elements
         syllable_practice_count = segment_types.get("syllable_practice", 0)
-        backward_buildup_sequences = syllable_practice_count // 3  # ~3 syllables per word
+        backward_buildup_sequences = (
+            syllable_practice_count // 3
+        )  # ~3 syllables per word
 
         return {
             "total_segments": len(segments),
@@ -409,8 +433,8 @@ class PimsleurLessonGenerator:
             "review_vocabulary_count": len(script.get("vocabulary_review", [])),
             # Pimsleur-specific metrics
             "has_opening_structure": (
-                segment_types.get("opening_title", 0) > 0 and
-                segment_types.get("opening_dialogue", 0) > 0
+                segment_types.get("opening_title", 0) > 0
+                and segment_types.get("opening_dialogue", 0) > 0
             ),
             "has_closing_structure": segment_types.get("closing_summary", 0) > 0,
             "backward_buildup_count": backward_buildup_sequences,

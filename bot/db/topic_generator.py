@@ -3,6 +3,7 @@ Module for fetching random topics from the database.
 
 Supports multi-language filtering based on language_code.
 """
+
 import logging
 from sqlalchemy import func
 from bot.db.database import db_session
@@ -28,7 +29,9 @@ def get_random_topic(language_code: str = None):
     if language_code:
         lang_config = get_language_config_by_code(language_code)
         if not lang_config:
-            logger.warning(f"Unknown language code: {language_code}, falling back to default")
+            logger.warning(
+                f"Unknown language code: {language_code}, falling back to default"
+            )
             lang_config = get_language_config()
             language_code = lang_config.code
     else:
@@ -40,12 +43,18 @@ def get_random_topic(language_code: str = None):
     try:
         with db_session(auto_commit=False) as session:
             # Get a random topic (single query using func.random())
-            topic = session.query(Topic).filter(
-                Topic.language_code == language_code
-            ).order_by(func.random()).limit(1).first()
+            topic = (
+                session.query(Topic)
+                .filter(Topic.language_code == language_code)
+                .order_by(func.random())
+                .limit(1)
+                .first()
+            )
 
             if not topic:
-                logger.error(f"No topics found in database for language: {language_code}")
+                logger.error(
+                    f"No topics found in database for language: {language_code}"
+                )
                 return None
 
             logger.info(f"Successfully fetched random topic: {topic.name}")

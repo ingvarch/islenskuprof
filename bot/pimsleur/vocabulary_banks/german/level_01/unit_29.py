@@ -15,7 +15,10 @@ UNIT_INFO = {
 # Opening dialogue - practical scenario combining recent units
 OPENING_DIALOGUE = [
     ("Was haben Sie gestern gemacht?", "What did you do yesterday?"),
-    ("Ich bin zum Arzt gegangen. Mir ging es nicht gut.", "I went to the doctor. I didn't feel well."),
+    (
+        "Ich bin zum Arzt gegangen. Mir ging es nicht gut.",
+        "I went to the doctor. I didn't feel well.",
+    ),
     ("Geht es Ihnen jetzt besser?", "Are you okay now?"),
     ("Ja, mir geht es viel besser.", "Yes, I feel much better."),
     ("Was haben Sie morgen vor?", "What are you going to do tomorrow?"),

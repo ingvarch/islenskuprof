@@ -1,6 +1,7 @@
 """
 User tracking utilities for the Telegram bot.
 """
+
 import logging
 import functools
 from telegram import Update
@@ -9,6 +10,7 @@ from bot.db.user_service import get_or_create_user, update_user_last_contact
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
+
 
 def track_user_activity(func):
     """
@@ -23,8 +25,11 @@ def track_user_activity(func):
     Returns:
         Wrapped function that updates user information before executing the handler.
     """
+
     @functools.wraps(func)
-    async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+    async def wrapped(
+        update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs
+    ):
         user = update.effective_user
         if user:
             try:
@@ -34,7 +39,7 @@ def track_user_activity(func):
                     username=user.username,
                     first_name=user.first_name,
                     last_name=user.last_name,
-                    is_premium=user.is_premium
+                    is_premium=user.is_premium,
                 )
 
                 # Update last_contact timestamp

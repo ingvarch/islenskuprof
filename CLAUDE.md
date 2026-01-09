@@ -31,6 +31,18 @@ docker build -t islenskuprof .
 docker run -e TELEGRAM_BOT_TOKEN="..." -e DB_DSN="..." islenskuprof
 ```
 
+## Quality Checks (run before committing)
+
+```bash
+ruff check --fix .  # Lint and auto-fix issues
+ruff format .       # Format code
+ruff clean          # Remove cache files
+```
+
+All code changes MUST pass `ruff check` and `ruff format` before committing.
+
+Note: `ruff` is installed in `.venv`, so activate the virtual environment first or use `.venv/bin/ruff`.
+
 ## Environment Variables
 
 Required:

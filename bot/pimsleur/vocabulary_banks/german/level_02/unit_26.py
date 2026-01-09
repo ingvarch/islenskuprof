@@ -14,11 +14,20 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Was studierst du?", "What are you studying?"),
-    ("Ich studiere Deutsch an der Universität.", "I'm studying German at the university."),
+    (
+        "Ich studiere Deutsch an der Universität.",
+        "I'm studying German at the university.",
+    ),
     ("Ist das schwierig?", "Is it difficult?"),
-    ("Die Grammatik ist schwer aber der Wortschatz ist lustig.", "The grammar is difficult but the vocabulary is fun."),
+    (
+        "Die Grammatik ist schwer aber der Wortschatz ist lustig.",
+        "The grammar is difficult but the vocabulary is fun.",
+    ),
     ("Wie oft hast du Unterricht?", "How often are you in class?"),
-    ("Dreimal pro Woche. Ich muss auch zu Hause üben.", "Three times a week. I also need to practice at home."),
+    (
+        "Dreimal pro Woche. Ich muss auch zu Hause üben.",
+        "Three times a week. I also need to practice at home.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

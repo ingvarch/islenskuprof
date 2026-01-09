@@ -5,17 +5,17 @@ Revises: 005
 Create Date: 2023-12-21
 
 """
+
 from alembic import op
-import sqlalchemy as sa
 from sqlalchemy.sql import text
 import logging
 
 # Get logger
-logger = logging.getLogger('alembic.runtime.migration')
+logger = logging.getLogger("alembic.runtime.migration")
 
 # revision identifiers, used by Alembic.
-revision = '006'
-down_revision = '005'
+revision = "006"
+down_revision = "005"
 branch_labels = None
 depends_on = None
 
@@ -24,10 +24,12 @@ def upgrade():
     logger.info("Applying migration %s: Seeding languages and updating users", revision)
 
     connection = op.get_bind()
-    
+
     # Insert English and Russian languages
     connection.execute(
-        text("INSERT INTO languages (code, language) VALUES ('en', 'English'), ('ru', 'Russian')")
+        text(
+            "INSERT INTO languages (code, language) VALUES ('en', 'English'), ('ru', 'Russian')"
+        )
     )
 
     logger.info("Migration %s applied successfully", revision)
@@ -38,7 +40,7 @@ def downgrade():
 
     # Set language_id to NULL for all users
     connection = op.get_bind()
-    
+
     # Delete all languages
     connection.execute(text("DELETE FROM languages"))
 

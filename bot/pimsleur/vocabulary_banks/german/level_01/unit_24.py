@@ -18,7 +18,10 @@ OPENING_DIALOGUE = [
     ("Mögen Sie Fisch?", "Do you like fish?"),
     ("Ja, ich mag Fisch sehr gerne.", "Yes, I like fish very much."),
     ("Ich mag Sauerkraut nicht.", "I don't like sauerkraut."),
-    ("Das ist okay, viele Deutsche mögen es auch nicht!", "That's okay, many Germans don't like it either!"),
+    (
+        "Das ist okay, viele Deutsche mögen es auch nicht!",
+        "That's okay, many Germans don't like it either!",
+    ),
 ]
 
 # New vocabulary introduced in this unit

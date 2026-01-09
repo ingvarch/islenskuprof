@@ -1,6 +1,7 @@
 import asyncio
 from telegram.constants import ParseMode
 
+
 def create_spinner():
     spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 

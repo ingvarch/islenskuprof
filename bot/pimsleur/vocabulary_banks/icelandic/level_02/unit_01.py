@@ -14,9 +14,15 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Afsakið, hvernig kemst ég að miðbænum?", "Excuse me, how do I get to downtown?"),
-    ("Farðu beint áfram og beygðu til vinstri við ljósin.", "Go straight ahead and turn left at the lights."),
+    (
+        "Farðu beint áfram og beygðu til vinstri við ljósin.",
+        "Go straight ahead and turn left at the lights.",
+    ),
     ("Er það langt héðan?", "Is it far from here?"),
-    ("Nei, það tekur um tíu mínútur að ganga.", "No, it takes about ten minutes to walk."),
+    (
+        "Nei, það tekur um tíu mínútur að ganga.",
+        "No, it takes about ten minutes to walk.",
+    ),
     ("Takk fyrir hjálpina!", "Thanks for the help!"),
     ("Ekkert mál, gangi þér vel!", "No problem, good luck!"),
 ]

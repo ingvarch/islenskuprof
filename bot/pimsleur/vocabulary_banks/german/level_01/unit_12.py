@@ -45,7 +45,11 @@ VOCABULARY = [
 PHRASES = [
     ("Ich möchte... kaufen", "I want to buy...", "expressing intent"),
     ("Kann ich mit Karte bezahlen?", "Can I pay with a card?", "payment question"),
-    ("Haben Sie das in einer anderen Größe?", "Do you have this in another size?", "asking for options"),
+    (
+        "Haben Sie das in einer anderen Größe?",
+        "Do you have this in another size?",
+        "asking for options",
+    ),
     ("Welche Farbe?", "What color?", "asking about color"),
     ("Danke für die Hilfe", "Thanks for the help", "polite closing"),
 ]

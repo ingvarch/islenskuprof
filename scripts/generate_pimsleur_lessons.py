@@ -81,7 +81,7 @@ def ask_overwrite(filepath: Path, file_type: str) -> bool:
 
 def list_available_units(lang_code: str):
     """List all available units with vocabulary data."""
-    from bot.pimsleur.languages import get_vocabulary, SUPPORTED_LANGUAGES
+    from bot.pimsleur.languages import SUPPORTED_LANGUAGES
 
     lang_info = SUPPORTED_LANGUAGES.get(lang_code.replace("is", "icelandic"))
     if not lang_info:
@@ -190,15 +190,19 @@ def generate_unit(
         # Get review vocabulary from previous units
         for prev_unit in unit_data.get("review_from_units", []):
             if lang_code == "is":
+                from bot.pimsleur.languages.icelandic import get_unit
+
                 prev_data = get_unit(level, prev_unit)
                 if prev_data and prev_data.get("vocabulary"):
                     for w in prev_data["vocabulary"][:3]:  # Take 3 words from each
-                        vocab_review.append({
-                            "word_target": w[0],
-                            "word_native": w[1],
-                            "word_type": w[2],
-                            "phonetic": w[3] if len(w) > 3 else "",
-                        })
+                        vocab_review.append(
+                            {
+                                "word_target": w[0],
+                                "word_native": w[1],
+                                "word_type": w[2],
+                                "phonetic": w[3] if len(w) > 3 else "",
+                            }
+                        )
 
     # Generate lesson script
     logger.info("Generating lesson script via LLM...")
@@ -309,11 +313,15 @@ def save_unit_to_db(
 
     with db_session() as session:
         # Check if lesson already exists
-        existing = session.query(PimsleurLesson).filter_by(
-            language_code=lang_code,
-            level=level_str,
-            lesson_number=unit_num,
-        ).first()
+        existing = (
+            session.query(PimsleurLesson)
+            .filter_by(
+                language_code=lang_code,
+                level=level_str,
+                lesson_number=unit_num,
+            )
+            .first()
+        )
 
         if existing:
             # Update existing
@@ -340,9 +348,7 @@ def save_unit_to_db(
                 vocabulary_json=json.dumps(
                     script.get("vocabulary_summary", []), ensure_ascii=False
                 ),
-                review_from_lessons=json.dumps(
-                    script.get("review_from_lessons", [])
-                ),
+                review_from_lessons=json.dumps(script.get("review_from_lessons", [])),
                 is_generated=audio_path is not None,
             )
             session.add(lesson)

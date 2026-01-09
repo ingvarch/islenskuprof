@@ -16,9 +16,15 @@ OPENING_DIALOGUE = [
     ("Erzähl mir von deiner Familie.", "Tell me about your family."),
     ("Ich bin verheiratet und habe zwei Kinder.", "I'm married and have two children."),
     ("Wie alt sind die Kinder?", "How old are the children?"),
-    ("Mein Sohn ist zehn und meine Tochter ist sieben.", "My son is ten and my daughter is seven."),
+    (
+        "Mein Sohn ist zehn und meine Tochter ist sieben.",
+        "My son is ten and my daughter is seven.",
+    ),
     ("Hast du viele Geschwister?", "Do you have many siblings?"),
-    ("Ja, ich habe zwei Brüder und eine Schwester.", "Yes, I have two brothers and one sister."),
+    (
+        "Ja, ich habe zwei Brüder und eine Schwester.",
+        "Yes, I have two brothers and one sister.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

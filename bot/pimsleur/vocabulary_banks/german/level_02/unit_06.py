@@ -14,7 +14,10 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Welches Auto finden Sie besser?", "Which car do you think is better?"),
-    ("Ich finde dieses größer und schöner.", "I think this one is bigger and more beautiful."),
+    (
+        "Ich finde dieses größer und schöner.",
+        "I think this one is bigger and more beautiful.",
+    ),
     ("Aber das andere ist billiger.", "But the other one is cheaper."),
     ("Ja, aber dieses ist sicherer.", "Yes, but this one is safer."),
     ("Was ist Ihnen am wichtigsten?", "What is most important for you?"),
@@ -48,10 +51,22 @@ VOCABULARY = [
 # Key phrases and expressions
 PHRASES = [
     ("Ich finde dieses besser", "I think this is better", "expressing preference"),
-    ("Was ist Ihnen am wichtigsten?", "What is most important?", "asking about priorities"),
-    ("Dieses ist größer als jenes", "This is bigger than that", "comparison with 'als'"),
+    (
+        "Was ist Ihnen am wichtigsten?",
+        "What is most important?",
+        "asking about priorities",
+    ),
+    (
+        "Dieses ist größer als jenes",
+        "This is bigger than that",
+        "comparison with 'als'",
+    ),
     ("Welches... ist am besten?", "Which... is best?", "asking for superlative"),
-    ("...ist nicht so gut wie...", "...is not as good as...", "equal comparison negative"),
+    (
+        "...ist nicht so gut wie...",
+        "...is not as good as...",
+        "equal comparison negative",
+    ),
 ]
 
 # Grammar points covered

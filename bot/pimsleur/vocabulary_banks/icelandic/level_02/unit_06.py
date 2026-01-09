@@ -14,7 +14,10 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Hvaða bíl finnst þér betri?", "Which car do you think is better?"),
-    ("Mér finnst þessi stærri og fallegri.", "I think this one is bigger and more beautiful."),
+    (
+        "Mér finnst þessi stærri og fallegri.",
+        "I think this one is bigger and more beautiful.",
+    ),
     ("En hinn er ódýrari.", "But the other one is cheaper."),
     ("Já, en þessi er öruggari.", "Yes, but this one is safer."),
     ("Hvað er mikilvægast fyrir þig?", "What is most important for you?"),
@@ -51,7 +54,11 @@ PHRASES = [
     ("Hvað er mikilvægast?", "What is most important?", "asking about priorities"),
     ("Þetta er stærra en hitt", "This is bigger than that", "comparison with 'en'"),
     ("Hvaða... er bestur/best?", "Which... is best?", "asking for superlative"),
-    ("...er ekki eins gott og...", "...is not as good as...", "equal comparison negative"),
+    (
+        "...er ekki eins gott og...",
+        "...is not as good as...",
+        "equal comparison negative",
+    ),
 ]
 
 # Grammar points covered

@@ -16,9 +16,15 @@ OPENING_DIALOGUE = [
     ("Átt þú fjölskyldu?", "Do you have a family?"),
     ("Já, ég á konu og tvö börn.", "Yes, I have a wife and two children."),
     ("Hvað heita þau?", "What are their names?"),
-    ("Konan mín heitir Anna og börnin heita Jón og María.", "My wife is called Anna and the children are called Jon and Maria."),
+    (
+        "Konan mín heitir Anna og börnin heita Jón og María.",
+        "My wife is called Anna and the children are called Jon and Maria.",
+    ),
     ("Hvað eru þau gömul?", "How old are they?"),
-    ("Jón er sjö ára og María er fimm ára.", "Jon is seven years old and Maria is five years old."),
+    (
+        "Jón er sjö ára og María er fimm ára.",
+        "Jon is seven years old and Maria is five years old.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

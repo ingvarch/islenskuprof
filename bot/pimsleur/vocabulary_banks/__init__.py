@@ -96,9 +96,7 @@ class VocabularyBank:
     def _load_from_bank(self, level: int, unit: int) -> Optional[dict]:
         """Load vocabulary from bank file."""
         try:
-            module_name = LANGUAGE_MODULES.get(
-                self.language_code, self.language_code
-            )
+            module_name = LANGUAGE_MODULES.get(self.language_code, self.language_code)
             module_path = (
                 f"bot.pimsleur.vocabulary_banks.{module_name}"
                 f".level_{level:02d}.unit_{unit:02d}"

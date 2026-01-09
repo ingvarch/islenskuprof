@@ -16,7 +16,10 @@ OPENING_DIALOGUE = [
     ("Hvað gerðirðu í gær?", "What did you do yesterday?"),
     ("Ég fór í bíó með vinum mínum.", "I went to the cinema with my friends."),
     ("Hvað sáuð þið?", "What did you see?"),
-    ("Við sáum íslenska mynd. Hún var frábær!", "We saw an Icelandic film. It was excellent!"),
+    (
+        "Við sáum íslenska mynd. Hún var frábær!",
+        "We saw an Icelandic film. It was excellent!",
+    ),
     ("Ég heyrði um hana. Mælirðu með henni?", "I heard about it. Do you recommend it?"),
     ("Já, örugglega! Þú ættir að sjá hana.", "Yes, definitely! You should see it."),
 ]

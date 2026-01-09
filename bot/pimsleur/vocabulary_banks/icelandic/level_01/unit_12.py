@@ -45,7 +45,11 @@ VOCABULARY = [
 PHRASES = [
     ("Ég vil kaupa...", "I want to buy...", "expressing intent"),
     ("Get ég borgað með korti?", "Can I pay with a card?", "payment question"),
-    ("Ertu með þetta í annarri stærð?", "Do you have this in another size?", "asking for options"),
+    (
+        "Ertu með þetta í annarri stærð?",
+        "Do you have this in another size?",
+        "asking for options",
+    ),
     ("Hvaða lit?", "What color?", "asking about color"),
     ("Takk fyrir hjálpina", "Thanks for the help", "polite closing"),
 ]

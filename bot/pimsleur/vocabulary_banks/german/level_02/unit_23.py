@@ -18,7 +18,10 @@ OPENING_DIALOGUE = [
     ("Morgen wird es regnen.", "Tomorrow there will be rain."),
     ("Ich liebe die deutsche Natur.", "I love German nature."),
     ("Die Gletscher sind großartig.", "The glaciers are magnificent."),
-    ("Ja, und die Wasserfälle und Berge auch.", "Yes, and the waterfalls and mountains too."),
+    (
+        "Ja, und die Wasserfälle und Berge auch.",
+        "Yes, and the waterfalls and mountains too.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

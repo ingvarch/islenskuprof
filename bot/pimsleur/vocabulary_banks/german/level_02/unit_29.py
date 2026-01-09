@@ -14,10 +14,19 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Hallo! Wie geht es dir?", "Hello! How have you been?"),
-    ("Sehr gut, danke. Ich war sehr beschäftigt.", "Very well, thanks. I've been very busy."),
+    (
+        "Sehr gut, danke. Ich war sehr beschäftigt.",
+        "Very well, thanks. I've been very busy.",
+    ),
     ("Was hast du gemacht?", "What have you been doing?"),
-    ("Ich habe Deutsch gelernt und gearbeitet.", "I've been studying German and working."),
-    ("Das klingt spaßig. Sollen wir uns treffen?", "That sounds fun. Should we meet up?"),
+    (
+        "Ich habe Deutsch gelernt und gearbeitet.",
+        "I've been studying German and working.",
+    ),
+    (
+        "Das klingt spaßig. Sollen wir uns treffen?",
+        "That sounds fun. Should we meet up?",
+    ),
     ("Ja, wir können essen gehen.", "Yes, we can go eat something."),
 ]
 

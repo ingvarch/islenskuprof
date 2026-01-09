@@ -13,11 +13,20 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Hast du heute Morgen die Nachrichten gehört?", "Did you hear the news this morning?"),
+    (
+        "Hast du heute Morgen die Nachrichten gehört?",
+        "Did you hear the news this morning?",
+    ),
     ("Ja, ich habe ferngesehen.", "Yes, I watched the television."),
     ("Was war die wichtigste Nachricht?", "What was the main news?"),
-    ("Das Wetter wird dieses Wochenende gut.", "The weather will be good this weekend."),
-    ("Super! Ich habe das auch in der Zeitung gelesen.", "Great! I read that in the newspaper too."),
+    (
+        "Das Wetter wird dieses Wochenende gut.",
+        "The weather will be good this weekend.",
+    ),
+    (
+        "Super! Ich habe das auch in der Zeitung gelesen.",
+        "Great! I read that in the newspaper too.",
+    ),
     ("Ich verfolge auch Nachrichten online.", "I also follow news online."),
 ]
 
@@ -46,11 +55,19 @@ VOCABULARY = [
 
 # Key phrases and expressions
 PHRASES = [
-    ("Was war die wichtigste Nachricht?", "What was the main news?", "asking about news"),
+    (
+        "Was war die wichtigste Nachricht?",
+        "What was the main news?",
+        "asking about news",
+    ),
     ("Hast du gehört?", "Did you hear?", "asking if someone heard"),
     ("Laut Nachrichten", "According to the news", "citing source"),
     ("Es ist in den Nachrichten", "It's in the news", "referencing news"),
-    ("Ich habe einen Artikel darüber gelesen", "I read an article about this", "discussing media"),
+    (
+        "Ich habe einen Artikel darüber gelesen",
+        "I read an article about this",
+        "discussing media",
+    ),
 ]
 
 # Grammar points covered

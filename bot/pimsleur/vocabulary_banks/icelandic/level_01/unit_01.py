@@ -42,7 +42,11 @@ PHRASES = [
     ("Skilur þú?", "Do you understand?", "question formation"),
     ("Ég skil ekki", "I don't understand", "negation pattern"),
     ("Bara smávegis", "Just a little", "common response"),
-    ("Afsakið, skilur þú ensku?", "Excuse me, do you understand English?", "polite inquiry"),
+    (
+        "Afsakið, skilur þú ensku?",
+        "Excuse me, do you understand English?",
+        "polite inquiry",
+    ),
 ]
 
 GRAMMAR_NOTES = [

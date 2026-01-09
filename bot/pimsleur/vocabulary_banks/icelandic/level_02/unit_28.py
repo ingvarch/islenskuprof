@@ -14,11 +14,17 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Hver eru draumamarkmið þín?", "What are your dream goals?"),
-    ("Ég vil læra að tala reiprennandi íslensku.", "I want to learn to speak fluent Icelandic."),
+    (
+        "Ég vil læra að tala reiprennandi íslensku.",
+        "I want to learn to speak fluent Icelandic.",
+    ),
     ("Það er frábært markmið! Hvað annað?", "That's a great goal! What else?"),
     ("Ég ætla að ferðast um heiminn.", "I'm going to travel around the world."),
     ("Hefur þú áætlun?", "Do you have a plan?"),
-    ("Já, ég spara peninga og læri tungumál.", "Yes, I'm saving money and learning languages."),
+    (
+        "Já, ég spara peninga og læri tungumál.",
+        "Yes, I'm saving money and learning languages.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

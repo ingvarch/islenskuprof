@@ -13,10 +13,19 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Entschuldigung, wie komme ich zur Innenstadt?", "Excuse me, how do I get to downtown?"),
-    ("Gehen Sie geradeaus und biegen Sie links bei der Ampel ab.", "Go straight ahead and turn left at the lights."),
+    (
+        "Entschuldigung, wie komme ich zur Innenstadt?",
+        "Excuse me, how do I get to downtown?",
+    ),
+    (
+        "Gehen Sie geradeaus und biegen Sie links bei der Ampel ab.",
+        "Go straight ahead and turn left at the lights.",
+    ),
     ("Ist es weit von hier?", "Is it far from here?"),
-    ("Nein, es dauert etwa zehn Minuten zu Fuß.", "No, it takes about ten minutes to walk."),
+    (
+        "Nein, es dauert etwa zehn Minuten zu Fuß.",
+        "No, it takes about ten minutes to walk.",
+    ),
     ("Danke für die Hilfe!", "Thanks for the help!"),
     ("Gern geschehen, viel Erfolg!", "No problem, good luck!"),
 ]

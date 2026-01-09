@@ -48,7 +48,11 @@ PHRASES = [
     ("Ich habe Kopfschmerzen.", "I have a headache.", "describing symptoms"),
     ("Was ist los?", "What's wrong?", "asking about problem"),
     ("Ich brauche Medikamente.", "I need medicine.", "requesting help"),
-    ("Wo ist die nächste Apotheke?", "Where is the nearest pharmacy?", "asking for directions"),
+    (
+        "Wo ist die nächste Apotheke?",
+        "Where is the nearest pharmacy?",
+        "asking for directions",
+    ),
 ]
 
 # Grammar points covered

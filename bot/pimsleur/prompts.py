@@ -10,13 +10,6 @@ Note: Uses "Spaced Audio Course" instead of trademark names.
 
 import json
 
-from bot.pimsleur.config import (
-    COURSE_BRAND_NAME,
-    OPENING_TITLE_FORMAT,
-    CLOSING_SUMMARY_FORMAT,
-    LEVEL_CEFR_MAPPING,
-    CEFR_GUIDELINES,
-)
 
 PIMSLEUR_LESSON_SYSTEM_PROMPT = """You are an expert language curriculum designer specializing in the spaced repetition audio method for language learning.
 
@@ -452,7 +445,9 @@ def get_lesson_generation_prompt(
     if opening_dialogue:
         dialogue_json = json.dumps(opening_dialogue, indent=2, ensure_ascii=False)
     else:
-        dialogue_json = "[]  // No opening dialogue provided - create one based on vocabulary"
+        dialogue_json = (
+            "[]  // No opening dialogue provided - create one based on vocabulary"
+        )
 
     # Build additional context section
     additional_context = ""
@@ -475,7 +470,9 @@ def get_lesson_generation_prompt(
         next_lesson=lesson_number + 1,
         opening_dialogue_json=dialogue_json,
         new_vocabulary_json=json.dumps(new_vocabulary, indent=2, ensure_ascii=False),
-        review_vocabulary_json=json.dumps(review_vocabulary, indent=2, ensure_ascii=False),
+        review_vocabulary_json=json.dumps(
+            review_vocabulary, indent=2, ensure_ascii=False
+        ),
     )
 
     # Append additional context if present

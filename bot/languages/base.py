@@ -1,6 +1,7 @@
 """
 Base classes for language configurations.
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Pattern
@@ -9,33 +10,36 @@ from typing import List, Dict, Tuple, Pattern
 @dataclass
 class SpeakerConfig:
     """Configuration for a dialogue speaker."""
-    label: str       # Display label (e.g., "Kona", "Frau")
-    voice: str       # VoiceMaker voice ID (e.g., "ai3-is-IS-Svana", "pro1-Helena")
+
+    label: str  # Display label (e.g., "Kona", "Frau")
+    voice: str  # VoiceMaker voice ID (e.g., "ai3-is-IS-Svana", "pro1-Helena")
 
 
 @dataclass
 class PromptMarkers:
     """Markers used in AI-generated content for parsing."""
-    story_title: str              # e.g., "*Saga:*"
-    listen_instruction: str       # e.g., "*Hlustaðu á þetta samtal.*"
-    dialogue_questions: str       # e.g., "*Spurningar um samtal*"
-    reading_questions: str        # e.g., "*Spurningar*"
-    vocabulary: str               # e.g., "*Orðabók*"
-    key_vocabulary: str           # e.g., "*KEY VOCABULARY:*"
-    useful_phrases: str           # e.g., "*USEFUL PHRASES:*"
-    word_combinations: str        # e.g., "*WORD COMBINATIONS:*"
-    grammar_notes: str            # e.g., "*GRAMMAR NOTES:*"
+
+    story_title: str  # e.g., "*Saga:*"
+    listen_instruction: str  # e.g., "*Hlustaðu á þetta samtal.*"
+    dialogue_questions: str  # e.g., "*Spurningar um samtal*"
+    reading_questions: str  # e.g., "*Spurningar*"
+    vocabulary: str  # e.g., "*Orðabók*"
+    key_vocabulary: str  # e.g., "*KEY VOCABULARY:*"
+    useful_phrases: str  # e.g., "*USEFUL PHRASES:*"
+    word_combinations: str  # e.g., "*WORD COMBINATIONS:*"
+    grammar_notes: str  # e.g., "*GRAMMAR NOTES:*"
 
 
 @dataclass
 class SeedData:
     """Seed data for database tables."""
-    names: List[Tuple[str, str]]           # [(first_name, last_name), ...]
-    cities: List[str]                       # [city_name, ...]
-    jobs: List[Tuple[str, str]]            # [(title, workplace), ...]
-    weekend_activities: List[str]           # [activity, ...]
-    plan_activities: List[str]              # [activity, ...]
-    topics: List[str]                       # [topic, ...]
+
+    names: List[Tuple[str, str]]  # [(first_name, last_name), ...]
+    cities: List[str]  # [city_name, ...]
+    jobs: List[Tuple[str, str]]  # [(title, workplace), ...]
+    weekend_activities: List[str]  # [activity, ...]
+    plan_activities: List[str]  # [activity, ...]
+    topics: List[str]  # [topic, ...]
 
 
 class LanguageConfig(ABC):
@@ -90,7 +94,9 @@ class LanguageConfig(ABC):
         pass
 
     @abstractmethod
-    def get_dialogue_prompt(self, topic: str, user_language: str, user_language_level: str) -> str:
+    def get_dialogue_prompt(
+        self, topic: str, user_language: str, user_language_level: str
+    ) -> str:
         """
         Generate the prompt for dialogue/listening section.
 
@@ -105,7 +111,9 @@ class LanguageConfig(ABC):
         pass
 
     @abstractmethod
-    def get_reading_prompt(self, person_data: dict, user_language: str, user_language_level: str) -> str:
+    def get_reading_prompt(
+        self, person_data: dict, user_language: str, user_language_level: str
+    ) -> str:
         """
         Generate the prompt for reading comprehension section.
 
@@ -180,7 +188,7 @@ class LanguageConfig(ABC):
             self.speakers["male"].label: {
                 "voice": self.speakers["male"].voice,
                 "speed": user_audio_speed,
-            }
+            },
         }
 
     def get_cefr_constraints(self, level: str) -> dict:
@@ -268,15 +276,15 @@ class LanguageConfig(ABC):
 CRITICAL REQUIREMENT: All content MUST strictly match {level} CEFR level. This is non-negotiable.
 
 {level} Level Constraints:
-- Maximum vocabulary: {constraints['vocabulary_limit']} most common words
-- Sentence length: {constraints['sentence_length']}
-- Grammar allowed: {constraints['grammar']}
-- Sentence structures: {constraints['structures']}
-- Connectors allowed: {constraints['connectors']}
-- FORBIDDEN: {constraints['forbidden']}
+- Maximum vocabulary: {constraints["vocabulary_limit"]} most common words
+- Sentence length: {constraints["sentence_length"]}
+- Grammar allowed: {constraints["grammar"]}
+- Sentence structures: {constraints["structures"]}
+- Connectors allowed: {constraints["connectors"]}
+- FORBIDDEN: {constraints["forbidden"]}
 
 Before generating ANY sentence, verify:
-1. Every word is within the {constraints['vocabulary_limit'] or 'unlimited'} most common words
+1. Every word is within the {constraints["vocabulary_limit"] or "unlimited"} most common words
 2. Grammar matches {level} level requirements
 3. Sentence length is appropriate
 

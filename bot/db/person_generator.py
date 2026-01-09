@@ -3,13 +3,18 @@ Module for generating random persons and populating the persons table.
 
 Supports multi-language generation based on TARGET_LANGUAGES environment variable.
 """
+
 import logging
 import random
 from sqlalchemy import delete, func
 from sqlalchemy.orm import joinedload
 from bot.db.database import db_session
 from bot.db.models import Person, Name, Job, City, Activity
-from bot.languages import get_language_config, get_all_language_configs, get_language_config_by_code
+from bot.languages import (
+    get_language_config,
+    get_all_language_configs,
+    get_language_config_by_code,
+)
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -42,18 +47,22 @@ def clear_and_fill_persons_table():
                 names = session.query(Name).filter(Name.language_code == code).all()
                 jobs = session.query(Job).filter(Job.language_code == code).all()
                 cities = session.query(City).filter(City.language_code == code).all()
-                weekend_activities = session.query(Activity).filter(
-                    Activity.type == "weekend",
-                    Activity.language_code == code
-                ).all()
-                plan_activities = session.query(Activity).filter(
-                    Activity.type == "plan",
-                    Activity.language_code == code
-                ).all()
+                weekend_activities = (
+                    session.query(Activity)
+                    .filter(Activity.type == "weekend", Activity.language_code == code)
+                    .all()
+                )
+                plan_activities = (
+                    session.query(Activity)
+                    .filter(Activity.type == "plan", Activity.language_code == code)
+                    .all()
+                )
 
                 # Check if we have enough data to generate persons
                 if not names or not jobs or not cities:
-                    logger.warning(f"Not enough data to generate persons for {lang_config.name}")
+                    logger.warning(
+                        f"Not enough data to generate persons for {lang_config.name}"
+                    )
                     continue
 
                 # Generate random persons for this language
@@ -67,8 +76,16 @@ def clear_and_fill_persons_table():
                     children = random.randint(0, 3)
 
                     # Select random activities if available
-                    weekend_activity = random.choice(weekend_activities).activity if weekend_activities else None
-                    plan_activity = random.choice(plan_activities).activity if plan_activities else None
+                    weekend_activity = (
+                        random.choice(weekend_activities).activity
+                        if weekend_activities
+                        else None
+                    )
+                    plan_activity = (
+                        random.choice(plan_activities).activity
+                        if plan_activities
+                        else None
+                    )
 
                     # Create a new person with language_code
                     person = Person(
@@ -79,7 +96,7 @@ def clear_and_fill_persons_table():
                         children=children,
                         weekend_activity=weekend_activity,
                         plan_activity=plan_activity,
-                        language_code=code
+                        language_code=code,
                     )
                     persons.append(person)
 
@@ -92,6 +109,7 @@ def clear_and_fill_persons_table():
     except Exception as e:
         logger.error(f"Error clearing and filling persons table: {e}")
         raise
+
 
 def get_random_person_data(language_code: str = None):
     """
@@ -108,7 +126,9 @@ def get_random_person_data(language_code: str = None):
     if language_code:
         lang_config = get_language_config_by_code(language_code)
         if not lang_config:
-            logger.warning(f"Unknown language code: {language_code}, falling back to default")
+            logger.warning(
+                f"Unknown language code: {language_code}, falling back to default"
+            )
             lang_config = get_language_config()
             language_code = lang_config.code
     else:
@@ -120,16 +140,23 @@ def get_random_person_data(language_code: str = None):
     try:
         with db_session(auto_commit=False) as session:
             # Get a random person with related data using eager loading (avoids N+1 queries)
-            person = session.query(Person).options(
-                joinedload(Person.name),
-                joinedload(Person.city),
-                joinedload(Person.job)
-            ).filter(
-                Person.language_code == language_code
-            ).order_by(func.random()).limit(1).first()
+            person = (
+                session.query(Person)
+                .options(
+                    joinedload(Person.name),
+                    joinedload(Person.city),
+                    joinedload(Person.job),
+                )
+                .filter(Person.language_code == language_code)
+                .order_by(func.random())
+                .limit(1)
+                .first()
+            )
 
             if not person:
-                logger.error(f"No persons found in database for language: {language_code}")
+                logger.error(
+                    f"No persons found in database for language: {language_code}"
+                )
                 return None
 
             # Access eagerly loaded relationships
@@ -156,13 +183,17 @@ def get_random_person_data(language_code: str = None):
                 "job_title": job.title,
                 "job_workplace": job.workplace,
                 "number_of_children": person.children or 0,
-                "age_of_children": ", ".join(map(str, children_ages)) if children_ages else "N/A",
+                "age_of_children": ", ".join(map(str, children_ages))
+                if children_ages
+                else "N/A",
                 "weekend_activity": person.weekend_activity or "staying at home",
                 "current_plan": person.plan_activity or "relaxing",
-                "language_code": language_code
+                "language_code": language_code,
             }
 
-            logger.info(f"Successfully fetched random person: {name.first_name} {name.last_name}")
+            logger.info(
+                f"Successfully fetched random person: {name.first_name} {name.last_name}"
+            )
             return person_data
     except Exception as e:
         logger.error(f"Error fetching random person: {e}")

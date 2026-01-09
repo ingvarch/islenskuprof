@@ -16,7 +16,10 @@ OPENING_DIALOGUE = [
     ("Segðu mér frá fjölskyldunni þinni.", "Tell me about your family."),
     ("Ég er gift og á tvö börn.", "I'm married and have two children."),
     ("Hve gömul eru börnin?", "How old are the children?"),
-    ("Sonur minn er tíu og dóttir mín er sjö.", "My son is ten and my daughter is seven."),
+    (
+        "Sonur minn er tíu og dóttir mín er sjö.",
+        "My son is ten and my daughter is seven.",
+    ),
     ("Ertu með mörg systkini?", "Do you have many siblings?"),
     ("Já, ég á tvo bræður og eina systur.", "Yes, I have two brothers and one sister."),
 ]

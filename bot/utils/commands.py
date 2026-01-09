@@ -4,6 +4,7 @@ from telegram.ext import Application
 
 logger = logging.getLogger(__name__)
 
+
 async def register_bot_commands(application: Application) -> None:
     """
     Register bot commands with Telegram to show in the command menu.
@@ -14,7 +15,7 @@ async def register_bot_commands(application: Application) -> None:
         BotCommand("understanding", "Understanding Section (Listening and Reading)"),
         BotCommand("communication", "Communication Section"),
         BotCommand("pimsleur", "Pimsleur-style audio lessons"),
-        BotCommand("settings", "Bot settings")
+        BotCommand("settings", "Bot settings"),
     ]
 
     try:

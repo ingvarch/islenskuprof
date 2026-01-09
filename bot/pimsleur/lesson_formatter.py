@@ -4,14 +4,12 @@ Pimsleur lesson message formatter.
 Formats lesson data for display in Telegram messages.
 """
 
-from typing import Optional
-
 # Language flags for dialogue display
 LANGUAGE_FLAGS = {
-    "is": ("\U0001F1EE\U0001F1F8", "\U0001F1EC\U0001F1E7"),  # Iceland, UK
-    "de": ("\U0001F1E9\U0001F1EA", "\U0001F1EC\U0001F1E7"),  # Germany, UK
-    "es": ("\U0001F1EA\U0001F1F8", "\U0001F1EC\U0001F1E7"),  # Spain, UK
-    "fr": ("\U0001F1EB\U0001F1F7", "\U0001F1EC\U0001F1E7"),  # France, UK
+    "is": ("\U0001f1ee\U0001f1f8", "\U0001f1ec\U0001f1e7"),  # Iceland, UK
+    "de": ("\U0001f1e9\U0001f1ea", "\U0001f1ec\U0001f1e7"),  # Germany, UK
+    "es": ("\U0001f1ea\U0001f1f8", "\U0001f1ec\U0001f1e7"),  # Spain, UK
+    "fr": ("\U0001f1eb\U0001f1f7", "\U0001f1ec\U0001f1e7"),  # France, UK
 }
 
 # CEFR level mapping
@@ -20,6 +18,7 @@ LEVEL_TO_CEFR = {
     2: "A2",
     3: "B1",
 }
+
 
 def get_language_flags(lang_code: str) -> tuple[str, str]:
     """
@@ -31,7 +30,7 @@ def get_language_flags(lang_code: str) -> tuple[str, str]:
     Returns:
         Tuple of (target_flag, english_flag)
     """
-    return LANGUAGE_FLAGS.get(lang_code, ("\U0001F4AC", "\U0001F1EC\U0001F1E7"))
+    return LANGUAGE_FLAGS.get(lang_code, ("\U0001f4ac", "\U0001f1ec\U0001f1e7"))
 
 
 def _format_theme(theme: str) -> str:

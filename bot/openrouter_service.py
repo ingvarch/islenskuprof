@@ -1,6 +1,7 @@
 """
 Module for handling OpenRouter API interactions.
 """
+
 import os
 import logging
 import re
@@ -27,10 +28,7 @@ class OpenRouterService(AIService):
             raise ValueError("OPENROUTER_MODEL environment variable is not set")
 
         # OpenRouter uses OpenAI-compatible API
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url="https://openrouter.ai/api/v1"
-        )
+        self.client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
 
         # Retry configuration
         self.max_retries = 3
@@ -38,7 +36,9 @@ class OpenRouterService(AIService):
 
         logger.info(f"OpenRouter service initialized with model: {self.model}")
 
-    def _call_with_retry(self, messages: List[dict], system_message: str, max_tokens: int = 4000) -> str:
+    def _call_with_retry(
+        self, messages: List[dict], system_message: str, max_tokens: int = 4000
+    ) -> str:
         """
         Make an API call with retry logic.
 
@@ -59,18 +59,19 @@ class OpenRouterService(AIService):
                 response = self.client.chat.completions.create(
                     model=self.model,
                     max_tokens=max_tokens,
-                    messages=[
-                        {"role": "system", "content": system_message},
-                        *messages
-                    ],
+                    messages=[{"role": "system", "content": system_message}, *messages],
                     extra_headers={
-                        "HTTP-Referer": os.environ.get("APP_URL", "https://github.com/islenskuprof"),
-                        "X-Title": "Islenskuprof Language Learning Bot"
-                    }
+                        "HTTP-Referer": os.environ.get(
+                            "APP_URL", "https://github.com/islenskuprof"
+                        ),
+                        "X-Title": "Islenskuprof Language Learning Bot",
+                    },
                 )
 
                 content = response.choices[0].message.content
-                logger.info(f"Successfully received {len(content)} characters from {self.model}")
+                logger.info(
+                    f"Successfully received {len(content)} characters from {self.model}"
+                )
                 return content
 
             except Exception as e:
@@ -78,13 +79,22 @@ class OpenRouterService(AIService):
                 error_str = str(e).lower()
 
                 # Check if this is a retryable error
-                is_retryable = any(term in error_str for term in [
-                    "rate limit", "timeout", "503", "502", "504",
-                    "overloaded", "capacity", "temporarily"
-                ])
+                is_retryable = any(
+                    term in error_str
+                    for term in [
+                        "rate limit",
+                        "timeout",
+                        "503",
+                        "502",
+                        "504",
+                        "overloaded",
+                        "capacity",
+                        "temporarily",
+                    ]
+                )
 
                 if is_retryable and retry < self.max_retries - 1:
-                    delay = self.base_delay * (2 ** retry)  # Exponential backoff
+                    delay = self.base_delay * (2**retry)  # Exponential backoff
                     logger.warning(
                         f"Retryable error (attempt {retry + 1}/{self.max_retries}): {e}. "
                         f"Retrying in {delay}s..."
@@ -98,7 +108,9 @@ class OpenRouterService(AIService):
 
         raise last_error
 
-    def generate_content(self, prompt: Optional[str] = None, language_level: str = "A2", lang_config=None) -> str:
+    def generate_content(
+        self, prompt: Optional[str] = None, language_level: str = "A2", lang_config=None
+    ) -> str:
         """
         Generate language learning content using OpenRouter.
 
@@ -126,7 +138,9 @@ class OpenRouterService(AIService):
         messages = [{"role": "user", "content": prompt}]
         return self._call_with_retry(messages, system_message)
 
-    def extract_dialogue(self, test_content: str, lang_config=None) -> List[Tuple[str, str]]:
+    def extract_dialogue(
+        self, test_content: str, lang_config=None
+    ) -> List[Tuple[str, str]]:
         """
         Extract dialogue pairs from the test content.
 
@@ -166,8 +180,12 @@ class OpenRouterService(AIService):
             male_label = lang_config.speakers["male"].label
 
             if len(speakers) == 1:
-                logger.warning(f"Only one speaker detected ({list(speakers)[0]}). AI may have generated a monologue instead of dialogue!")
-                logger.warning(f"Expected both {female_label} and {male_label} to be present")
+                logger.warning(
+                    f"Only one speaker detected ({list(speakers)[0]}). AI may have generated a monologue instead of dialogue!"
+                )
+                logger.warning(
+                    f"Expected both {female_label} and {male_label} to be present"
+                )
             elif female_label not in speakers:
                 logger.warning(f"Female speaker ({female_label}) not found in dialogue")
             elif male_label not in speakers:
@@ -177,7 +195,13 @@ class OpenRouterService(AIService):
 
         return dialogue_lines
 
-    def generate_audio_for_dialogue(self, dialogue_lines: List[Tuple[str, str]], user_id: Optional[int] = None, lang_config=None, language_level: str = "A2") -> str:
+    def generate_audio_for_dialogue(
+        self,
+        dialogue_lines: List[Tuple[str, str]],
+        user_id: Optional[int] = None,
+        lang_config=None,
+        language_level: str = "A2",
+    ) -> str:
         """
         Generate audio files for each line in the dialogue and merge them into a single file.
 
@@ -195,7 +219,9 @@ class OpenRouterService(AIService):
         from bot.voicemaker_service import get_voicemaker_service
 
         voicemaker = get_voicemaker_service()
-        return voicemaker.generate_audio_for_dialogue(dialogue_lines, user_id, lang_config, language_level)
+        return voicemaker.generate_audio_for_dialogue(
+            dialogue_lines, user_id, lang_config, language_level
+        )
 
     def generate_with_custom_prompt(
         self,

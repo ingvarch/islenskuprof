@@ -16,9 +16,15 @@ OPENING_DIALOGUE = [
     ("Haben Sie eine Familie?", "Do you have a family?"),
     ("Ja, ich habe eine Frau und zwei Kinder.", "Yes, I have a wife and two children."),
     ("Wie heißen sie?", "What are their names?"),
-    ("Meine Frau heißt Anna und die Kinder heißen Jonas und Maria.", "My wife is called Anna and the children are called Jonas and Maria."),
+    (
+        "Meine Frau heißt Anna und die Kinder heißen Jonas und Maria.",
+        "My wife is called Anna and the children are called Jonas and Maria.",
+    ),
     ("Wie alt sind sie?", "How old are they?"),
-    ("Jonas ist sieben Jahre alt und Maria ist fünf Jahre alt.", "Jonas is seven years old and Maria is five years old."),
+    (
+        "Jonas ist sieben Jahre alt und Maria ist fünf Jahre alt.",
+        "Jonas is seven years old and Maria is five years old.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

@@ -14,10 +14,16 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Guten Tag, kann ich Ihnen helfen?", "Good day, can I help you?"),
-    ("Ja, ich möchte ein Bankkonto eröffnen.", "Yes, I would like to open a bank account."),
+    (
+        "Ja, ich möchte ein Bankkonto eröffnen.",
+        "Yes, I would like to open a bank account.",
+    ),
     ("Haben Sie Ihren Ausweis dabei?", "Do you have ID with you?"),
     ("Ja, hier ist mein Pass.", "Yes, here is my passport."),
-    ("Möchten Sie eine EC-Karte zum Konto?", "Would you like a debit card with the account?"),
+    (
+        "Möchten Sie eine EC-Karte zum Konto?",
+        "Would you like a debit card with the account?",
+    ),
     ("Ja, bitte. Was kostet das?", "Yes, please. How much does it cost?"),
 ]
 

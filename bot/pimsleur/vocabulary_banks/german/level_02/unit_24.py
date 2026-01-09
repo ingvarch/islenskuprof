@@ -14,11 +14,20 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Guten Tag, was kann ich für Sie tun?", "Good day, what can I do for you?"),
-    ("Mir geht es nicht gut. Ich habe Kopfschmerzen.", "I don't feel well. I have a headache."),
+    (
+        "Mir geht es nicht gut. Ich habe Kopfschmerzen.",
+        "I don't feel well. I have a headache.",
+    ),
     ("Wie lange sind Sie schon krank?", "How long have you been sick?"),
     ("Seit gestern. Ich habe auch Fieber.", "Since yesterday. I also have a fever."),
-    ("Ich werde Sie untersuchen. Öffnen Sie den Mund.", "I'm going to examine you. Open your mouth."),
-    ("Sie müssen sich ausruhen und Medikamente nehmen.", "You need to rest and take medicine."),
+    (
+        "Ich werde Sie untersuchen. Öffnen Sie den Mund.",
+        "I'm going to examine you. Open your mouth.",
+    ),
+    (
+        "Sie müssen sich ausruhen und Medikamente nehmen.",
+        "You need to rest and take medicine.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

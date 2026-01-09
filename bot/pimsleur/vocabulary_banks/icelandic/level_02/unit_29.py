@@ -14,10 +14,19 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Sæll! Hvernig hefur þú haft það?", "Hello! How have you been?"),
-    ("Mjög vel, takk. Ég hef verið mjög upptekin.", "Very well, thanks. I've been very busy."),
+    (
+        "Mjög vel, takk. Ég hef verið mjög upptekin.",
+        "Very well, thanks. I've been very busy.",
+    ),
     ("Hvað hefur þú verið að gera?", "What have you been doing?"),
-    ("Ég hef verið að læra íslensku og vinna.", "I've been studying Icelandic and working."),
-    ("Það hljómar skemmtilegt. Ættum við að hittast?", "That sounds fun. Should we meet up?"),
+    (
+        "Ég hef verið að læra íslensku og vinna.",
+        "I've been studying Icelandic and working.",
+    ),
+    (
+        "Það hljómar skemmtilegt. Ættum við að hittast?",
+        "That sounds fun. Should we meet up?",
+    ),
     ("Já, við getum farið að borða eitthvað.", "Yes, we can go eat something."),
 ]
 

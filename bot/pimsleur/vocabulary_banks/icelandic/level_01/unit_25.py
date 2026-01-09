@@ -49,7 +49,11 @@ PHRASES = [
     ("Ég er með höfuðverk.", "I have a headache.", "describing symptoms"),
     ("Hvað er að?", "What's wrong?", "asking about problem"),
     ("Ég þarf lyf.", "I need medicine.", "requesting help"),
-    ("Hvar er næsta apótek?", "Where is the nearest pharmacy?", "asking for directions"),
+    (
+        "Hvar er næsta apótek?",
+        "Where is the nearest pharmacy?",
+        "asking for directions",
+    ),
 ]
 
 # Grammar points covered

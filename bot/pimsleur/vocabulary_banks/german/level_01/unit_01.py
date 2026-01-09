@@ -13,7 +13,10 @@ UNIT_INFO = {
 }
 
 OPENING_DIALOGUE = [
-    ("Entschuldigung, verstehen Sie Englisch?", "Excuse me, do you understand English?"),
+    (
+        "Entschuldigung, verstehen Sie Englisch?",
+        "Excuse me, do you understand English?",
+    ),
     ("Nein, ich verstehe kein Englisch.", "No, I don't understand English."),
     ("Ich verstehe ein bisschen Deutsch.", "I understand a little German."),
     ("Sind Sie Amerikaner?", "Are you American?"),
@@ -42,7 +45,11 @@ PHRASES = [
     ("Verstehen Sie?", "Do you understand?", "question formation"),
     ("Ich verstehe nicht", "I don't understand", "negation pattern"),
     ("Nur ein bisschen", "Just a little", "common response"),
-    ("Entschuldigung, verstehen Sie Englisch?", "Excuse me, do you understand English?", "polite inquiry"),
+    (
+        "Entschuldigung, verstehen Sie Englisch?",
+        "Excuse me, do you understand English?",
+        "polite inquiry",
+    ),
 ]
 
 GRAMMAR_NOTES = [

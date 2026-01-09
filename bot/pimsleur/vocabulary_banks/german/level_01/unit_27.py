@@ -9,12 +9,20 @@ UNIT_INFO = {
     "unit": 27,
     "level": 1,
     "title": "Überlebenswichtige Wörter",
-    "categories": ["review_survival", "survival_skills", "food_basic", "directions_basic"],
+    "categories": [
+        "review_survival",
+        "survival_skills",
+        "food_basic",
+        "directions_basic",
+    ],
 }
 
 # Opening dialogue - combining survival scenarios
 OPENING_DIALOGUE = [
-    ("Entschuldigung, verstehen Sie Englisch?", "Excuse me, do you understand English?"),
+    (
+        "Entschuldigung, verstehen Sie Englisch?",
+        "Excuse me, do you understand English?",
+    ),
     ("Ja, ich verstehe ein bisschen.", "Yes, I understand a little."),
     ("Wo ist ein gutes Restaurant?", "Where is a good restaurant?"),
     ("Es gibt eines gleich hier in der Nähe.", "There's one right nearby."),

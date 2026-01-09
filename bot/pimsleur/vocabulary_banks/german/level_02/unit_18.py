@@ -16,7 +16,10 @@ OPENING_DIALOGUE = [
     ("Wie ist es in Berlin?", "What's it like in Berlin?"),
     ("Es ist sehr schön dort.", "It's very beautiful there."),
     ("Ist die Stadt groß?", "Is the city big?"),
-    ("Nein, sie ist eher klein aber sehr lebhaft.", "No, it's rather small but very lively."),
+    (
+        "Nein, sie ist eher klein aber sehr lebhaft.",
+        "No, it's rather small but very lively.",
+    ),
     ("Wie ist das Wetter dort?", "What's the weather like there?"),
     ("Es ist oft windig und kalt.", "It's often windy and cold."),
 ]

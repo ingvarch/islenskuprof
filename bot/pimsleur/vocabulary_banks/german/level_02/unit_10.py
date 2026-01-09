@@ -13,12 +13,18 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Guten Tag, ich möchte einen Termin beim Arzt vereinbaren.", "Good day, I would like to book an appointment with the doctor."),
+    (
+        "Guten Tag, ich möchte einen Termin beim Arzt vereinbaren.",
+        "Good day, I would like to book an appointment with the doctor.",
+    ),
     ("Ja, wann passt es Ihnen?", "Yes, when suits you?"),
     ("Haben Sie am Montag etwas frei?", "Is anything available on Monday?"),
     ("Ja, um zehn Uhr oder um zwei Uhr.", "Yes, at ten o'clock or at two o'clock."),
     ("Zwei Uhr passt mir besser.", "Two o'clock suits better."),
-    ("Gut, dann sind Sie für Montag um zwei Uhr eingetragen.", "Good, then you are registered for Monday at two."),
+    (
+        "Gut, dann sind Sie für Montag um zwei Uhr eingetragen.",
+        "Good, then you are registered for Monday at two.",
+    ),
 ]
 
 # New vocabulary introduced in this unit
@@ -46,7 +52,11 @@ VOCABULARY = [
 
 # Key phrases and expressions
 PHRASES = [
-    ("Ich möchte einen Termin vereinbaren", "I would like to book an appointment", "requesting appointment"),
+    (
+        "Ich möchte einen Termin vereinbaren",
+        "I would like to book an appointment",
+        "requesting appointment",
+    ),
     ("Wann passt es Ihnen?", "When suits you?", "asking availability"),
     ("Haben Sie... frei?", "Is anything available...?", "checking availability"),
     ("...passt mir besser", "...suits better", "expressing preference"),

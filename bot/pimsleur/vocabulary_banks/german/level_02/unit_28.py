@@ -14,11 +14,17 @@ UNIT_INFO = {
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
     ("Was sind deine Traumziele?", "What are your dream goals?"),
-    ("Ich möchte fließend Deutsch sprechen lernen.", "I want to learn to speak fluent German."),
+    (
+        "Ich möchte fließend Deutsch sprechen lernen.",
+        "I want to learn to speak fluent German.",
+    ),
     ("Das ist ein tolles Ziel! Was noch?", "That's a great goal! What else?"),
     ("Ich werde um die Welt reisen.", "I'm going to travel around the world."),
     ("Hast du einen Plan?", "Do you have a plan?"),
-    ("Ja, ich spare Geld und lerne Sprachen.", "Yes, I'm saving money and learning languages."),
+    (
+        "Ja, ich spare Geld und lerne Sprachen.",
+        "Yes, I'm saving money and learning languages.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

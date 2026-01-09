@@ -13,12 +13,18 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Góðan daginn, ég vildi panta tíma hjá lækninum.", "Good day, I would like to book an appointment with the doctor."),
+    (
+        "Góðan daginn, ég vildi panta tíma hjá lækninum.",
+        "Good day, I would like to book an appointment with the doctor.",
+    ),
     ("Já, hvenær hentar þér?", "Yes, when suits you?"),
     ("Er eitthvað laust á mánudag?", "Is anything available on Monday?"),
     ("Já, klukkan tíu eða klukkan tvö.", "Yes, at ten o'clock or at two o'clock."),
     ("Klukkan tvö hentar betur.", "Two o'clock suits better."),
-    ("Gott, þá er þú skráð/ur á mánudag klukkan tvö.", "Good, then you are registered for Monday at two."),
+    (
+        "Gott, þá er þú skráð/ur á mánudag klukkan tvö.",
+        "Good, then you are registered for Monday at two.",
+    ),
 ]
 
 # New vocabulary introduced in this unit
@@ -47,7 +53,11 @@ VOCABULARY = [
 
 # Key phrases and expressions
 PHRASES = [
-    ("Ég vildi panta tíma", "I would like to book an appointment", "requesting appointment"),
+    (
+        "Ég vildi panta tíma",
+        "I would like to book an appointment",
+        "requesting appointment",
+    ),
     ("Hvenær hentar þér?", "When suits you?", "asking availability"),
     ("Er eitthvað laust...?", "Is anything available...?", "checking availability"),
     ("...hentar betur", "...suits better", "expressing preference"),

@@ -18,7 +18,10 @@ OPENING_DIALOGUE = [
     ("Haben Sie etwas gekauft?", "Did you buy something?"),
     ("Ja, ich habe Essen und Getränke gekauft.", "Yes, I bought food and drink."),
     ("Was haben Sie dann gemacht?", "What did you do then?"),
-    ("Ich habe Abendessen gegessen und bin schlafen gegangen.", "I ate dinner and went to sleep."),
+    (
+        "Ich habe Abendessen gegessen und bin schlafen gegangen.",
+        "I ate dinner and went to sleep.",
+    ),
 ]
 
 # New vocabulary introduced in this unit

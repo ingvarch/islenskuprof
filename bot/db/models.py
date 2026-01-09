@@ -1,9 +1,20 @@
 """
 Database models for the Telegram bot.
 """
+
 import logging
 from datetime import datetime
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, SmallInteger, Boolean, Float
+from sqlalchemy import (
+    Column,
+    Integer,
+    BigInteger,
+    String,
+    DateTime,
+    ForeignKey,
+    SmallInteger,
+    Boolean,
+    Float,
+)
 from sqlalchemy.orm import relationship
 from bot.db.database import Base
 
@@ -15,6 +26,7 @@ class Language(Base):
     """
     Language model for storing supported languages.
     """
+
     __tablename__ = "languages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -38,10 +50,12 @@ class Language(Base):
         """
         return f"<Language(id={self.id}, code={self.code}, language={self.language})>"
 
+
 class User(Base):
     """
     User model for storing Telegram user information.
     """
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -57,7 +71,14 @@ class User(Base):
     settings = relationship("UserSettings", back_populates="user", uselist=False)
     # Access language through settings: user.settings.language
 
-    def __init__(self, telegram_id, username=None, first_name=None, last_name=None, is_premium=False):
+    def __init__(
+        self,
+        telegram_id,
+        username=None,
+        first_name=None,
+        last_name=None,
+        is_premium=False,
+    ):
         """
         Initialize a new user.
 
@@ -93,6 +114,7 @@ class TargetLanguage(Base):
     """
     TargetLanguage model for storing available languages for learning.
     """
+
     __tablename__ = "target_languages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -121,6 +143,7 @@ class Topic(Base):
     """
     Topic model for storing content generation topics.
     """
+
     __tablename__ = "topic"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -149,6 +172,7 @@ class Name(Base):
     """
     Name model for storing people names for content generation.
     """
+
     __tablename__ = "names"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -180,6 +204,7 @@ class Job(Base):
     """
     Job model for storing job information.
     """
+
     __tablename__ = "jobs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -211,6 +236,7 @@ class City(Base):
     """
     City model for storing city information.
     """
+
     __tablename__ = "cities"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -239,6 +265,7 @@ class Activity(Base):
     """
     Activity model for storing activity information.
     """
+
     __tablename__ = "activities"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -270,13 +297,14 @@ class Person(Base):
     """
     Person model for storing person information.
     """
+
     __tablename__ = "persons"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name_id = Column(Integer, ForeignKey('names.id'), nullable=False)
+    name_id = Column(Integer, ForeignKey("names.id"), nullable=False)
     age = Column(Integer, nullable=False)
-    origin = Column(Integer, ForeignKey('cities.id'), nullable=False)
-    job_id = Column(Integer, ForeignKey('jobs.id'), nullable=False)
+    origin = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     children = Column(SmallInteger, nullable=True)
     weekend_activity = Column(String, nullable=True)
     plan_activity = Column(String, nullable=True)
@@ -287,7 +315,17 @@ class Person(Base):
     city = relationship("City")
     job = relationship("Job")
 
-    def __init__(self, name_id, age, origin, job_id, children=None, weekend_activity=None, plan_activity=None, language_code=None):
+    def __init__(
+        self,
+        name_id,
+        age,
+        origin,
+        job_id,
+        children=None,
+        weekend_activity=None,
+        plan_activity=None,
+        language_code=None,
+    ):
         """
         Initialize a new person.
 
@@ -321,10 +359,11 @@ class Communication(Base):
     """
     Communication model for storing communication information.
     """
+
     __tablename__ = "communication"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    topic_id = Column(Integer, ForeignKey('topic.id'), nullable=False)
+    topic_id = Column(Integer, ForeignKey("topic.id"), nullable=False)
     image_url = Column(String, nullable=False)
     description = Column(String, nullable=False)
 
@@ -355,6 +394,7 @@ class AudioSpeed(Base):
     """
     AudioSpeed model for storing audio playback speed options.
     """
+
     __tablename__ = "audio_speeds"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -383,6 +423,7 @@ class LanguageLevel(Base):
     """
     LanguageLevel model for storing language proficiency levels.
     """
+
     __tablename__ = "language_levels"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -408,14 +449,17 @@ class UserSettings(Base):
     """
     UserSettings model for storing user preferences.
     """
+
     __tablename__ = "user_settings"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    audio_speed_id = Column(Integer, ForeignKey('audio_speeds.id'), nullable=False)
-    language_id = Column(Integer, ForeignKey('languages.id'), nullable=True)
-    language_level_id = Column(Integer, ForeignKey('language_levels.id'), nullable=True)
-    target_language_id = Column(Integer, ForeignKey('target_languages.id'), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    audio_speed_id = Column(Integer, ForeignKey("audio_speeds.id"), nullable=False)
+    language_id = Column(Integer, ForeignKey("languages.id"), nullable=True)
+    language_level_id = Column(Integer, ForeignKey("language_levels.id"), nullable=True)
+    target_language_id = Column(
+        Integer, ForeignKey("target_languages.id"), nullable=True
+    )
     last_section = Column(String, nullable=True)  # Can be 'listening' or 'reading'
     # VoxFX background effects: "off", "auto", or preset ID (e.g., "67841788096cecfe8b18b2d5")
     background_effects = Column(String, nullable=False, default="off")
@@ -427,7 +471,16 @@ class UserSettings(Base):
     language_level = relationship("LanguageLevel")
     target_language = relationship("TargetLanguage")
 
-    def __init__(self, user_id, audio_speed_id, language_id=None, language_level_id=None, target_language_id=None, last_section=None, background_effects="off"):
+    def __init__(
+        self,
+        user_id,
+        audio_speed_id,
+        language_id=None,
+        language_level_id=None,
+        target_language_id=None,
+        last_section=None,
+        background_effects="off",
+    ):
         """
         Initialize new user settings.
 
@@ -464,6 +517,7 @@ class PimsleurLesson(Base):
     """
     PimsleurLesson model for storing Pimsleur-style audio lessons.
     """
+
     __tablename__ = "pimsleur_lessons"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -485,9 +539,20 @@ class PimsleurLesson(Base):
     # Relationships
     vocabulary_items = relationship("PimsleurLessonVocabulary", back_populates="lesson")
 
-    def __init__(self, language_code, level, lesson_number, title, script_json, vocabulary_json,
-                 description=None, duration_seconds=1800, audio_file_path=None,
-                 review_from_lessons=None, is_generated=False):
+    def __init__(
+        self,
+        language_code,
+        level,
+        lesson_number,
+        title,
+        script_json,
+        vocabulary_json,
+        description=None,
+        duration_seconds=1800,
+        audio_file_path=None,
+        review_from_lessons=None,
+        is_generated=False,
+    ):
         self.language_code = language_code
         self.level = level
         self.lesson_number = lesson_number
@@ -508,6 +573,7 @@ class PimsleurVocabulary(Base):
     """
     PimsleurVocabulary model for tracking vocabulary across lessons.
     """
+
     __tablename__ = "pimsleur_vocabulary"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -517,18 +583,31 @@ class PimsleurVocabulary(Base):
     phonetic = Column(String(255), nullable=True)  # Pronunciation guide
     word_type = Column(String(50), nullable=True)  # noun, verb, phrase, etc.
     cefr_level = Column(String(5), nullable=False)  # Level where introduced
-    introduced_lesson_id = Column(Integer, ForeignKey('pimsleur_lessons.id', ondelete='SET NULL'), nullable=True)
+    introduced_lesson_id = Column(
+        Integer, ForeignKey("pimsleur_lessons.id", ondelete="SET NULL"), nullable=True
+    )
     frequency_rank = Column(Integer, nullable=True)  # Common word ranking
     audio_file_path = Column(String(500), nullable=True)  # Individual word audio
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     introduced_lesson = relationship("PimsleurLesson")
-    lesson_usages = relationship("PimsleurLessonVocabulary", back_populates="vocabulary")
+    lesson_usages = relationship(
+        "PimsleurLessonVocabulary", back_populates="vocabulary"
+    )
 
-    def __init__(self, language_code, word_target, word_native, cefr_level,
-                 phonetic=None, word_type=None, introduced_lesson_id=None,
-                 frequency_rank=None, audio_file_path=None):
+    def __init__(
+        self,
+        language_code,
+        word_target,
+        word_native,
+        cefr_level,
+        phonetic=None,
+        word_type=None,
+        introduced_lesson_id=None,
+        frequency_rank=None,
+        audio_file_path=None,
+    ):
         self.language_code = language_code
         self.word_target = word_target
         self.word_native = word_native
@@ -547,11 +626,18 @@ class PimsleurLessonVocabulary(Base):
     """
     Junction table linking vocabulary to lessons with repetition schedules.
     """
+
     __tablename__ = "pimsleur_lesson_vocabulary"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    lesson_id = Column(Integer, ForeignKey('pimsleur_lessons.id', ondelete='CASCADE'), nullable=False)
-    vocabulary_id = Column(Integer, ForeignKey('pimsleur_vocabulary.id', ondelete='CASCADE'), nullable=False)
+    lesson_id = Column(
+        Integer, ForeignKey("pimsleur_lessons.id", ondelete="CASCADE"), nullable=False
+    )
+    vocabulary_id = Column(
+        Integer,
+        ForeignKey("pimsleur_vocabulary.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     is_new = Column(Boolean, nullable=False, default=False)  # Introduced in this lesson
     repetition_count = Column(Integer, nullable=False, default=0)  # Times repeated
     intervals_json = Column(String, nullable=True)  # JSON array of second marks
@@ -560,7 +646,14 @@ class PimsleurLessonVocabulary(Base):
     lesson = relationship("PimsleurLesson", back_populates="vocabulary_items")
     vocabulary = relationship("PimsleurVocabulary", back_populates="lesson_usages")
 
-    def __init__(self, lesson_id, vocabulary_id, is_new=False, repetition_count=0, intervals_json=None):
+    def __init__(
+        self,
+        lesson_id,
+        vocabulary_id,
+        is_new=False,
+        repetition_count=0,
+        intervals_json=None,
+    ):
         self.lesson_id = lesson_id
         self.vocabulary_id = vocabulary_id
         self.is_new = is_new
@@ -575,15 +668,20 @@ class UserPimsleurProgress(Base):
     """
     Tracks user progress through Pimsleur lessons.
     """
+
     __tablename__ = "user_pimsleur_progress"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     language_code = Column(String(10), nullable=False)
-    level = Column(String(5), nullable=False, default='A1')
+    level = Column(String(5), nullable=False, default="A1")
     lesson_number = Column(Integer, nullable=False, default=1)  # Current/next lesson
     completed_lessons = Column(String, nullable=True)  # JSON array of lesson IDs
-    last_lesson_id = Column(Integer, ForeignKey('pimsleur_lessons.id', ondelete='SET NULL'), nullable=True)
+    last_lesson_id = Column(
+        Integer, ForeignKey("pimsleur_lessons.id", ondelete="SET NULL"), nullable=True
+    )
     last_completed_at = Column(DateTime, nullable=True)
     streak_count = Column(Integer, nullable=False, default=0)
     total_time_seconds = Column(Integer, nullable=False, default=0)
@@ -594,12 +692,12 @@ class UserPimsleurProgress(Base):
     user = relationship("User")
     last_lesson = relationship("PimsleurLesson")
 
-    def __init__(self, user_id, language_code, level='A1', lesson_number=1):
+    def __init__(self, user_id, language_code, level="A1", lesson_number=1):
         self.user_id = user_id
         self.language_code = language_code
         self.level = level
         self.lesson_number = lesson_number
-        self.completed_lessons = '[]'  # Empty JSON array
+        self.completed_lessons = "[]"  # Empty JSON array
 
     def __repr__(self):
         return f"<UserPimsleurProgress(user={self.user_id}, {self.level} L{self.lesson_number})>"
@@ -609,10 +707,13 @@ class PimsleurCustomLesson(Base):
     """
     User-generated custom Pimsleur lessons from provided text.
     """
+
     __tablename__ = "pimsleur_custom_lessons"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     language_code = Column(String(10), nullable=False)
     title = Column(String(255), nullable=False)
     source_text = Column(String, nullable=False)  # User's original text
@@ -621,30 +722,48 @@ class PimsleurCustomLesson(Base):
     telegram_file_id = Column(String(255), nullable=True)
     duration_seconds = Column(Integer, nullable=True)
     vocabulary_json = Column(String, nullable=True)
-    status = Column(String(50), nullable=False, default='pending')  # pending, generating, ready, failed
+    status = Column(
+        String(50), nullable=False, default="pending"
+    )  # pending, generating, ready, failed
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Wizard settings (added in migration 016)
-    focus = Column(String(20), nullable=False, default='vocabulary')  # vocabulary, pronunciation, dialogue
-    voice_preference = Column(String(10), nullable=False, default='both')  # female, male, both
-    difficulty_level = Column(String(5), nullable=False, default='auto')  # A1, A2, B1, auto
+    focus = Column(
+        String(20), nullable=False, default="vocabulary"
+    )  # vocabulary, pronunciation, dialogue
+    voice_preference = Column(
+        String(10), nullable=False, default="both"
+    )  # female, male, both
+    difficulty_level = Column(
+        String(5), nullable=False, default="auto"
+    )  # A1, A2, B1, auto
     text_analysis_json = Column(String, nullable=True)  # Cached text analysis results
-    error_message = Column(String(500), nullable=True)  # Error details for failed lessons
+    error_message = Column(
+        String(500), nullable=True
+    )  # Error details for failed lessons
     generation_started_at = Column(DateTime, nullable=True)
     generation_completed_at = Column(DateTime, nullable=True)
 
     # Relationships
     user = relationship("User")
 
-    def __init__(self, user_id, language_code, title, source_text,
-                 focus='vocabulary', voice_preference='both', difficulty_level='auto',
-                 text_analysis_json=None):
+    def __init__(
+        self,
+        user_id,
+        language_code,
+        title,
+        source_text,
+        focus="vocabulary",
+        voice_preference="both",
+        difficulty_level="auto",
+        text_analysis_json=None,
+    ):
         self.user_id = user_id
         self.language_code = language_code
         self.title = title
         self.source_text = source_text
-        self.status = 'pending'
+        self.status = "pending"
         self.focus = focus
         self.voice_preference = voice_preference
         self.difficulty_level = difficulty_level

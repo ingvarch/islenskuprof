@@ -7,6 +7,7 @@ based on the TARGET_LANGUAGE and TARGET_LANGUAGES environment variables.
 TARGET_LANGUAGE: Single language code for content generation (e.g., 'is', 'de')
 TARGET_LANGUAGES: Comma-separated list of languages for database seeding (e.g., 'is,de')
 """
+
 import os
 import logging
 from typing import Optional, Dict, Type, List
@@ -34,10 +35,12 @@ def register_language(code: str):
     Returns:
         Decorator function
     """
+
     def decorator(cls: Type[LanguageConfig]):
         LANGUAGE_REGISTRY[code] = cls
         logger.debug(f"Registered language configuration: {code}")
         return cls
+
     return decorator
 
 
@@ -105,7 +108,11 @@ def get_all_language_configs() -> List[LanguageConfig]:
 
         if target_langs_str:
             # Parse comma-separated list
-            target_langs = [lang.strip().lower() for lang in target_langs_str.split(",") if lang.strip()]
+            target_langs = [
+                lang.strip().lower()
+                for lang in target_langs_str.split(",")
+                if lang.strip()
+            ]
         else:
             # Fall back to single TARGET_LANGUAGE
             target_lang = os.environ.get("TARGET_LANGUAGE", "is").lower()
@@ -119,7 +126,9 @@ def get_all_language_configs() -> List[LanguageConfig]:
             if lang_code in LANGUAGE_REGISTRY:
                 config = LANGUAGE_REGISTRY[lang_code]()
                 _all_configs.append(config)
-                logger.info(f"Loaded language configuration: {config.name} ({config.code})")
+                logger.info(
+                    f"Loaded language configuration: {config.name} ({config.code})"
+                )
             else:
                 available = ", ".join(LANGUAGE_REGISTRY.keys())
                 logger.warning(
@@ -156,12 +165,12 @@ def _import_language_modules():
     """Import all language configuration modules to populate the registry."""
     # Import each language module - they will auto-register via decorator
     try:
-        from . import icelandic
+        from . import icelandic  # noqa: F401
     except ImportError as e:
         logger.warning(f"Could not import Icelandic language module: {e}")
 
     try:
-        from . import german
+        from . import german  # noqa: F401
     except ImportError as e:
         logger.warning(f"Could not import German language module: {e}")
 
@@ -174,7 +183,4 @@ def get_available_languages() -> Dict[str, str]:
         Dict mapping language codes to language names
     """
     _import_language_modules()
-    return {
-        code: cls().name
-        for code, cls in LANGUAGE_REGISTRY.items()
-    }
+    return {code: cls().name for code, cls in LANGUAGE_REGISTRY.items()}

@@ -14,12 +14,21 @@ UNIT_INFO = {
 
 # Opening dialogue - comprehensive final scenario
 OPENING_DIALOGUE = [
-    ("Góðan daginn! Ég heiti Jón. Hvað heitir þú?", "Good day! My name is Jon. What's your name?"),
-    ("Sæll, Jón. Ég heiti Sarah. Ég er bandarísk.", "Hello, Jon. My name is Sarah. I'm American."),
+    (
+        "Góðan daginn! Ég heiti Jón. Hvað heitir þú?",
+        "Good day! My name is Jon. What's your name?",
+    ),
+    (
+        "Sæll, Jón. Ég heiti Sarah. Ég er bandarísk.",
+        "Hello, Jon. My name is Sarah. I'm American.",
+    ),
     ("Talarðu íslensku?", "Do you speak Icelandic?"),
     ("Já, ég tala smávegis íslensku.", "Yes, I speak a little Icelandic."),
     ("Frábært! Hvenær komst þú til Íslands?", "Great! When did you come to Iceland?"),
-    ("Ég kom í gær. Ég ætla að vera hér í tvær vikur.", "I came yesterday. I'm going to be here for two weeks."),
+    (
+        "Ég kom í gær. Ég ætla að vera hér í tvær vikur.",
+        "I came yesterday. I'm going to be here for two weeks.",
+    ),
 ]
 
 # Comprehensive review vocabulary
@@ -46,8 +55,16 @@ VOCABULARY = [
 
 # Essential phrases summary
 PHRASES = [
-    ("Ég skil ekki. Getur þú endurtekið?", "I don't understand. Can you repeat?", "survival"),
-    ("Hvar er...? / Hvað kostar...?", "Where is...? / How much does...cost?", "practical"),
+    (
+        "Ég skil ekki. Getur þú endurtekið?",
+        "I don't understand. Can you repeat?",
+        "survival",
+    ),
+    (
+        "Hvar er...? / Hvað kostar...?",
+        "Where is...? / How much does...cost?",
+        "practical",
+    ),
     ("Mér líkar við þetta.", "I like this.", "preferences"),
     ("Ég ætla að fara.", "I'm going to go.", "future"),
     ("Takk fyrir og bless!", "Thank you and goodbye!", "closing"),

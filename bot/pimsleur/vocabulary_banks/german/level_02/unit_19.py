@@ -15,7 +15,10 @@ UNIT_INFO = {
 OPENING_DIALOGUE = [
     ("Ich werde dir etwas erzählen.", "I'm going to tell you about something."),
     ("Was ist passiert?", "What happened?"),
-    ("Vorgestern bin ich wandern gegangen.", "The day before yesterday I went on a hike."),
+    (
+        "Vorgestern bin ich wandern gegangen.",
+        "The day before yesterday I went on a hike.",
+    ),
     ("Und dann?", "And then?"),
     ("Ich habe mich in den Bergen verlaufen!", "I got lost in the mountains!"),
     ("Oh nein! Wie ist es ausgegangen?", "Oh no! How did it end?"),

@@ -13,11 +13,20 @@ UNIT_INFO = {
 
 # Opening dialogue - the teaching foundation
 OPENING_DIALOGUE = [
-    ("Möchten Sie mit mir am Samstagabend ins Konzert gehen?", "Would you like to come with me to a concert on Saturday evening?"),
+    (
+        "Möchten Sie mit mir am Samstagabend ins Konzert gehen?",
+        "Would you like to come with me to a concert on Saturday evening?",
+    ),
     ("Ja, sehr gerne! Welche Band?", "Yes, very gladly! Which band?"),
-    ("Kaleo spielt in der Elbphilharmonie.", "Kaleo is playing at the Elbphilharmonie."),
+    (
+        "Kaleo spielt in der Elbphilharmonie.",
+        "Kaleo is playing at the Elbphilharmonie.",
+    ),
     ("Toll! Wann fängt es an?", "Excellent! When does it start?"),
-    ("Um acht Uhr. Sollen wir uns um sieben treffen?", "At eight o'clock. Shall we meet at seven?"),
+    (
+        "Um acht Uhr. Sollen wir uns um sieben treffen?",
+        "At eight o'clock. Shall we meet at seven?",
+    ),
     ("Ja, das passt mir gut.", "Yes, that suits me well."),
 ]
 

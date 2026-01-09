@@ -18,7 +18,10 @@ OPENING_DIALOGUE = [
     ("Líkar þér við fisk?", "Do you like fish?"),
     ("Já, mér líkar mjög vel við fisk.", "Yes, I like fish very much."),
     ("Mér líkar ekki við hákarl.", "I don't like fermented shark."),
-    ("Það er allt í lagi, margir Íslendingar líka ekki við hann!", "That's okay, many Icelanders don't like it either!"),
+    (
+        "Það er allt í lagi, margir Íslendingar líka ekki við hann!",
+        "That's okay, many Icelanders don't like it either!",
+    ),
 ]
 
 # New vocabulary introduced in this unit
